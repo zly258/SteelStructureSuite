@@ -1,0 +1,127 @@
+﻿<Window x:Class="SteelStructureSuite.Views.StructureEditWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="clr-namespace:SteelStructureSuite.Views.Controls"
+        Title="参数化钢结构"
+        Width="500" Height="600"
+        MinWidth="460" MinHeight="520"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        UseLayoutRounding="True">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TabControl Grid.Row="0">
+            <!-- Tab 1: 参数与示意 -->
+            <TabItem Header="参数与示意" Padding="12,4">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Margin="4">
+                        <controls:StructureSchematicControl x:Name="SchematicView" />
+
+                        <GroupBox Header="几何尺寸参数" Margin="0,0,0,8" Padding="10,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="125" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock x:Name="LblType" Grid.Row="0" Grid.Column="0" Text="结构类型:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <ComboBox x:Name="CmbStructureType" Grid.Row="0" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" SelectionChanged="OnStructureTypeChanged" />
+
+                                <TextBlock Grid.Row="1" Grid.Column="0" Text="构件位号:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <Grid Grid.Row="1" Grid.Column="1">
+                                    <Grid.ColumnDefinitions>
+                                        <ColumnDefinition Width="*" />
+                                        <ColumnDefinition Width="52" />
+                                        <ColumnDefinition Width="105" />
+                                    </Grid.ColumnDefinitions>
+                                    <TextBox x:Name="TxtTag" Grid.Column="0" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" />
+                                    <TextBlock Grid.Column="1" Text="材质:" VerticalAlignment="Center" HorizontalAlignment="Right" Margin="6,0" />
+                                    <ComboBox x:Name="CmbMaterial" Grid.Column="2" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" SelectionChanged="OnAnyParameterChanged" />
+                                </Grid>
+
+                                <TextBlock x:Name="LblSpan" Grid.Row="2" Grid.Column="0" Text="跨度 B (mm):" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <TextBox x:Name="TxtSpan" Grid.Row="2" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" TextChanged="OnAnyParameterChanged" />
+
+                                <TextBlock x:Name="LblLength" Grid.Row="3" Grid.Column="0" Text="宽度 L (mm):" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <TextBox x:Name="TxtLength" Grid.Row="3" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" TextChanged="OnAnyParameterChanged" />
+
+                                <TextBlock x:Name="LblHeight" Grid.Row="4" Grid.Column="0" Text="高度 H (mm):" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <TextBox x:Name="TxtHeight" Grid.Row="4" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" TextChanged="OnAnyParameterChanged" />
+
+                                <TextBlock x:Name="LblSubHeight" Grid.Row="5" Grid.Column="0" Text="次层高 h1:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <TextBox x:Name="TxtSubHeight" Grid.Row="5" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" TextChanged="OnAnyParameterChanged" />
+                            </Grid>
+                        </GroupBox>
+
+                        <GroupBox Header="截面规格" Padding="10,8">
+                            <Grid>
+                                <Grid.ColumnDefinitions>
+                                    <ColumnDefinition Width="95" />
+                                    <ColumnDefinition Width="95" />
+                                    <ColumnDefinition Width="*" />
+                                </Grid.ColumnDefinitions>
+                                <Grid.RowDefinitions>
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                    <RowDefinition Height="Auto" />
+                                </Grid.RowDefinitions>
+
+                                <TextBlock x:Name="LblColSec" Grid.Row="0" Grid.Column="0" Text="立柱截面:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <ComboBox x:Name="CmbColTypeFilter" Grid.Row="0" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4,6,4" SelectionChanged="OnColFilterChanged" />
+                                <ComboBox x:Name="CmbColSec" Grid.Row="0" Grid.Column="2" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" SelectionChanged="OnAnyParameterChanged" />
+
+                                <TextBlock x:Name="LblBeamSec" Grid.Row="1" Grid.Column="0" Text="主梁截面:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <ComboBox x:Name="CmbBeamTypeFilter" Grid.Row="1" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4,6,4" SelectionChanged="OnBeamFilterChanged" />
+                                <ComboBox x:Name="CmbBeamSec" Grid.Row="1" Grid.Column="2" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" SelectionChanged="OnAnyParameterChanged" />
+
+                                <TextBlock x:Name="LblBraceSec" Grid.Row="2" Grid.Column="0" Text="斜撑截面:" VerticalAlignment="Center" Margin="0,5,8,5" />
+                                <ComboBox x:Name="CmbBraceTypeFilter" Grid.Row="2" Grid.Column="1" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4,6,4" SelectionChanged="OnBraceFilterChanged" />
+                                <ComboBox x:Name="CmbBraceSec" Grid.Row="2" Grid.Column="2" VerticalContentAlignment="Center" Padding="4,3" Margin="0,4" SelectionChanged="OnAnyParameterChanged" />
+                            </Grid>
+                        </GroupBox>
+                    </StackPanel>
+                </ScrollViewer>
+            </TabItem>
+
+            <!-- Tab 2: 材料清单 -->
+            <TabItem x:Name="TabBom" Header="材料清单" Padding="12,4">
+                <Grid Margin="4">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="*" />
+                    </Grid.RowDefinitions>
+                    <TextBlock x:Name="TxtLiveWeightSummary" Grid.Row="0" FontWeight="Bold" Margin="2,4,2,8" />
+                    <DataGrid x:Name="DgPreviewBom" Grid.Row="1" AutoGenerateColumns="False" CanUserAddRows="False" IsReadOnly="True" RowHeaderWidth="0">
+                        <DataGrid.Columns>
+                            <DataGridTextColumn Header="件号" Binding="{Binding PartNo, StringFormat=#{0}}" Width="50" />
+                            <DataGridTextColumn Header="部位" Binding="{Binding PartRole}" Width="1.1*" />
+                            <DataGridTextColumn Header="截面规格" Binding="{Binding SectionName}" Width="1.3*" />
+                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" Width="50" />
+                            <DataGridTextColumn Header="单长(mm)" Binding="{Binding SingleLengthMm, StringFormat=0}" Width="75" />
+                            <DataGridTextColumn Header="重(kg)" Binding="{Binding TotalWeightKg, StringFormat=0.00}" Width="75" />
+                        </DataGrid.Columns>
+                    </DataGrid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
+            <Button x:Name="BtnUpdate" Content="更新模型" MinWidth="105" Padding="12,5" Margin="6,2,0,2" Click="OnSinglePointConfirmClick" />
+            <Button x:Name="BtnSinglePt" Content="单点放置" MinWidth="95" Padding="12,5" Margin="6,2,0,2" Click="OnSinglePointConfirmClick" />
+            <Button x:Name="BtnLinearTwoPt" Content="两点线性绘制" MinWidth="115" Padding="12,5" Margin="6,2,0,2" Click="OnLinearDrawConfirmClick" />
+            <Button x:Name="BtnCancel" Content="取消" MinWidth="75" Padding="12,5" Margin="6,2,0,2" IsCancel="True" Click="OnCancelClick" />
+        </StackPanel>
+    </Grid>
+</Window>

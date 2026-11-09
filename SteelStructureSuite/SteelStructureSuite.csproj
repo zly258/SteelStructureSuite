@@ -1,0 +1,133 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net48</TargetFramework>
+    <PlatformTarget>x64</PlatformTarget>
+    <Platforms>x64</Platforms>
+    <LangVersion>latest</LangVersion>
+    <UseWPF>true</UseWPF>
+    <UseWindowsForms>true</UseWindowsForms>
+    <EnableDefaultCompileItems>false</EnableDefaultCompileItems>
+    <EnableDefaultPageItems>false</EnableDefaultPageItems>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <AssemblyName>SteelStructureSuite</AssemblyName>
+    <RootNamespace>SteelStructureSuite</RootNamespace>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <!-- 1. Core (插件入口与全局管理) -->
+    <Compile Include="Core\PluginApplication.cs" />
+
+    <!-- 2. Commands (AutoCAD 命令层) -->
+    <Compile Include="Commands\ModelingCommands.cs" />
+    <Compile Include="Commands\LayoutCommands.cs" />
+
+    <!-- 3. Domain (枚举与领域数据模型) -->
+    <Compile Include="Domain\Enums\SectionShapeType.cs" />
+    <Compile Include="Domain\Enums\ParametricStructureType.cs" />
+    <Compile Include="Domain\Models\SectionProfile.cs" />
+    <Compile Include="Domain\Models\SteelStructureParams.cs" />
+    <Compile Include="Domain\Models\MemberPartBillItem.cs" />
+    <Compile Include="Domain\Models\SectionSummaryRow.cs" />
+    <Compile Include="Domain\Models\StructureRecordItem.cs" />
+    <Compile Include="Domain\Models\DrawingGenerationOptions.cs" />
+
+    <!-- 4. Services (截面库、三维造型、动态交互、算量导出、详图生成服务) -->
+    <Compile Include="Services\Catalog\SectionCatalogService.cs" />
+    <Compile Include="Services\Modeling\SectionSolidBuilder.cs" />
+    <Compile Include="Services\Modeling\SteelStructureBuilder.cs" />
+    <Compile Include="Services\Modeling\SteelDataStorage.cs" />
+    <Compile Include="Services\Interaction\SteelPlacementJig.cs" />
+    <Compile Include="Services\Interaction\SteelGripOverrule.cs" />
+    <Compile Include="Services\Interaction\SteelContextMenu.cs" />
+    <Compile Include="Services\Takeoff\MaterialTakeoffService.cs" />
+    <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
+    <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
+
+    <!-- 5. Ribbon (顶部功能区构建器) -->
+    <Compile Include="Ribbon\SteelRibbonBuilder.cs" />
+
+    <!-- 6. Views (WPF XAML 界面与自定义示意图控件) -->
+    <Compile Include="Views\Controls\StructureSchematicControl.cs" />
+
+    <Page Include="Views\StructureEditWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\StructureEditWindow.xaml.cs">
+      <DependentUpon>StructureEditWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\StructureManagerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\StructureManagerWindow.xaml.cs">
+      <DependentUpon>StructureManagerWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\SectionCatalogWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\SectionCatalogWindow.xaml.cs">
+      <DependentUpon>SectionCatalogWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\MaterialTakeoffWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\MaterialTakeoffWindow.xaml.cs">
+      <DependentUpon>MaterialTakeoffWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\DrawingConfigWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\DrawingConfigWindow.xaml.cs">
+      <DependentUpon>DrawingConfigWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\HelpManualWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\HelpManualWindow.xaml.cs">
+      <DependentUpon>HelpManualWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\AboutWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\AboutWindow.xaml.cs">
+      <DependentUpon>AboutWindow.xaml</DependentUpon>
+    </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Reference Include="System.IO.Compression" />
+    <Reference Include="System.IO.Compression.FileSystem" />
+    <Reference Include="System.Xml" />
+    <Reference Include="AcCoreMgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcCoreMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcDbMgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcDbMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AcMgd">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcMgd.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="AdWindows">
+      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AdWindows.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+</Project>

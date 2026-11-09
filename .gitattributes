@@ -1,0 +1,15 @@
+* text=auto
+
+*.cs      text diff=csharp
+*.csproj  text
+*.sln     text eol=crlf
+*.xaml    text
+*.md      text
+*.gitignore text
+*.gitattributes text
+
+*.dll     binary
+*.pdb     binary
+*.png     binary
+*.jpg     binary
+*.gif     binary

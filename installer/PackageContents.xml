@@ -1,0 +1,83 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- ============================================================================
+     AutoCAD 自动加载清单（Autodesk ApplicationPlugins Bundle）
+     放置位置：<AutoCAD 安装目录>\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
+     适用版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2020 (R23.1)
+     ============================================================================ -->
+<ApplicationPackage SchemaVersion="1.0"
+                    AutodeskProduct="AutoCAD"
+                    Name="SteelStructureSuite"
+                    Description="参数化钢结构套件：门架/平台/梯道/栏杆参数化建模、夹点复写、材料统计与标准图框详图"
+                    AppVersion="1.0.0"
+                    ProductType="Application"
+                    ProductCode="{07A15AD4-44A2-4BF5-8F62-41DDF8E03F13}"
+                    UpgradeCode="{B7585238-DAB8-4F59-8C22-14F4ED107BE6}"
+                    Version="1.0.0"
+                    Author="zhangly1403"
+                    HelpFile="./Contents/Help/UserManual.md">
+
+  <CompanyDetails Name="zhangly1403"
+                  Email="zhangly1403@qq.com" />
+
+  <RuntimeRequirements OS="Win64"
+                       Platform="AutoCAD*"
+                       SeriesMin="R23.0"
+                       SeriesMax="R23.1" />
+
+  <Components Description="参数化钢结构套件主程序">
+    <RuntimeRequirements OS="Win64"
+                         Platform="AutoCAD*"
+                         SeriesMin="R23.0"
+                         SeriesMax="R23.1" />
+
+    <ComponentEntry AppName="SteelStructureSuite"
+                    Version="1.0.0"
+                    ModuleName="./Contents/SteelStructureSuite.dll"
+                    AppType=".NET"
+                    LoadOnAutoCADStartup="True"
+                    LoadOnCommandInvocation="True">
+      <Commands GroupName="SteelStructureSuite">
+        <!-- 界面与帮助 -->
+        <Command Global="SS_RIBBON"        Local="SS_RIBBON" />
+        <Command Global="SS_HELP"          Local="SS_HELP" />
+        <Command Global="SS_ABOUT"         Local="SS_ABOUT" />
+
+        <!-- 管理与算量 -->
+        <Command Global="SS_MANAGER"       Local="SS_MANAGER" />
+        <Command Global="SS_SECTIONS"      Local="SS_SECTIONS" />
+        <Command Global="SS_BOM"           Local="SS_BOM" />
+        <Command Global="SS_DRAWING"       Local="SS_DRAWING" />
+
+        <!-- 参数化建模 -->
+        <Command Global="SS_PANEL"         Local="SS_PANEL" />
+        <Command Global="SS_PORTAL"        Local="SS_PORTAL" />
+        <Command Global="SS_MULTIPORTAL"   Local="SS_MULTIPORTAL" />
+        <Command Global="SS_BRACED"        Local="SS_BRACED" />
+        <Command Global="SS_DOUBLE"        Local="SS_DOUBLE" />
+        <Command Global="SS_SPACEFRAME"    Local="SS_SPACEFRAME" />
+        <Command Global="SS_BRACKET"       Local="SS_BRACKET" />
+        <Command Global="SS_PLATFORM"      Local="SS_PLATFORM" />
+        <Command Global="SS_WALKWAY"       Local="SS_WALKWAY" />
+        <Command Global="SS_TRUSS"         Local="SS_TRUSS" />
+        <Command Global="SS_PIPEBRIDGE"    Local="SS_PIPEBRIDGE" />
+        <Command Global="SS_STAIR"         Local="SS_STAIR" />
+        <Command Global="SS_STAIR_STRAIGHT" Local="SS_STAIR_STRAIGHT" />
+        <Command Global="SS_LADDER"        Local="SS_LADDER" />
+        <Command Global="SS_HANDRAIL"      Local="SS_HANDRAIL" />
+        <Command Global="SS_MEMBER"        Local="SS_MEMBER" />
+        <Command Global="SS_ARC"           Local="SS_ARC" />
+        <Command Global="SS_SPIRAL"        Local="SS_SPIRAL" />
+        <Command Global="SS_SADDLE"        Local="SS_SADDLE" />
+        <Command Global="SS_LINEAR_CHAIN"  Local="SS_LINEAR_CHAIN" />
+
+        <!-- 编辑与定位 -->
+        <Command Global="SS_EDIT"          Local="SS_EDIT" />
+        <Command Global="SS_ALIGN"         Local="SS_ALIGN" />
+        <Command Global="SS_ARRAY"         Local="SS_ARRAY" />
+        <Command Global="SS_DROPZ0"        Local="SS_DROPZ0" />
+        <Command Global="SS_OVERRULE_ON"   Local="SS_OVERRULE_ON" />
+        <Command Global="SS_OVERRULE_OFF"  Local="SS_OVERRULE_OFF" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+</ApplicationPackage>

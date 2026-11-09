@@ -1,0 +1,77 @@
+﻿<Window x:Class="SteelStructureSuite.Views.SectionCatalogWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="型钢截面库管理 (5分表)"
+        Width="900" Height="600"
+        MinWidth="780" MinHeight="480"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        UseLayoutRounding="True">
+    <Grid Margin="10">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <DockPanel Grid.Row="0" Margin="0,0,0,8">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="导入 (.xlsx/.csv)" MinWidth="120" Padding="10,4" Margin="6,2,0,2" Click="OnImportClick" />
+                <Button Content="导出多表 (.xlsx)" MinWidth="120" Padding="10,4" Margin="6,2,0,2" Click="OnExportXlsxClick" />
+                <Button Content="导出 (.csv)" MinWidth="95" Padding="10,4" Margin="6,2,0,2" Click="OnExportCsvClick" />
+                <Button Content="恢复默认库" MinWidth="95" Padding="10,4" Margin="6,2,0,2" Click="OnResetDefaultClick" />
+            </StackPanel>
+            <TextBlock x:Name="TxtSummary" VerticalAlignment="Center" FontWeight="Bold" />
+        </DockPanel>
+
+        <TabControl x:Name="TabSections" Grid.Row="1" Margin="0,0,0,8" SelectionChanged="OnTabSelectionChanged" />
+
+        <GroupBox Grid.Row="2" Header="新增 / 更新截面规格" Margin="0,0,0,8" Padding="10,6">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+
+                <StackPanel Grid.Column="0" Margin="0,0,6,0">
+                    <TextBlock Text="所属分表" Margin="0,0,0,2" />
+                    <ComboBox x:Name="CmbType" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+                <StackPanel Grid.Column="1" Margin="0,0,6,0">
+                    <TextBlock Text="截面代号" Margin="0,0,0,2" />
+                    <TextBox x:Name="TxtName" Text="HM294x200x8x12" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+                <StackPanel Grid.Column="2" Margin="0,0,6,0">
+                    <TextBlock Text="高度/外径 H (mm)" Margin="0,0,0,2" />
+                    <TextBox x:Name="TxtH" Text="294" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+                <StackPanel Grid.Column="3" Margin="0,0,6,0">
+                    <TextBlock Text="宽度 B (mm)" Margin="0,0,0,2" />
+                    <TextBox x:Name="TxtB" Text="200" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+                <StackPanel Grid.Column="4" Margin="0,0,6,0">
+                    <TextBlock Text="腹板/壁厚 tw (mm)" Margin="0,0,0,2" />
+                    <TextBox x:Name="TxtTw" Text="8" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+                <StackPanel Grid.Column="5">
+                    <TextBlock Text="翼缘厚 tf (mm)" Margin="0,0,0,2" />
+                    <TextBox x:Name="TxtTf" Text="12" VerticalContentAlignment="Center" Padding="4,3" />
+                </StackPanel>
+            </Grid>
+        </GroupBox>
+
+        <DockPanel Grid.Row="3">
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="添加 / 更新" MinWidth="105" Padding="10,4" Margin="6,2,0,2" Click="OnAddSectionClick" />
+                <Button Content="删除选中项" MinWidth="105" Padding="10,4" Margin="6,2,0,2" Click="OnDeleteSectionClick" />
+                <Button Content="保存并关闭" MinWidth="100" Padding="10,4" Margin="6,2,0,2" IsDefault="True" Click="OnSaveCloseClick" />
+            </StackPanel>
+            <TextBlock Text="支持 5 类截面分表管理与多工作表 Excel 导入导出" VerticalAlignment="Center" />
+        </DockPanel>
+    </Grid>
+</Window>
