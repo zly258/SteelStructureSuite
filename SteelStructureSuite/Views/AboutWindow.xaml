@@ -1,12 +1,14 @@
-<Window x:Class="SteelStructureSuite.Views.AboutWindow"
+﻿<Window x:Class="SteelStructureSuite.Views.AboutWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="关于 参数化钢结构套件"
-        Width="560" Height="560"
+        Width="580" Height="580"
+        MinWidth="520" MinHeight="480"
         WindowStartupLocation="CenterScreen"
-        ResizeMode="NoResize"
+        ResizeMode="CanResize"
         ShowInTaskbar="False"
-        UseLayoutRounding="True">
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
     <Grid Margin="20">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
@@ -18,11 +20,11 @@
         <!-- 标题区 -->
         <StackPanel Grid.Row="0" Orientation="Horizontal">
             <Border Width="56" Height="56"
-                    Background="#0067C0"
+                    Background="{DynamicResource {x:Static SystemColors.HighlightBrushKey}}"
                     CornerRadius="8"
                     VerticalAlignment="Top">
                 <TextBlock Text="SS"
-                           Foreground="White"
+                           Foreground="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"
                            FontSize="22"
                            FontWeight="Bold"
                            HorizontalAlignment="Center"
@@ -34,7 +36,7 @@
                            FontWeight="SemiBold" />
                 <TextBlock Text="SteelStructureSuite for AutoCAD"
                            FontSize="12"
-                           Foreground="#5F6368"
+                           Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
                            Margin="0,4,0,0" />
             </StackPanel>
         </StackPanel>
@@ -42,7 +44,7 @@
         <!-- 基本信息 -->
         <Grid Grid.Row="1" Margin="0,18,0,0">
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="86" />
+                <ColumnDefinition Width="92" />
                 <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
             <Grid.RowDefinitions>
@@ -53,19 +55,19 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
 
-            <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Foreground="#5F6368" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,6" />
             <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Foreground="#5F6368" Margin="0,0,0,6" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD 2019 ~ 2024（x64）" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD 2019 / 2020 及更高版本（x64）" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Foreground="#5F6368" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,6" />
             <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" Foreground="#5F6368" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" Margin="0,0,0,6" />
             <TextBlock Grid.Row="3" Grid.Column="1" Text="MIT License" Margin="0,0,0,6" />
 
-            <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" Foreground="#5F6368" />
+            <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
             <TextBlock Grid.Row="4" Grid.Column="1" Text="zhangly1403@qq.com" />
         </Grid>
 
@@ -78,7 +80,7 @@
                      TextWrapping="Wrap"
                      VerticalScrollBarVisibility="Auto"
                      FontSize="11.5"
-                     Foreground="#3C4043" />
+                     Foreground="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" />
         </GroupBox>
 
         <!-- 按钮区 -->
@@ -86,15 +88,17 @@
             <TextBlock x:Name="TxtCopyright"
                        VerticalAlignment="Center"
                        FontSize="11"
-                       Foreground="#5F6368" />
+                       Foreground="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
             <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
                 <Button Content="完整许可证"
-                        MinWidth="96"
+                        MinWidth="102"
+                        MinHeight="29"
                         Padding="12,5"
                         Margin="0,0,8,0"
                         Click="OnOpenLicenseClick" />
                 <Button Content="关闭"
-                        MinWidth="88"
+                        MinWidth="90"
+                        MinHeight="29"
                         Padding="12,5"
                         IsDefault="True"
                         IsCancel="True"

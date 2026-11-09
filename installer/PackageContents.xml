@@ -1,8 +1,8 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <!-- ============================================================================
      AutoCAD 自动加载清单（Autodesk ApplicationPlugins Bundle）
      放置位置：<AutoCAD 安装目录>\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
-     适用版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2024 (R24.3)
+     适用版本：AutoCAD 2019 (R23.0 ~ R23.1)。AutoCAD 2021 及以上请改用 SteelStructureSuite2021.bundle
      ============================================================================ -->
 <ApplicationPackage SchemaVersion="1.0"
                     AutodeskProduct="AutoCAD"
@@ -22,13 +22,13 @@
   <RuntimeRequirements OS="Win64"
                        Platform="AutoCAD*"
                        SeriesMin="R23.0"
-                       SeriesMax="R24.3" />
+                       SeriesMax="R23.1" />
 
   <Components Description="参数化钢结构套件主程序">
     <RuntimeRequirements OS="Win64"
                          Platform="AutoCAD*"
                          SeriesMin="R23.0"
-                         SeriesMax="R24.3" />
+                         SeriesMax="R23.1" />
 
     <ComponentEntry AppName="SteelStructureSuite"
                     Version="1.0.0"

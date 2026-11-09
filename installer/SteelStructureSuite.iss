@@ -4,8 +4,10 @@
 ;    · 目标版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2024 (R24.3)，Windows 10 x64
 ;
 ;  编译方式：
-;    1) Inno Setup Compiler 打开本文件 → Build → Compile
-;    2) 或命令行：iscc.exe /DAppVersion=1.0.0 SteelStructureSuite.iss
+;    1) 先用 pwsh tools\Publish.ps1 生成两个大版本的编译产物
+;       （bin\x64\Release_R23 = AutoCAD 2019，bin\x64\Release_R24 = AutoCAD 2021~2024）
+;    2) Inno Setup Compiler 打开本文件 → Build → Compile
+;    3) 或命令行：iscc.exe /DAppVersion=1.0.0 SteelStructureSuite.iss
 ; ===========================================================================================
 
 #define AppName "参数化钢结构套件"
@@ -18,15 +20,19 @@
 
 ; 已编译产物目录：优先 Release，其次 Debug（可用 /DRuntimeDir=... 覆盖）
 #ifndef RuntimeDir
-  #if FileExists("..\SteelStructureSuite\bin\x64\Release\SteelStructureSuite.dll")
-    #define RuntimeDir "..\SteelStructureSuite\bin\x64\Release"
+  #if FileExists("..\SteelStructureSuite\bin\x64\Release_R23\SteelStructureSuite.dll")
+    #define RuntimeDir "..\SteelStructureSuite\bin\x64\Release_R23"
+    #define RuntimeDirR24 "..\SteelStructureSuite\bin\x64\Release_R24"
   #else
     #define RuntimeDir "..\SteelStructureSuite\bin\x64\Debug"
+    #define RuntimeDirR24 "..\SteelStructureSuite\bin\x64\Debug"
   #endif
 #endif
 
 #define BundleName "SteelStructureSuite.bundle"
 #define BundleDir "{commonpf}\Autodesk\ApplicationPlugins\" + BundleName
+#define BundleNameR24 "SteelStructureSuite2021.bundle"
+#define BundleDirR24 "{commonpf}\Autodesk\ApplicationPlugins\" + BundleNameR24
 
 [Setup]
 AppId={{62F3CFDA-6F06-467A-ADA0-9948368EA1C5}
@@ -59,15 +65,20 @@ LicenseFile=..\LICENSE
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Files]
-; Bundle 自动加载清单
+; Bundle 自动加载清单（AutoCAD 2019 / R23 与 AutoCAD 2021~2024 / R24 各一份，
+; 两者 SeriesMin / SeriesMax 互不重叠，AutoCAD 只会加载与自己版本匹配的那个）
 Source: "PackageContents.xml"; DestDir: "{#BundleDir}"; Flags: ignoreversion
+Source: "PackageContentsR24.xml"; DestDir: "{#BundleDirR24}"; Flags: ignoreversion
 
 ; 主程序（AutoCAD 各托管程序集由 AutoCAD 自身提供，无需打包）
 Source: "{#RuntimeDir}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents"; Flags: ignoreversion
+Source: "{#RuntimeDirR24}\SteelStructureSuite.dll"; DestDir: "{#BundleDirR24}\Contents"; Flags: ignoreversion
 
 ; 使用说明与许可证（随 Bundle 一起分发，并提供独立副本）
 Source: "..\docs\UserManual.md"; DestDir: "{#BundleDir}\Contents\Help"; Flags: ignoreversion
+Source: "..\docs\UserManual.md"; DestDir: "{#BundleDirR24}\Contents\Help"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{#BundleDir}\Contents\Help"; DestName: "LICENSE.txt"; Flags: ignoreversion
+Source: "..\LICENSE"; DestDir: "{#BundleDirR24}\Contents\Help"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\docs\UserManual.md"; DestDir: "{app}"; DestName: "使用说明.md"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -92,6 +103,7 @@ begin
 
   { 3. 安装目标 Contents 彻底重建，防止旧版本残留孤儿 DLL }
   DelTree(ExpandConstant('{#BundleDir}') + '\Contents', True, True, True);
+  DelTree(ExpandConstant('{#BundleDirR24}') + '\Contents', True, True, True);
 end;
 
 function InitializeSetup(): Boolean;

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
@@ -89,15 +89,15 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.LinearSteelMember: return "直线型钢(梁/柱/撑)";
                     case ParametricStructureType.ArcSteelMember: return "弧形型钢";
                     case ParametricStructureType.SpiralSteelMember: return "螺旋型钢";
-                    case ParametricStructureType.VesselSupport: return "卧式容器鞍式支座(NB/T 47042)";
-                    case ParametricStructureType.TowerCircularPlatform: return "塔器环形检修平台(HG/T 21543)";
-                    case ParametricStructureType.VerticalVesselSkirt: return "立式塔器钢裙座(NB/T 47041)";
-                    case ParametricStructureType.PipeShoeSupport: return "化工管道加劲管托(HG/T 21629)";
-                    case ParametricStructureType.TankRoofHandrail: return "储罐拱顶环形栏杆(SH/T 3007)";
-                    case ParametricStructureType.SubstationGantryFrame: return "变电站A字龙门构架(DL/T 5218)";
-                    case ParametricStructureType.CableTrenchSupport: return "电力电缆沟多层支架(DL/T 5221)";
-                    case ParametricStructureType.CraneRunwayGirder: return "冶金重型吊车梁(20G520-1~2)";
-                    case ParametricStructureType.CrossBracingFrame: return "冶金柱间交叉支撑(19G518-3)";
+                    case ParametricStructureType.VesselSupport: return "卧式容器鞍式支座";
+                    case ParametricStructureType.TowerCircularPlatform: return "塔器环形检修平台(HG/T)";
+                    case ParametricStructureType.VerticalVesselSkirt: return "立式塔器钢裙座(NB/T)";
+                    case ParametricStructureType.PipeShoeSupport: return "化工管道加劲管托(HG/T)";
+                    case ParametricStructureType.TankRoofHandrail: return "储罐拱顶环形栏杆(SH/T)";
+                    case ParametricStructureType.SubstationGantryFrame: return "变电站A字龙门构架(DL/T)";
+                    case ParametricStructureType.CableTrenchSupport: return "电力电缆沟多层支架(DL/T)";
+                    case ParametricStructureType.CraneRunwayGirder: return "冶金重型吊车梁(16G519)";
+                    case ParametricStructureType.CrossBracingFrame: return "冶金柱间交叉支撑(19G518)";
                     default: return "参数化钢结构";
                 }
             }
@@ -326,9 +326,9 @@ namespace SteelStructureSuite.Domain.Models
                 case ParametricStructureType.VerticalVesselSkirt:
                     return new List<StructurePresetItem>
                     {
-                        new StructurePresetItem { Name = "NB/T 47041 DN1800 塔器裙座 (H=3000)", Span = 1800, Length = 260, Height = 3000, SubHeight = 500, BayCount = 12, ColSec = "HW200x200x8x12", BeamSec = "C20a", BraceSec = "L75x75x6" },
-                        new StructurePresetItem { Name = "NB/T 47041 DN2600 塔器裙座 (H=4200)", Span = 2600, Length = 320, Height = 4200, SubHeight = 600, BayCount = 16, ColSec = "HW250x250x9x14", BeamSec = "C25a", BraceSec = "L100x100x8" },
-                        new StructurePresetItem { Name = "NB/T 47041 DN3600 重型裙座 (H=5500)", Span = 3600, Length = 380, Height = 5500, SubHeight = 700, BayCount = 20, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
+                        new StructurePresetItem { Name = "NB/T DN1800 塔器裙座 (H=3000)", Span = 1800, Length = 260, Height = 3000, SubHeight = 500, BayCount = 12, ColSec = "HW200x200x8x12", BeamSec = "C20a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "NB/T DN2600 塔器裙座 (H=4200)", Span = 2600, Length = 320, Height = 4200, SubHeight = 600, BayCount = 16, ColSec = "HW250x250x9x14", BeamSec = "C25a", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "NB/T DN3600 重型裙座 (H=5500)", Span = 3600, Length = 380, Height = 5500, SubHeight = 700, BayCount = 20, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
                     };
                 case ParametricStructureType.PipeShoeSupport:
                     return new List<StructurePresetItem>
@@ -352,15 +352,15 @@ namespace SteelStructureSuite.Domain.Models
                 case ParametricStructureType.CraneRunwayGirder:
                     return new List<StructurePresetItem>
                     {
-                        new StructurePresetItem { Name = "20G520 6m跨度吊车梁 (L=6000, H=800)", Span = 6000, Length = 650, Height = 800, SubHeight = 1000, ColSec = "HW300x300x10x15", BeamSec = "C20a", BraceSec = "L75x75x6" },
-                        new StructurePresetItem { Name = "20G520 7.5m重型吊车梁 (L=7500, H=1000)", Span = 7500, Length = 800, Height = 1000, SubHeight = 1250, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L100x100x8" },
-                        new StructurePresetItem { Name = "20G520 9m冶金吊车梁 (L=9000, H=1200)", Span = 9000, Length = 950, Height = 1200, SubHeight = 1500, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
+                        new StructurePresetItem { Name = "16G519 6m跨度吊车梁 (L=6000, H=800)", Span = 6000, Length = 650, Height = 800, SubHeight = 1000, ColSec = "HW300x300x10x15", BeamSec = "C20a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "16G519 7.5m重型吊车梁 (L=7500, H=1000)", Span = 7500, Length = 800, Height = 1000, SubHeight = 1250, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "16G519 9m冶金吊车梁 (L=9000, H=1200)", Span = 9000, Length = 950, Height = 1200, SubHeight = 1500, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
                     };
                 case ParametricStructureType.CrossBracingFrame:
                     return new List<StructurePresetItem>
                     {
-                        new StructurePresetItem { Name = "19G518-3 6m柱距双层交叉支撑 (H=7200)", Span = 6000, Length = 250, Height = 7200, SubHeight = 4800, ColSec = "HW250x250x9x14", BeamSec = "F150x150x8", BraceSec = "L100x100x8" },
-                        new StructurePresetItem { Name = "19G518-3 7.5m柱距重型柱间支撑 (H=9600)", Span = 7500, Length = 300, Height = 9600, SubHeight = 6500, ColSec = "HW300x300x10x15", BeamSec = "F200x200x10", BraceSec = "L125x125x10" }
+                        new StructurePresetItem { Name = "19G518 6m柱距双层交叉支撑 (H=7200)", Span = 6000, Length = 250, Height = 7200, SubHeight = 4800, ColSec = "HW250x250x9x14", BeamSec = "F150x150x8", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "19G518 7.5m柱距重型柱间支撑 (H=9600)", Span = 7500, Length = 300, Height = 9600, SubHeight = 6500, ColSec = "HW300x300x10x15", BeamSec = "F200x200x10", BraceSec = "L125x125x10" }
                     };
                 default:
                     return new List<StructurePresetItem>

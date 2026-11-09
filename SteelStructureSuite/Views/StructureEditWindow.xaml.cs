@@ -8,6 +8,7 @@ using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
@@ -40,6 +41,19 @@ namespace SteelStructureSuite.Views
             bool chainPlacementMode = false)
         {
             InitializeComponent();
+            Width = Math.Max(Width, 590);
+            Height = Math.Max(Height, 730);
+            MinWidth = 550;
+            MinHeight = 630;
+            if (DgPreviewBom != null)
+            {
+                DgPreviewBom.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+                DgPreviewBom.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+                foreach (var col in DgPreviewBom.Columns)
+                {
+                    if (col.MinWidth < 52) col.MinWidth = 52;
+                }
+            }
 
             Data = initialParams?.Clone() ?? new SteelStructureParams();
             IsEditMode = isEditMode;
@@ -70,7 +84,11 @@ namespace SteelStructureSuite.Views
             TxtTag.Text = Data.Tag;
             foreach (string m in new[] { "Q235B", "Q355B", "Q355D", "Q420B", "S30408", "15CrMoR" })
                 CmbMaterial.Items.Add(m);
-            CmbMaterial.SelectedItem = Data.Material ?? "Q355B";
+            string lastMaterial = UserSettings.GetString("Edit.Material", null);
+            CmbMaterial.SelectedItem =
+                (!string.IsNullOrEmpty(lastMaterial) && CmbMaterial.Items.Contains(lastMaterial))
+                    ? lastMaterial
+                    : Data.Material ?? "Q355B";
             if (CmbMaterial.SelectedIndex < 0) CmbMaterial.SelectedIndex = 1;
 
             foreach (string f in ShapeFilterNames)
@@ -79,11 +97,16 @@ namespace SteelStructureSuite.Views
                 CmbBeamTypeFilter.Items.Add(f);
                 CmbBraceTypeFilter.Items.Add(f);
             }
-            CmbColTypeFilter.SelectedIndex = 0;
-            CmbBeamTypeFilter.SelectedIndex = 0;
-            CmbBraceTypeFilter.SelectedIndex = 0;
+            // 恢复上次使用的截面筛选方式
+            CmbColTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.ColFilterIndex", 0);
+            CmbBeamTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.BeamFilterIndex", 0);
+            CmbBraceTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.BraceFilterIndex", 0);
 
             SyncControlsFromData();
+
+            // 新建构件时沿用上次使用的截面规格（编辑既有构件时以构件自身数据为准）
+            if (!isEditMode) RestoreLastSections();
+
             ReloadPresetsForCurrentType();
 
             if (isEditMode)
@@ -97,11 +120,56 @@ namespace SteelStructureSuite.Views
             }
             UpdatePlacementButtons();
 
+            SchematicView.Loaded += (s, e) => SchematicView.RenderSchematic(Data);
             SchematicView.SizeChanged += (s, e) => SchematicView.RenderSchematic(Data);
 
             _isInitializing = false;
             UpdatePerComponentFieldVisibilityAndLabels();
             RefreshLivePreview();
+
+            UserSettings.RestoreWindowState(this, "StructureEditWindow");
+            Closed += (s, e) =>
+            {
+                SaveLastSettings();
+                UserSettings.SaveWindowState(this, "StructureEditWindow");
+            };
+        }
+
+        /// <summary>沿用上次使用的立柱 / 主梁 / 斜撑截面规格。</summary>
+        private void RestoreLastSections()
+        {
+            string col = UserSettings.GetString("Edit.ColumnSection", null);
+            string beam = UserSettings.GetString("Edit.BeamSection", null);
+            string brace = UserSettings.GetString("Edit.BraceSection", null);
+
+            if (!string.IsNullOrEmpty(col))
+            {
+                Data.ColumnSection = col;
+                PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedIndex, col);
+            }
+            if (!string.IsNullOrEmpty(beam))
+            {
+                Data.BeamSection = beam;
+                PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedIndex, beam);
+            }
+            if (!string.IsNullOrEmpty(brace))
+            {
+                Data.BraceSection = brace;
+                PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedIndex, brace);
+            }
+        }
+
+        /// <summary>记录本次使用的材质、截面筛选与截面规格。</summary>
+        private void SaveLastSettings()
+        {
+            UserSettings.SetString("Edit.Material", CmbMaterial.SelectedItem as string);
+            UserSettings.SetInt("Edit.ColFilterIndex", CmbColTypeFilter.SelectedIndex);
+            UserSettings.SetInt("Edit.BeamFilterIndex", CmbBeamTypeFilter.SelectedIndex);
+            UserSettings.SetInt("Edit.BraceFilterIndex", CmbBraceTypeFilter.SelectedIndex);
+            UserSettings.SetString("Edit.ColumnSection", CmbColSec.SelectedItem as string);
+            UserSettings.SetString("Edit.BeamSection", CmbBeamSec.SelectedItem as string);
+            UserSettings.SetString("Edit.BraceSection", CmbBraceSec.SelectedItem as string);
+            UserSettings.Save();
         }
 
         private void SyncControlsFromData()
@@ -669,3 +737,4 @@ namespace SteelStructureSuite.Views
         }
     }
 }
+

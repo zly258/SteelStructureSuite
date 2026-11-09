@@ -2,11 +2,13 @@
 using System.Collections.Generic;
 using System.Linq;
 using System.Windows;
+using System.Windows.Controls;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Microsoft.Win32;
 using SteelStructureSuite.Domain.Models;
+using SteelStructureSuite.Services.Settings;
 using SteelStructureSuite.Services.Takeoff;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
@@ -26,8 +28,25 @@ namespace SteelStructureSuite.Views
         public MaterialTakeoffWindow(Database db)
         {
             InitializeComponent();
+            Width = Math.Max(Width, 1040);
+            Height = Math.Max(Height, 600);
+            MinWidth = 880;
+            MinHeight = 480;
+            foreach (var dg in new[] { DgSummary, DgDetails })
+            {
+                if (dg == null) continue;
+                dg.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+                dg.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+                foreach (var col in dg.Columns)
+                {
+                    if (col.MinWidth < 55) col.MinWidth = 55;
+                }
+            }
             _db = db;
             ReloadData(null);
+
+            UserSettings.RestoreWindowState(this, "MaterialTakeoffWindow");
+            Closed += (s, e) => UserSettings.SaveWindowState(this, "MaterialTakeoffWindow");
         }
 
         private void ReloadData(IEnumerable<ObjectId> filterIds)
@@ -129,3 +148,4 @@ namespace SteelStructureSuite.Views
         }
     }
 }
+

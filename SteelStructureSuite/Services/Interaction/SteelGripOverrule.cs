@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -13,10 +13,11 @@ using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 namespace SteelStructureSuite.Services.Interaction
 {
     /// <summary>
-    /// 参数化夹点复写规则（彻底解决夹点与实体不同步问题）：
-    /// - 每个 ParamGrip 实例直接携带源实体 SourceHandle 与拖拽起始快照 BaselineParams，
-    ///   即使 AutoCAD 在拖拽预览帧传入 Handle=0 的瞬态克隆实体，也能精准计算并实时同步更新 GripPoint！
-    /// - Kind 0: 基准原点平移夹点（正方形黄色，直接矩阵位移或同步 Origin，0 延迟）
+    /// 参数化夹点复写规则（二维/三维线框极速动态预览 + 落位后一次性生成三维实体）：
+    /// - 拖拽拉伸过程中（瞬态克隆实体 solid.Id.IsNull）：绝不直接重生成三维布尔实体！
+    ///   而是将瞬态克隆实体清空，并在 ParamGrip.ViewportDraw 中以 1000+ FPS 实时绘制亮绿色二维/三维结构线框预览 (BuildFastPreviewWireframeLines)！
+    /// - 鼠标点击落位完成拉伸时（!solid.Id.IsNull 或 GripEnd 提交）：才一次性生成最终的三维 Solid3d 实体！
+    /// - Kind 0: 基准原点平移夹点（正方形黄色，直接矩阵位移，0 延迟）
     /// - Kind 1: 跨度/长度/外径正交拉伸夹点（红色箭头，沿构件 X 轴正交投影，只改 Span）
     /// - Kind 2: 高度正交拉伸夹点（绿色菱形，沿 Z 轴正交投影，只改 Height）
     /// - Kind 3: 宽度/进深正交拉伸夹点（品红圆形，沿构件 Y 轴正交投影，只改 Length）
@@ -25,6 +26,10 @@ namespace SteelStructureSuite.Services.Interaction
     {
         private static readonly Dictionary<long, SteelStructureParams> GripBaseline =
             new Dictionary<long, SteelStructureParams>();
+        private static readonly Dictionary<long, Point3d> LastEntityOrigin =
+            new Dictionary<long, Point3d>();
+        private static readonly HashSet<long> ClearedDragClonePtrs =
+            new HashSet<long>();
         private static readonly HashSet<Document> HookedDocs = new HashSet<Document>();
 
         private sealed class ParamGrip : GripData
@@ -48,6 +53,23 @@ namespace SteelStructureSuite.Services.Interaction
             {
                 try
                 {
+                    // 在夹点拉伸拖拽过程中（DragImageGrip），直接用亮绿色二维/三维线框快速预览新外形，不重生成三维实体（0卡顿！）
+                    if (type == DrawType.DragImageGrip)
+                    {
+                        SteelStructureParams dragParams = SteelDataStorage.GetActiveTransientDragParams();
+                        if (dragParams != null)
+                        {
+                            var segs = SteelStructureBuilder.BuildFastPreviewWireframeLines(dragParams);
+                            short prevColor = worldDraw.SubEntityTraits.Color;
+                            worldDraw.SubEntityTraits.Color = 3; // 亮绿色快速预览线
+                            foreach (var seg in segs)
+                            {
+                                worldDraw.Geometry.WorldLine(seg.Item1, seg.Item2);
+                            }
+                            worldDraw.SubEntityTraits.Color = prevColor;
+                        }
+                    }
+
                     DrawGlyph(worldDraw, type, imageGripPoint, gripSizeInPixels);
                     return true;
                 }
@@ -77,6 +99,8 @@ namespace SteelStructureSuite.Services.Interaction
                         SteelDataStorage.DiscardPendingEdits();
                     }
                     GripBaseline.Clear();
+                    LastEntityOrigin.Clear();
+                    ClearedDragClonePtrs.Clear();
                 }
                 base.OnGripStatusChanged(entityId, newStatus);
             }
@@ -328,12 +352,16 @@ namespace SteelStructureSuite.Services.Interaction
             if (sender is Document doc)
                 SteelDataStorage.FlushPendingEdits(doc.Database);
             GripBaseline.Clear();
+            LastEntityOrigin.Clear();
+            ClearedDragClonePtrs.Clear();
         }
 
         private static void OnGripCommandCancelled(object sender, CommandEventArgs e)
         {
             SteelDataStorage.DiscardPendingEdits();
             GripBaseline.Clear();
+            LastEntityOrigin.Clear();
+            ClearedDragClonePtrs.Clear();
         }
 
         private static ParamGrip MakeGrip(int kind, Point3d point, Vector3d axis, long handle, SteelStructureParams snapshot)
@@ -505,20 +533,20 @@ namespace SteelStructureSuite.Services.Interaction
 
             HookDocument(solid.Database);
             SteelStructureParams p = origParams.Clone();
-            bool rebuildRequired = false;
 
             Vector3d dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0.0);
             Vector3d dirY = new Vector3d(-Math.Sin(p.RotationRad), Math.Cos(p.RotationRad), 0.0);
 
+            bool originMovedOnly = true;
             foreach (int kind in kinds)
             {
                 if (kind == 0)
                 {
                     p.Origin = p.Origin + offset;
-                    rebuildRequired = true;
                 }
                 else if (kind == 1)
                 {
+                    originMovedOnly = false;
                     double dSpan = offset.DotProduct(dirX);
                     if (p.StructureType == ParametricStructureType.SpiralStair ||
                         p.StructureType == ParametricStructureType.VesselSupport ||
@@ -540,38 +568,80 @@ namespace SteelStructureSuite.Services.Interaction
                             p.StructureType == ParametricStructureType.SpiralSteelMember)
                             p.EndPointOffsetZ = Math.Round(p.EndPointOffsetZ + offset.Z, 0);
                     }
-                    rebuildRequired = true;
                 }
                 else if (kind == 2)
                 {
+                    originMovedOnly = false;
                     p.Height = Math.Max(200.0, Math.Round(p.Height + offset.Z, 0));
-                    rebuildRequired = true;
                 }
                 else if (kind == 3)
                 {
+                    originMovedOnly = false;
                     double dLen = offset.DotProduct(dirY);
                     p.Length = Math.Max(150.0, Math.Round(p.Length + dLen, 0));
-                    rebuildRequired = true;
                 }
             }
 
-            if (rebuildRequired)
+            long entPtrKey = 0;
+            try { entPtrKey = solid.UnmanagedObject.ToInt64(); } catch { entPtrKey = handle; }
+
+            // 判断当前是否为鼠标拖拽过程中的内存瞬态克隆实体 (solid.Id.IsNull)
+            bool isDragPreviewClone = solid.Id.IsNull || solid.Database == null;
+
+            if (originMovedOnly)
             {
+                // 基点平移：无论在拖拽预览还是最终落位，均直接对现有实体做纯矩阵平移（0.001ms，无需重生成三维）
+                if (!LastEntityOrigin.TryGetValue(entPtrKey, out Point3d prevOrg))
+                    prevOrg = origParams.Origin;
+                Vector3d deltaMove = p.Origin - prevOrg;
+                if (deltaMove.Length > 1e-4)
+                {
+                    solid.TransformBy(Matrix3d.Displacement(deltaMove));
+                    LastEntityOrigin[entPtrKey] = p.Origin;
+                }
+                if (!isDragPreviewClone && handle != 0)
+                {
+                    SteelDataStorage.MarkPendingGeometryRebuilt(handle);
+                }
+            }
+            else if (isDragPreviewClone)
+            {
+                // 拉伸改变外形（鼠标移动预览阶段）：绝不重生成三维实体！
+                // 将瞬态克隆实体的旧三维网格清空一次，由 ParamGrip.ViewportDraw 实时绘制二维/三维线框快速预览
+                if (entPtrKey != 0 && ClearedDragClonePtrs.Add(entPtrKey))
+                {
+                    try
+                    {
+                        using (Solid3d empty = new Solid3d())
+                        {
+                            empty.SetDatabaseDefaults();
+                            solid.CopyFrom(empty);
+                        }
+                    }
+                    catch { }
+                }
+            }
+            else
+            {
+                // 拉伸改变外形（鼠标点击落位提交阶段）：一次性生成最终的三维 Solid3d 实体
                 using (Solid3d updated = SteelStructureBuilder.BuildCombinedSolid(p))
                 {
                     if (updated != null)
+                    {
                         SteelStructureBuilder.CopySolidKeepingLook(solid, updated);
+                        if (handle != 0)
+                            SteelDataStorage.MarkPendingGeometryRebuilt(handle);
+                    }
                 }
             }
 
             SteelDataStorage.SetPendingEdit(solid, p, handle);
 
-            Database db = solid.Database;
-            if (db != null)
+            if (!isDragPreviewClone && solid.Database != null)
             {
                 try
                 {
-                    Transaction topTr = db.TransactionManager.TopTransaction;
+                    Transaction topTr = solid.Database.TransactionManager.TopTransaction;
                     if (topTr != null && solid.IsWriteEnabled)
                         SteelDataStorage.WriteParams(topTr, solid, p);
                 }

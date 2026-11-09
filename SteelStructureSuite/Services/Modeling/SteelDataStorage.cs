@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -18,11 +18,14 @@ namespace SteelStructureSuite.Services.Modeling
         private static readonly ConcurrentDictionary<long, SteelStructureParams> PendingEdits =
             new ConcurrentDictionary<long, SteelStructureParams>();
 
+        private static readonly ConcurrentDictionary<long, bool> PendingGeometryRebuilt =
+            new ConcurrentDictionary<long, bool>();
+
         // 记录每个实体上次生成三维 Solid3d 时的理论包围盒中心点，用于自动检测用户是否用 MOVE / COPY / GIZMO 平移了实体
         private static readonly ConcurrentDictionary<long, Point3d> ExpectedExtentsCenterCache =
             new ConcurrentDictionary<long, Point3d>();
 
-        // 当前活跃拖拽会话中的参数备份（当 AutoCAD 传入 Handle==0 的瞬态克隆实体时使用）
+        // 当前活跃拖拽会话中的参数备份（供夹点拖拽过程中 60FPS 实时绘制二维/三维快速预览线使用）
         private static volatile SteelStructureParams _activeTransientDragParams;
 
         public static void SetActiveTransientDragParams(SteelStructureParams p)
@@ -30,9 +33,20 @@ namespace SteelStructureSuite.Services.Modeling
             _activeTransientDragParams = p?.Clone();
         }
 
+        public static SteelStructureParams GetActiveTransientDragParams()
+        {
+            return _activeTransientDragParams;
+        }
+
         public static void ClearActiveTransientDragParams()
         {
             _activeTransientDragParams = null;
+        }
+
+        public static void MarkPendingGeometryRebuilt(long handle)
+        {
+            if (handle != 0)
+                PendingGeometryRebuilt[handle] = true;
         }
 
         public static Point3d? TryGetEntityExtentsCenter(DBObject obj)
@@ -144,13 +158,19 @@ namespace SteelStructureSuite.Services.Modeling
         public static void DiscardPendingEdits()
         {
             PendingEdits.Clear();
+            PendingGeometryRebuilt.Clear();
             ClearActiveTransientDragParams();
         }
 
         public static void FlushPendingEdits(Database db)
         {
             ClearActiveTransientDragParams();
-            if (db == null || PendingEdits.IsEmpty) return;
+            if (db == null || PendingEdits.IsEmpty)
+            {
+                PendingGeometryRebuilt.Clear();
+                return;
+            }
+
             KeyValuePair<long, SteelStructureParams>[] snapshot = PendingEdits.ToArray();
             try
             {
@@ -164,11 +184,26 @@ namespace SteelStructureSuite.Services.Modeling
                             if (!id.IsValid || id.IsErased)
                             {
                                 PendingEdits.TryRemove(kv.Key, out _);
+                                PendingGeometryRebuilt.TryRemove(kv.Key, out _);
                                 continue;
                             }
                             DBObject obj = tr.GetObject(id, OpenMode.ForWrite, false);
+
+                            // 若夹点拖拽期间仅使用二维/三维线框快速预览，则在拖拽结束落位时一次性生成最终三维实体
+                            if (obj is Solid3d existingSolid && !PendingGeometryRebuilt.ContainsKey(kv.Key))
+                            {
+                                using (Solid3d newSolid = SteelStructureBuilder.BuildCombinedSolid(kv.Value))
+                                {
+                                    if (newSolid != null)
+                                    {
+                                        SteelStructureBuilder.CopySolidKeepingLook(existingSolid, newSolid);
+                                    }
+                                }
+                            }
+
                             WriteParams(tr, obj, kv.Value);
                             PendingEdits.TryRemove(kv.Key, out _);
+                            PendingGeometryRebuilt.TryRemove(kv.Key, out _);
                         }
                         catch { }
                     }
@@ -176,6 +211,10 @@ namespace SteelStructureSuite.Services.Modeling
                 }
             }
             catch { }
+            finally
+            {
+                PendingGeometryRebuilt.Clear();
+            }
         }
 
         public static bool TryReadParams(DBObject obj, out SteelStructureParams p)
@@ -246,10 +285,6 @@ namespace SteelStructureSuite.Services.Modeling
             return false;
         }
 
-        /// <summary>
-        /// 自动校准因 AutoCAD 原生 MOVE / COPY / ALIGN 命令或夹点平移导致的实体实际几何中心与记录 Origin 之间的偏差，
-        /// 彻底杜绝“移动构件后夹点留在原地不同步”的问题！
-        /// </summary>
         private static void AutoCalibrateOriginIfEntityMoved(
             DBObject obj,
             SteelStructureParams p,

@@ -91,31 +91,31 @@ namespace SteelStructureSuite.Ribbon
             // Panel 4: 化工设备 (HG/T, NB/T, SH/T)
             RibbonPanelSource chemPanel = CreatePanel(tab, "化工设备");
             RibbonRowPanel cCol1 = new RibbonRowPanel();
-            cCol1.Items.Add(CreateSmallButton("塔器平台", "SS_TOWER_PLAT ", "HG/T 21543《圆形塔平台通用图》塔器环形检修平台（带扇形牛腿与外环护栏）", Color.FromRgb(180, 70, 20)));
+            cCol1.Items.Add(CreateSmallButton("塔器平台", "SS_TOWER_PLAT ", "HG/T 21574 塔器环形检修平台（带扇形牛腿与外环护栏）", Color.FromRgb(180, 70, 20)));
             cCol1.Items.Add(CreateRowBreak());
-            cCol1.Items.Add(CreateSmallButton("塔器裙座", "SS_SKIRT ", "NB/T 47041《塔式容器》立式塔器钢裙座（含地脚螺栓底环板与检查孔）", Color.FromRgb(180, 70, 20)));
+            cCol1.Items.Add(CreateSmallButton("塔器裙座", "SS_SKIRT ", "NB/T 47041 立式塔器/容器钢裙座（含地脚螺栓座圈与检查孔）", Color.FromRgb(180, 70, 20)));
             cCol1.Items.Add(CreateRowBreak());
-            cCol1.Items.Add(CreateSmallButton("管道管托", "SS_PIPESHOE ", "HG/T 21629《管架标准图》化工管道加劲管托（含双管卡与加劲肋）", Color.FromRgb(180, 70, 20)));
+            cCol1.Items.Add(CreateSmallButton("管道管托", "SS_PIPESHOE ", "HG/T 21629 化工管道加劲管托/支座（含双管卡与加劲肋）", Color.FromRgb(180, 70, 20)));
             chemPanel.Items.Add(cCol1);
 
             RibbonRowPanel cCol2 = new RibbonRowPanel();
-            cCol2.Items.Add(CreateSmallButton("罐顶栏杆", "SS_TANK_RAIL ", "SH/T 3007 储罐拱顶环形安全栏杆（GB 4053.3 栏杆高度）", Color.FromRgb(180, 70, 20)));
+            cCol2.Items.Add(CreateSmallButton("罐顶栏杆", "SS_TANK_RAIL ", "SH/T 3070 储罐拱顶环形安全栏杆", Color.FromRgb(180, 70, 20)));
             cCol2.Items.Add(CreateRowBreak());
-            cCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "NB/T 47042《卧式容器》卧式容器鞍式支座", Color.FromRgb(180, 70, 20)));
+            cCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "NB/T 47042 卧式容器鞍式钢支座", Color.FromRgb(180, 70, 20)));
             chemPanel.Items.Add(cCol2);
 
-            // Panel 5: 电力冶金 (DL/T, 20G520, 19G518-3)
+            // Panel 5: 电力冶金 (DL/T, 16G519, 19G518)
             RibbonPanelSource powerMetaPanel = CreatePanel(tab, "电力冶金");
             RibbonRowPanel pmCol1 = new RibbonRowPanel();
-            pmCol1.Items.Add(CreateSmallButton("变电构架", "SS_GANTRY ", "DL/T 5218《220kV~750kV变电站设计技术规程》A 字型钢管龙门构架与格构横梁", Color.FromRgb(110, 86, 207)));
+            pmCol1.Items.Add(CreateSmallButton("变电构架", "SS_GANTRY ", "DL/T 5218 变电站 A 字型钢管龙门构架与格构横梁", Color.FromRgb(110, 86, 207)));
             pmCol1.Items.Add(CreateRowBreak());
-            pmCol1.Items.Add(CreateSmallButton("电缆支架", "SS_CABLE_RACK ", "DL/T 5221《城市电力电缆线路设计技术规定》电力电缆沟多层角钢支架（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            pmCol1.Items.Add(CreateSmallButton("电缆支架", "SS_CABLE_RACK ", "DL/T 5221 电力电缆沟/隧道多层角钢支架（支持两点绘制）", Color.FromRgb(110, 86, 207)));
             powerMetaPanel.Items.Add(pmCol1);
 
             RibbonRowPanel pmCol2 = new RibbonRowPanel();
-            pmCol2.Items.Add(CreateSmallButton("重吊车梁", "SS_CRANE_BEAM ", "20G520-1~2《钢吊车梁(6m~9m)》重型焊接吊车梁、制动走道花纹板与重轨（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            pmCol2.Items.Add(CreateSmallButton("重吊车梁", "SS_CRANE_BEAM ", "16G519 冶金厂房重型焊接吊车梁、制动板与重轨（支持两点绘制）", Color.FromRgb(110, 86, 207)));
             pmCol2.Items.Add(CreateRowBreak());
-            pmCol2.Items.Add(CreateSmallButton("柱间支撑", "SS_XBRACE ", "19G518-3《门式刚架轻型房屋钢结构(有吊车)》柱间上下柱双片十字交叉支撑（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            pmCol2.Items.Add(CreateSmallButton("柱间支撑", "SS_XBRACE ", "19G518 冶金厂房上下柱双片十字交叉支撑（支持两点绘制）", Color.FromRgb(110, 86, 207)));
             powerMetaPanel.Items.Add(pmCol2);
 
             // Panel 6: 单根型钢与参数编辑

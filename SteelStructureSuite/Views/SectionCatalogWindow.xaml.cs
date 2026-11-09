@@ -8,6 +8,7 @@ using Microsoft.Win32;
 using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
@@ -27,6 +28,10 @@ namespace SteelStructureSuite.Views
         public SectionCatalogWindow()
         {
             InitializeComponent();
+            Width = Math.Max(Width, 960);
+            Height = Math.Max(Height, 640);
+            MinWidth = 840;
+            MinHeight = 520;
 
             CmbType.Items.Add("H型钢");
             CmbType.Items.Add("槽钢");
@@ -51,6 +56,21 @@ namespace SteelStructureSuite.Views
             }
 
             RefreshAllTabGrids();
+
+            // 恢复上次停留的截面类型页签
+            int lastTab = UserSettings.GetInt("Catalog.LastTabIndex", 0);
+            if (lastTab >= 0 && lastTab < TabSections.Items.Count)
+            {
+                TabSections.SelectedIndex = lastTab;
+            }
+
+            UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
+            Closed += (s, e) =>
+            {
+                UserSettings.SetInt("Catalog.LastTabIndex", TabSections.SelectedIndex);
+                UserSettings.Save();
+                UserSettings.SaveWindowState(this, "SectionCatalogWindow");
+            };
         }
 
         private static DataGrid CreateSectionDataGrid(SectionShapeType shapeType)
@@ -62,21 +82,23 @@ namespace SteelStructureSuite.Views
                 IsReadOnly = false,
                 SelectionMode = DataGridSelectionMode.Single,
                 RowHeaderWidth = 0,
+                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
+                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
                 Margin = new Thickness(4)
             };
 
-            dg.Columns.Add(new DataGridTextColumn { Header = "截面代号", Binding = new Binding("Name"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "类别", Binding = new Binding("ShapeTypeDisplayName"), IsReadOnly = true, Width = new DataGridLength(0.9, DataGridLengthUnitType.Star) });
+            dg.Columns.Add(new DataGridTextColumn { Header = "截面代号", Binding = new Binding("Name"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star), MinWidth = 130 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "类别", Binding = new Binding("ShapeTypeDisplayName"), IsReadOnly = true, Width = new DataGridLength(0.9, DataGridLengthUnitType.Star), MinWidth = 80 });
 
             string hHeader = shapeType == SectionShapeType.PipeTube ? "外径 D (mm)" : "高度 H (mm)";
             string bHeader = shapeType == SectionShapeType.PipeTube ? "外径 D (mm)" : "宽度 B (mm)";
-            dg.Columns.Add(new DataGridTextColumn { Header = hHeader, Binding = new Binding("H"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = bHeader, Binding = new Binding("B"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "壁厚 tw (mm)", Binding = new Binding("Tw"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "翼缘厚 tf (mm)", Binding = new Binding("Tf"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "截面积 (cm²)", Binding = new Binding("AreaCm2") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(0.95, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "单重 (kg/m)", Binding = new Binding("UnitWeightKgPerM") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star) });
-            dg.Columns.Add(new DataGridTextColumn { Header = "表面积 (m²/m)", Binding = new Binding("PerimeterMPerM") { StringFormat = "0.000" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star) });
+            dg.Columns.Add(new DataGridTextColumn { Header = hHeader, Binding = new Binding("H"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
+            dg.Columns.Add(new DataGridTextColumn { Header = bHeader, Binding = new Binding("B"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "壁厚 tw (mm)", Binding = new Binding("Tw"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "翼缘厚 tf (mm)", Binding = new Binding("Tf"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 95 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "截面积 (cm²)", Binding = new Binding("AreaCm2") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 95 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "单重 (kg/m)", Binding = new Binding("UnitWeightKgPerM") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star), MinWidth = 95 });
+            dg.Columns.Add(new DataGridTextColumn { Header = "表面积 (m²/m)", Binding = new Binding("PerimeterMPerM") { StringFormat = "0.000" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star), MinWidth = 100 });
 
             return dg;
         }
@@ -244,3 +266,4 @@ namespace SteelStructureSuite.Views
         }
     }
 }
+

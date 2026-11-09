@@ -83,16 +83,13 @@ namespace SteelStructureSuite.Services.Drawing
             if (string.IsNullOrWhiteSpace(saveDwgPath))
                 throw new ArgumentException("新 DWG 文件路径不能为空。");
 
-            string dir = Path.GetDirectoryName(saveDwgPath);
-            if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
-            {
-                Directory.CreateDirectory(dir);
-            }
+            string normalizedPath = NormalizeDwgPath(saveDwgPath);
 
             using (Database newDb = new Database(true, true))
+            using (WorkingDatabaseScope.Use(newDb))
             {
                 GenerateDetailDrawingSheet(newDb, p, Point3d.Origin, options);
-                newDb.SaveAs(saveDwgPath, DwgVersion.Current);
+                SaveDatabaseToDwg(newDb, normalizedPath);
             }
         }
 
@@ -128,15 +125,105 @@ namespace SteelStructureSuite.Services.Drawing
             if (string.IsNullOrWhiteSpace(saveDwgPath))
                 throw new ArgumentException("新 DWG 文件路径不能为空。");
 
+            string normalizedPath = NormalizeDwgPath(saveDwgPath);
+
+            using (Database newDb = new Database(true, true))
+            using (WorkingDatabaseScope.Use(newDb))
+            {
+                GenerateDetailDrawingSheet(newDb, structures, Point3d.Origin, options);
+                SaveDatabaseToDwg(newDb, normalizedPath);
+            }
+        }
+
+        /// <summary>
+        /// 规范化待保存的 DWG 路径：
+        ///   1. 去掉非法文件名字符（Windows 保留字符 &lt; &gt; : " / \ | ? * 以及控制字符）；
+        ///   2. 缺少扩展名时补 .dwg；
+        ///   3. 返回绝对路径，避免因相对路径造成"另存为"落到错误目录。
+        /// </summary>
+        public static string NormalizeDwgPath(string saveDwgPath)
+        {
+            if (string.IsNullOrWhiteSpace(saveDwgPath))
+                throw new ArgumentException("新 DWG 文件路径不能为空。");
+
+            string raw = saveDwgPath.Trim().Trim('"');
+            string dir = Path.GetDirectoryName(raw);
+            string file = Path.GetFileName(raw);
+
+            if (string.IsNullOrEmpty(file))
+                throw new ArgumentException("新 DWG 文件路径缺少文件名：" + saveDwgPath);
+
+            var sb = new System.Text.StringBuilder(file.Length);
+            foreach (char ch in file)
+            {
+                if (char.IsControl(ch)) continue;
+                if ("< > : \"/ \\ | ? *".IndexOf(ch) >= 0) continue;
+                sb.Append(ch);
+            }
+
+            file = sb.ToString().Trim().TrimEnd('.');
+            if (file.Length == 0)
+                throw new ArgumentException("新 DWG 文件名全部由非法字符组成：" + saveDwgPath);
+            if (!file.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase))
+                file += ".dwg";
+
+            string full = string.IsNullOrEmpty(dir)
+                ? file
+                : Path.Combine(dir, file);
+            try
+            {
+                full = Path.GetFullPath(full);
+            }
+            catch
+            {
+                // 路径含非法字符时退回拼接结果
+            }
+            return full;
+        }
+
+        /// <summary>
+        /// 保存独立 DWG 文件。
+        ///
+        /// 之前的实现直接 newDb.SaveAs(path, DwgVersion.Current)，在以下情况会抛出
+        /// eWrongDatabase：
+        ///   · 文件名里含有 "/" 等 Windows 非法字符（例如把标准号 "HG/T 21543" 直接拼进文件名）；
+        ///   · 目标文件已存在时 SaveAs 覆盖失败；
+        ///   · 当前 CAD 的 DwgVersion.Current 与目标写入版本不匹配。
+        /// 这里统一做净化 + 覆盖前删除 + 版本回退，并给出可读的错误信息。
+        /// </summary>
+        private static void SaveDatabaseToDwg(Database db, string saveDwgPath)
+        {
             string dir = Path.GetDirectoryName(saveDwgPath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
                 Directory.CreateDirectory(dir);
 
-            using (Database newDb = new Database(true, true))
+            Exception lastError = null;
+            DwgVersion[] versions = { DwgVersion.Current, DwgVersion.AC1032, DwgVersion.AC1027, DwgVersion.AC1024 };
+
+            foreach (DwgVersion version in versions)
             {
-                GenerateDetailDrawingSheet(newDb, structures, Point3d.Origin, options);
-                newDb.SaveAs(saveDwgPath, DwgVersion.Current);
+                try
+                {
+                    if (File.Exists(saveDwgPath))
+                        File.Delete(saveDwgPath);
+
+                    db.SaveAs(saveDwgPath, true, version, db.SecurityParameters);
+
+                    if (File.Exists(saveDwgPath))
+                    {
+                        var info = new FileInfo(saveDwgPath);
+                        if (info.Length > 0) return;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    lastError = ex;
+                }
             }
+
+            throw new IOException(
+                "保存 DWG 失败：" + saveDwgPath + "（" + (lastError == null ? "未知错误" : lastError.Message) + "）",
+                lastError);
         }
 
         public static void GenerateDetailDrawingSheet(
@@ -775,36 +862,58 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewY = 0; maxViewY = nominalH;
             }
 
-            // 平面图从上往下看 (Z 越大越靠前)，正立面从前向后看 (Y 越小越靠前)，侧立面从左向右看 (X 越小越靠前)
-            var sorted = isPlanView
-                ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
-                : boxes.OrderBy(b => b.MinDepth).ToList();
+            // 真正的消隐（HLR）：沿视线方向对每条真实棱线做射线求交，区分可见实线与隐藏虚线。
+            // 视图法向由视图平面的“右 × 上”确定，保证消隐结果与投影方向严格一致：
+            //   正立面 (x,z)：右=X 上=Z → 观察者在 -Y 一侧
+            //   侧立面 (y,z)：右=Y 上=Z → 观察者在 +X 一侧
+            //   平面图 (x,y)：右=X 上=Y → 自上而下俯视
+            Vector3d viewNormal = isFrontView
+                ? new Vector3d(0, -1, 0)
+                : isSideView
+                    ? new Vector3d(1, 0, 0)
+                    : new Vector3d(0, 0, 1);
 
-            for (int i = 0; i < sorted.Count; i++)
+            HlrEngine.ViewResult hlr = HlrEngine.Compute(parts3d, proj2d, viewNormal);
+
+            if (hlr.HasGeometry)
             {
-                var cur = sorted[i];
-                bool isOccluded = false;
-                Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
+                minViewX = hlr.MinX; maxViewX = hlr.MaxX;
+                minViewY = hlr.MinY; maxViewY = hlr.MaxY;
+                DrawHlrSegments(tr, ms, viewBase, hlr);
+            }
+            else
+            {
+                // 极端情况下（例如构件实体缺失）退回轮廓投影，保证图面不为空。
+                var sorted = isPlanView
+                    ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
+                    : boxes.OrderBy(b => b.MinDepth).ToList();
 
-                for (int j = 0; j < i; j++)
+                for (int i = 0; i < sorted.Count; i++)
                 {
-                    var front = sorted[j];
-                    bool strictlyBehind = isPlanView
-                        ? (front.MinDepth > cur.MaxDepth + 5.0)
-                        : (front.MaxDepth < cur.MinDepth - 5.0);
+                    var cur = sorted[i];
+                    bool isOccluded = false;
+                    Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
 
-                    // 只有当后方构件中心被前方实心钢板（如平台铺板）完全覆盖，或与前方完全同位置构件重叠时才转为虚线
-                    if (strictlyBehind && front.IsPlate &&
-                        curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
-                        curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
+                    for (int j = 0; j < i; j++)
                     {
-                        isOccluded = true;
-                        break;
-                    }
-                }
+                        var front = sorted[j];
+                        bool strictlyBehind = isPlanView
+                            ? (front.MinDepth > cur.MaxDepth + 5.0)
+                            : (front.MaxDepth < cur.MinDepth - 5.0);
 
-                string targetLayer = isOccluded ? LayerHidden : LayerVisible;
-                DrawOrthographicPart2D(tr, ms, viewBase, cur, proj2d, targetLayer);
+                        // 只有当后方构件中心被前方实心钢板（如平台铺板）完全覆盖，或与前方完全同位置构件重叠时才转为虚线
+                        if (strictlyBehind && front.IsPlate &&
+                            curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
+                            curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
+                        {
+                            isOccluded = true;
+                            break;
+                        }
+                    }
+
+                    string targetLayer = isOccluded ? LayerHidden : LayerVisible;
+                    DrawOrthographicPart2D(tr, ms, viewBase, cur, proj2d, targetLayer);
+                }
             }
 
             // 获取结构精确设计轴线坐标（用于绘制中心轴线与标准工程尺寸标注）
@@ -1432,11 +1541,22 @@ namespace SteelStructureSuite.Services.Drawing
             }
             else
             {
-                // 轴测图作为全结构三维构件布置与件号索引图，全部采用清晰可见实线 (LayerVisible) 绘制三维轮廓与纵向翼缘棱边，杜绝误判全灰虚线
-                var sortedIso = isoParts.OrderBy(x => x.Depth).ToList();
-                foreach (IsoPart2D cur in sortedIso)
+                // 轴测图同样走真正的消隐流程：西南等轴测的观察者位于 (-X,-Y,+Z) 一侧。
+                Vector3d isoNormal = new Vector3d(-1, -1, 1).GetNormal();
+                HlrEngine.ViewResult isoHlr = HlrEngine.Compute(parts3d, isoProj, isoNormal);
+                if (isoHlr.HasGeometry)
                 {
-                    DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
+                    DrawHlrSegments(tr, ms, isoBase, isoHlr);
+                    minIsoX = isoHlr.MinX; maxIsoX = isoHlr.MaxX;
+                    minIsoY = isoHlr.MinY; maxIsoY = isoHlr.MaxY;
+                }
+                else
+                {
+                    var sortedIso = isoParts.OrderBy(x => x.Depth).ToList();
+                    foreach (IsoPart2D cur in sortedIso)
+                    {
+                        DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
+                    }
                 }
             }
 
@@ -1933,10 +2053,34 @@ namespace SteelStructureSuite.Services.Drawing
             Line ln = new Line(
                 new Point3d(basePt.X + x1, basePt.Y + y1, 0),
                 new Point3d(basePt.X + x2, basePt.Y + y2, 0));
-            ln.SetDatabaseDefaults();
+            ln.SetDatabaseDefaults(ms.Database);
             ln.Layer = layer;
+            ln.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+            if (layer == LayerHidden)
+            {
+                // acad.lin 的 DASHED 周期只有 0.75 个图形单位，不放大的话在米级构件上会看成实线。
+                double len = Math.Max(ln.Length, 80.0);
+                ln.LinetypeScale = Math.Max(20.0, len / 14.0);
+            }
             ms.AppendEntity(ln);
             tr.AddNewlyCreatedDBObject(ln, true);
+        }
+
+        /// <summary>
+        /// 绘制消隐计算结果：可见线段画实线（LayerVisible），隐藏线段画虚线（LayerHidden）。
+        /// </summary>
+        private static void DrawHlrSegments(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d basePt,
+            HlrEngine.ViewResult hlr)
+        {
+            if (hlr == null) return;
+            foreach (HlrEngine.Segment2D seg in hlr.Segments)
+            {
+                string layer = seg.Visible ? LayerVisible : LayerHidden;
+                AppendLine2D(tr, ms, basePt, seg.A.X, seg.A.Y, seg.B.X, seg.B.Y, layer);
+            }
         }
 
         private static void AppendLinearDim(
@@ -2095,7 +2239,7 @@ namespace SteelStructureSuite.Services.Drawing
                 ObjectId dashedId = EnsureLinetype(db, tr, ltt, "DASHED");
                 ObjectId centerId = EnsureLinetype(db, tr, ltt, "CENTER");
 
-                CreateOrUpdateLayer(tr, lt, LayerVisible, 2, ObjectId.Null, LineWeight.LineWeight030);
+                CreateOrUpdateLayer(tr, lt, LayerVisible, 7, ObjectId.Null, LineWeight.LineWeight030);
                 CreateOrUpdateLayer(tr, lt, LayerHidden, 8, dashedId, LineWeight.LineWeight015);
                 CreateOrUpdateLayer(tr, lt, LayerAxis, 1, centerId, LineWeight.LineWeight013);
                 CreateOrUpdateLayer(tr, lt, LayerDim, 3, ObjectId.Null, LineWeight.LineWeight018);
@@ -2125,7 +2269,14 @@ namespace SteelStructureSuite.Services.Drawing
             ObjectId linetypeId,
             LineWeight lw)
         {
-            if (lt.Has(name)) return;
+            if (lt.Has(name))
+            {
+                LayerTableRecord existing = (LayerTableRecord)tr.GetObject(lt[name], OpenMode.ForWrite);
+                existing.Color = Color.FromColorIndex(ColorMethod.ByAci, colorIndex);
+                existing.LineWeight = lw;
+                if (!linetypeId.IsNull) existing.LinetypeObjectId = linetypeId;
+                return;
+            }
             lt.UpgradeOpen();
             LayerTableRecord ltr = new LayerTableRecord
             {
@@ -2138,4 +2289,34 @@ namespace SteelStructureSuite.Services.Drawing
             tr.AddNewlyCreatedDBObject(ltr, true);
         }
     }
+
+    /// <summary>
+    /// 把指定数据库临时设为当前工作数据库。
+    /// 在 new Database 上建实体、装线型、SaveAs 都必须处于这个作用域内，否则抛 eWrongDatabase。
+    /// </summary>
+    internal sealed class WorkingDatabaseScope : System.IDisposable
+    {
+        private readonly Database _previous;
+        private bool _disposed;
+
+        private WorkingDatabaseScope(Database db)
+        {
+            _previous = HostApplicationServices.WorkingDatabase;
+            HostApplicationServices.WorkingDatabase = db;
+        }
+
+        public static WorkingDatabaseScope Use(Database db)
+        {
+            if (db == null) throw new ArgumentNullException(nameof(db));
+            return new WorkingDatabaseScope(db);
+        }
+
+        public void Dispose()
+        {
+            if (_disposed) return;
+            _disposed = true;
+            HostApplicationServices.WorkingDatabase = _previous;
+        }
+    }
+
 }

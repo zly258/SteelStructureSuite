@@ -1,4 +1,4 @@
-# SteelStructureSuite · 参数化钢结构套件
+﻿# SteelStructureSuite · 参数化钢结构套件
 
 面向 **AutoCAD（x64）** 的参数化钢结构建模插件。以 Autodesk Bundle 形式安装后随 AutoCAD 自动加载，在顶部生成「参数化钢结构」功能区，覆盖门式刚架、平台、管廊、桁架、梯道、栏杆、支座，以及**化工、电力、冶金三大行业的 8 类标准参数化组件**，提供快速建模、正交夹点编辑、材料统计与标准图框详图出图。
 
@@ -107,25 +107,52 @@ msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=
 
 ## 五、安装与部署
 
+### 关于 AutoCAD 版本：必须按大版本分别编译
+
+AutoCAD 的托管程序集（`AcDbMgd` / `AcCoreMgd` / `AcMgd` / `AdWindows`）版本随 CAD 版本变化：
+
+| AutoCAD 版本 | 托管程序集版本 | 对应 Bundle |
+| --- | --- | --- |
+| 2019（R23.0 ~ R23.1） | 23.x | `SteelStructureSuite.bundle` |
+| 2021 / 2022 / 2023 / 2024（R24.0 ~ R24.3） | 24.x | `SteelStructureSuite2021.bundle` |
+
+**一个 DLL 只能被与它编译目标一致的大版本加载。** 把按 2019 编译的 DLL 放进公共插件目录后，
+AutoCAD 2021 会在加载阶段直接失败，表现为「命令列表里什么都没有 / 新增命令看不到」。
+因此本项目为两个大版本分别编译并发布为两个 Bundle，二者的
+`SeriesMin` / `SeriesMax` 互不重叠，AutoCAD 只会加载与自己版本匹配的那一个。
+
+一键完成编译、打包与安装：
+
+```powershell
+pwsh tools\Publish.ps1 -Install
+```
+
 ### 方式 A：安装包（推荐）
 
-1. 编译 `Release | x64`。
+1. 执行 `pwsh tools\Publish.ps1` 生成两个大版本的 Bundle 产物
+   （`dist\SteelStructureSuite.bundle` 与 `dist\SteelStructureSuite2021.bundle`）。
 2. 用 Inno Setup 编译 `installer\SteelStructureSuite.iss`（或执行 `iscc.exe /DAppVersion=1.0.0 installer\SteelStructureSuite.iss`）。
 3. 运行 `dist\SteelStructureSuite-1.0.0-setup`，安装包会：
    - 将 `PackageContents.xml` 写入 `C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\`；
-   - 将 `SteelStructureSuite.dll` 写入该 Bundle 的 `Contents\`；
+   - 将 `PackageContentsR24.xml` 写入 `C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle\`；
+   - 将两个版本各自的 `SteelStructureSuite.dll` 写入对应 Bundle 的 `Contents\`；
    - 将使用说明写入 Bundle 的 `Contents\Help\` 及 `%ProgramData%\SteelStructureSuite\`。
 4. 重启 AutoCAD，插件自动加载并激活「参数化钢结构」选项卡。
 
 安装目录约定：
 
 ```text
-C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
-├─ PackageContents.xml
-└─ Contents\
-   ├─ SteelStructureSuite.dll
-   └─ Help\
-      └─ UserManual.md
+C:\Program Files\Autodesk\ApplicationPlugins\
+├─ SteelStructureSuite.bundle\          # AutoCAD 2019 使用
+│  ├─ PackageContents.xml
+│  └─ Contents\
+│     ├─ SteelStructureSuite.dll
+│     └─ Help\UserManual.md
+└─ SteelStructureSuite2021.bundle\      # AutoCAD 2021 ~ 2024 使用
+   ├─ PackageContents.xml
+   └─ Contents\
+      ├─ SteelStructureSuite.dll
+      └─ Help\UserManual.md
 ```
 
 > 安装需要管理员权限；升级安装会先清理用户级同名 Bundle 与目标 `Contents`，避免双份 DLL 或旧版残留。

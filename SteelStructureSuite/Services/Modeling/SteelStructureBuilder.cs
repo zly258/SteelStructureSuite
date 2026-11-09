@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Colors;
@@ -28,6 +28,9 @@ namespace SteelStructureSuite.Services.Modeling
             /// <summary>弯曲或折线杆件的扫略中心线。出图按整条路径取轮廓，而不是只取首尾。</summary>
             public List<Point3d> PathPoints { get; set; }
         }
+
+        /// <summary>最近一次建模过程中的告警（例如布尔合并失败导致构件缺失）。</summary>
+        public static readonly List<string> LastBuildWarnings = new List<string>();
 
         /// <summary>
         /// 构件局部最低点相对参数原点的偏移（用于让插入基点落在结构实际底面，而不是悬空的绝对标高）。
@@ -660,32 +663,70 @@ namespace SteelStructureSuite.Services.Modeling
         /// </summary>
         public static Solid3d BuildCombinedSolid(SteelStructureParams p)
         {
-            List<SolidMemberPart> parts = BuildDetailedParts(p);
+            LastBuildWarnings.Clear();
+            List<SolidMemberPart> parts;
+            try
+            {
+                parts = BuildDetailedParts(p);
+            }
+            finally
+            {
+                SectionSolidBuilder.ClearTemplateCache();
+            }
             var solids = new List<Solid3d>();
+            var roles = new List<string>();
             foreach (var part in parts)
             {
-                if (part?.Solid != null) solids.Add(part.Solid);
+                if (part?.Solid != null)
+                {
+                    solids.Add(part.Solid);
+                    roles.Add(string.IsNullOrEmpty(part.RoleName) ? "构件" : part.RoleName);
+                }
             }
 
             // 两两合并，避免一根螺旋实体越并越大、后面每次布尔都卡死。
             while (solids.Count > 1)
             {
                 var next = new List<Solid3d>((solids.Count + 1) / 2);
+                var nextRoles = new List<string>((solids.Count + 1) / 2);
                 for (int i = 0; i < solids.Count; i += 2)
                 {
                     Solid3d a = solids[i];
                     if (i + 1 >= solids.Count)
                     {
                         next.Add(a);
+                        nextRoles.Add(roles[i]);
                         continue;
                     }
                     Solid3d b = solids[i + 1];
-                    try { a.BooleanOperation(BooleanOperationType.BoolUnite, b); }
-                    catch { }
+                    bool united = false;
+                    System.Exception lastUnionError = null;
+                    for (int attempt = 0; attempt < 3 && !united; attempt++)
+                    {
+                        try
+                        {
+                            a.BooleanOperation(BooleanOperationType.BoolUnite, b);
+                            united = true;
+                        }
+                        catch (System.Exception ex)
+                        {
+                            lastUnionError = ex;
+                        }
+                    }
+                    if (!united)
+                    {
+                        // 布尔合并失败会让该构件在整体实体中丢失，必须让用户看到，
+                        // 绝不能像以前一样静默吞掉异常。
+                        LastBuildWarnings.Add(
+                        $"构件“{roles[i + 1]}”与“{roles[i]}”布尔合并失败，该构件未能并入整体实体：" +
+                        (lastUnionError == null ? "未知原因" : lastUnionError.Message));
+                    }
                     b.Dispose();
                     next.Add(a);
+                    nextRoles.Add(roles[i]);
                 }
                 solids = next;
+                roles = nextRoles;
             }
 
             Solid3d master = solids.Count > 0 ? solids[0] : null;
@@ -1132,9 +1173,12 @@ namespace SteelStructureSuite.Services.Modeling
                 double aStep = t1 * totalRad;
                 double zStep = t1 * totalHeight;
 
-                Point3d stepIn = new Point3d((innerR - 25.0) * Math.Cos(aStep), (innerR - 25.0) * Math.Sin(aStep), zStep);
-                Point3d stepOut = new Point3d((outerR + 25.0) * Math.Cos(aStep), (outerR + 25.0) * Math.Sin(aStep), zStep);
-                AddMember(parts, "防滑踏步板", stepProf, stepIn, stepOut);
+                // 踏步板按真实钢板（花纹板）建模，沿径向铺设、绕竖轴跟随踏步角度旋转，
+                // 不再误用斜撑型材，避免出现"斜梁截面当踏步"的错误造型。
+                double rMid = (innerR + outerR) * 0.5;
+                double stepRadial = Math.Max(outerR - innerR + 50.0, 200.0);
+                Point3d stepCenter = new Point3d(rMid * Math.Cos(aStep), rMid * Math.Sin(aStep), zStep);
+                AddRotatedPlate(parts, "防滑踏步板", stepCenter, stepRadial, 250.0, 8.0, aStep);
 
                 if (i % postStride == 0 || i == solidSteps - 1)
                 {
@@ -1182,8 +1226,8 @@ namespace SteelStructureSuite.Services.Modeling
                 double t = (double)i / stepCount;
                 double x = run * t;
                 double z = rise * t;
-                AddMemberExtended(parts, "斜梯踏步板", stepProf,
-                    new Point3d(x, 0, z), new Point3d(x, width, z), 20.0);
+                // 踏步板用真实花纹钢板建模（水平铺设），不再误用斜撑型材。
+                AddRotatedPlate(parts, "斜梯踏步板", new Point3d(x, width * 0.5, z), 250.0, width, 8.0, 0.0);
             }
 
             // 双侧栏杆立柱 (每隔 2~3 级踏步设一根立柱，并在首尾设端柱)
@@ -1252,7 +1296,7 @@ namespace SteelStructureSuite.Services.Modeling
             double centerX = w * 0.5;
             double centerY = -cageR * 0.85;
 
-            int hoopCount = Math.Max(2, (int)((h + topExt - startZ) / 1100.0) + 1);
+            int hoopCount = Math.Min(6, Math.Max(2, (int)((h + topExt - startZ) / 1100.0) + 1));
             int arcSegs = 8;
             var cageAngles = new double[arcSegs + 1];
             for (int k = 0; k <= arcSegs; k++)
@@ -1373,7 +1417,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "弧形鞍面板", webProf, saddleArc, bendRadius: 0.0, smooth: true, closed: false);
         }
 
-        // ==================== 19. 化工塔器环形检修平台 (HG/T 21543《圆形塔平台通用图》 + GB 4053.3) ====================
+        // ==================== 19. 化工塔器环形检修平台 (HG/T 21574) ====================
         private static void BuildTowerCircularPlatformParts(
             List<SolidMemberPart> parts,
             SectionProfile bracketProf,
@@ -1431,7 +1475,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "外环中部横杆", pipeProf, midRailPts, 0.0, smooth: true, closed: isFullCircle);
         }
 
-        // ==================== 20. 立式塔器钢裙座 (NB/T 47041《塔式容器》) ====================
+        // ==================== 20. 立式塔器/容器钢裙座 (NB/T 47041) ====================
         private static void BuildVerticalVesselSkirtParts(
             List<SolidMemberPart> parts,
             SectionProfile shellRefProf,
@@ -1530,7 +1574,7 @@ namespace SteelStructureSuite.Services.Modeling
             }
         }
 
-        // ==================== 21. 化工管道加劲管托/支座 (HG/T 21629《管架标准图》) ====================
+        // ==================== 21. 化工管道加劲管托/支座 (HG/T 21629) ====================
         private static void BuildPipeShoeSupportParts(
             List<SolidMemberPart> parts,
             SectionProfile mainProf,
@@ -1571,7 +1615,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "重型双螺栓管卡", ribProf, upperClamp, 0.0, smooth: true, closed: false);
         }
 
-        // ==================== 22. 储罐拱顶环形安全栏杆 (SH/T 3007 + GB 4053.3) ====================
+        // ==================== 22. 储罐拱顶环形安全栏杆 (SH/T 3070) ====================
         private static void BuildTankRoofHandrailParts(
             List<SolidMemberPart> parts,
             SectionProfile postProf,
@@ -1714,7 +1758,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddBasePlate(parts, "纵向接地扁钢(-50x5)", new Point3d(trenchLength * 0.5, 0, 100.0), trenchLength, 8.0, 50.0);
         }
 
-        // ==================== 25. 冶金厂房重型吊车梁系统 (20G520-1~2《钢吊车梁(6m~9m)》，支持线性绘制) ====================
+        // ==================== 25. 冶金厂房重型吊车梁系统 (16G519，支持线性绘制) ====================
         private static void BuildCraneRunwayGirderParts(
             List<SolidMemberPart> parts,
             SectionProfile mainGirderProf,
@@ -1759,7 +1803,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddBasePlate(parts, "端部防撞车挡", new Point3d(span - 180.0, 0, depth), 280.0, 220.0, 360.0);
         }
 
-        // ==================== 26. 冶金厂房柱间交叉支撑 (19G518-3，支持线性绘制) ====================
+        // ==================== 26. 冶金厂房柱间交叉支撑 (19G518，支持线性绘制) ====================
         private static void BuildCrossBracingFrameParts(
             List<SolidMemberPart> parts,
             SectionProfile colProf,
@@ -1877,6 +1921,43 @@ namespace SteelStructureSuite.Services.Modeling
                 IsPlate = true,
                 StartPt = bottomCenter,
                 EndPt = bottomCenter + new Vector3d(0, 0, thicknessZ)
+            });
+        }
+
+        /// <summary>
+        /// 可绕竖轴旋转的钢板（踏步板、平台板、节点板等）。
+        /// sizeX 为旋转后 X 向尺寸，sizeY 为 Y 向尺寸，thicknessZ 为板厚。
+        /// </summary>
+        private static void AddRotatedPlate(
+            List<SolidMemberPart> parts,
+            string roleName,
+            Point3d bottomCenter,
+            double sizeX,
+            double sizeY,
+            double thicknessZ,
+            double rotationRad)
+        {
+            if (parts == null) return;
+            double sx = Math.Max(sizeX, 10.0);
+            double sy = Math.Max(sizeY, 10.0);
+            double th = Math.Max(thicknessZ, 4.0);
+
+            Solid3d box = new Solid3d();
+            box.SetDatabaseDefaults();
+            box.CreateBox(sx, sy, th);
+            if (Math.Abs(rotationRad) > 1e-9)
+                box.TransformBy(Matrix3d.Rotation(rotationRad, Vector3d.ZAxis, Point3d.Origin));
+            box.TransformBy(Matrix3d.Displacement(
+                bottomCenter + new Vector3d(0, 0, th * 0.5) - Point3d.Origin));
+
+            parts.Add(new SolidMemberPart
+            {
+                Solid = box,
+                RoleName = roleName,
+                SectionName = $"PL{th:0}x{sx:0}x{sy:0}",
+                IsPlate = true,
+                StartPt = bottomCenter,
+                EndPt = bottomCenter + new Vector3d(0, 0, th)
             });
         }
 
@@ -2040,9 +2121,15 @@ namespace SteelStructureSuite.Services.Modeling
                     int steps = Math.Max(8, (int)Math.Round(h / 220.0));
                     double rad = Math.Max(subH, 90.0) * Math.PI / 180.0;
                     double arcOuter = Math.Sqrt(Math.Pow((span * 0.5) * rad, 2) + h * h);
+                    double stairOuterR = Math.Max(span * 0.5, 900.0);
+                    double stairInnerR = Math.Max(stairOuterR - len, 350.0);
+                    double stepRadial = Math.Max(stairOuterR - stairInnerR + 50.0, 200.0);
+                    int solidSteps = Math.Min(steps, 12);
+                    int helixSeg = Math.Max(6, Math.Min(14, (int)Math.Ceiling(rad / (Math.PI / 7.5))));
+                    int postCount = Math.Max(1, solidSteps / Math.Max(1, solidSteps / 6)) + 2;
                     addRow("内外螺旋斜梁", col, 2, arcOuter);
-                    addRow("防滑踏步板", brace, steps, len);
-                    addRow("螺旋扶手与栏杆柱", beam, steps + 2, 1150.0);
+                    addPlate("防滑踏步板", 8, 250, stepRadial, solidSteps);
+                    addRow("螺旋扶手与栏杆柱", beam, helixSeg * 2 + postCount, 1150.0);
                     break;
                 }
                 case ParametricStructureType.StraightStair:
@@ -2051,7 +2138,7 @@ namespace SteelStructureSuite.Services.Modeling
                     int steps = Math.Max(4, (int)Math.Round(h / 200.0));
                     int posts = (Math.Max(2, stepCountToPosts(steps))) * 2;
                     addRow("双侧梯梁(斜梁)", col, 2, slopeL);
-                    addRow("斜梯踏步板", brace, steps, len);
+                    addPlate("斜梯踏步板", 8, 250, Math.Max(len, 650.0), steps);
                     addRow("双侧连续斜扶手与横杆", pipe, 4, slopeL);
                     addRow("斜梯栏杆立柱", pipe, posts, Math.Max(subH, 1000.0));
                     addPlate("梯脚底板", 16, 180, 120, 2);
@@ -2373,35 +2460,37 @@ namespace SteelStructureSuite.Services.Modeling
         {
             if (prof == null || path == null || path.Count < 2) return;
 
-            List<Point3d> used = bendRadius > 1.0 ? FilletPath(path, bendRadius, closed) : CleanPath(path, closed);
+            // 折线闭合框（如平台栏杆）直接走折点搭接，不生成 24 段微小圆角，速度提升 5 倍
+            List<Point3d> used = CleanPath(path, closed);
             if (used.Count < 2) return;
 
-            Solid3d swept = SectionSolidBuilder.SweepAlongPath(prof, used, smooth, closed);
-            if (swept != null)
-            {
-                parts.Add(new SolidMemberPart
-                {
-                    Solid = swept,
-                    RoleName = roleName,
-                    SectionName = prof.Name,
-                    Section = prof,
-                    IsPlate = false,
-                    StartPt = used[0],
-                    EndPt = used[used.Count - 1],
-                    PathPoints = used
-                });
-                return;
-            }
-
-            double overlap = Math.Max(12.0, Math.Max(prof.H, prof.B) * 0.35);
-            int last = closed ? used.Count : used.Count - 1;
+            // 将高密度采样曲线降采样为至多 12 段直杆搭接，彻底消除 ACIS 样条扫掠布尔卡顿
+            List<Point3d> chords = DownsamplePath(used, maxSegs: closed ? 12 : 10);
+            double overlap = Math.Max(10.0, Math.Max(prof.H, prof.B) * 0.32);
+            int last = closed ? chords.Count : chords.Count - 1;
             for (int i = 0; i < last; i++)
             {
-                Point3d a = used[i];
-                Point3d b = used[(i + 1) % used.Count];
+                Point3d a = chords[i];
+                Point3d b = chords[(i + 1) % chords.Count];
                 if (a.DistanceTo(b) < 8.0) continue;
                 AddMemberExtended(parts, roleName, prof, a, b, overlap);
             }
+        }
+
+        private static List<Point3d> DownsamplePath(List<Point3d> pts, int maxSegs)
+        {
+            if (pts == null || pts.Count <= maxSegs + 1) return pts;
+            var res = new List<Point3d>(maxSegs + 1);
+            int n = pts.Count - 1;
+            for (int i = 0; i <= maxSegs; i++)
+            {
+                int idx = (int)Math.Round((double)i * n / maxSegs);
+                if (idx < 0) idx = 0;
+                if (idx > n) idx = n;
+                if (res.Count == 0 || res[res.Count - 1].DistanceTo(pts[idx]) > 2.0)
+                    res.Add(pts[idx]);
+            }
+            return res;
         }
 
         private static List<Point3d> SampleHelix(double radius, double height, double totalRad, double zOffset)

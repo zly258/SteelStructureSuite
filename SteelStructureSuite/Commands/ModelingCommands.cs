@@ -204,6 +204,8 @@ namespace SteelStructureSuite.Commands
                     SteelStructureBuilder.AppendToCurrentDatabase(db, segParams);
                 }
 
+                ReportBuildWarnings(ed);
+
                 segCount++;
                 Vector3d dir = new Vector3d(System.Math.Cos(segParams.RotationRad), System.Math.Sin(segParams.RotationRad), 0);
                 currentStart = segParams.Origin + dir * segParams.Span + new Vector3d(0, 0, segParams.EndPointOffsetZ);
@@ -314,16 +316,26 @@ namespace SteelStructureSuite.Commands
                 try
                 {
                     SteelHlrDrawingService.GenerateDetailDrawingToNewDwgFile(picked, savePath, cfgWin.Options);
-                    ed.WriteMessage($"\n[SteelStructureSuite] 已将 {picked.Count} 个构件写入详图：{savePath}\n");
-
-                    if (cfgWin.Options.OpenNewDwgAfterSave && File.Exists(savePath))
-                    {
-                        Application.DocumentManager.Open(savePath, false);
-                    }
                 }
                 catch (System.Exception ex)
                 {
                     ed.WriteMessage($"\n[SteelStructureSuite] 创建新 DWG 文件失败: {ex.Message}\n");
+                    return;
+                }
+
+                string savedPath = SteelHlrDrawingService.NormalizeDwgPath(savePath);
+                ed.WriteMessage($"\n[SteelStructureSuite] 已将 {picked.Count} 个构件写入详图：{savedPath}\n");
+
+                if (cfgWin.Options.OpenNewDwgAfterSave && File.Exists(savedPath))
+                {
+                    try
+                    {
+                        Application.DocumentManager.Open(savedPath, false);
+                    }
+                    catch (System.Exception ex)
+                    {
+                        ed.WriteMessage($"\n[SteelStructureSuite] 详图已保存，但打开新 DWG 失败: {ex.Message}\n");
+                    }
                 }
             }
             else
@@ -415,6 +427,7 @@ namespace SteelStructureSuite.Commands
             using (DocumentLock dl = doc.LockDocument())
             {
                 SteelStructureBuilder.AppendToCurrentDatabase(db, finalParams);
+                ReportBuildWarnings(ed);
             }
 
             _tagSeq++;
@@ -539,6 +552,17 @@ namespace SteelStructureSuite.Commands
             }
 
             return p;
+        }
+
+        /// <summary>把建模过程中的告警（例如布尔合并失败导致构件缺失）回显给用户。</summary>
+        private static void ReportBuildWarnings(Editor ed)
+        {
+            if (ed == null) return;
+            if (SteelStructureBuilder.LastBuildWarnings == null) return;
+            foreach (string warning in SteelStructureBuilder.LastBuildWarnings)
+            {
+                ed.WriteMessage($"\n[SteelStructureSuite] 建模告警：{warning}");
+            }
         }
 
         private static ObjectId PickParametricStructure(Editor ed, Database db, string prompt)

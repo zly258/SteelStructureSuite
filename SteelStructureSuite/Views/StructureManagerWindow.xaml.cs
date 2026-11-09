@@ -12,6 +12,7 @@ using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Drawing;
 using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Settings;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace SteelStructureSuite.Views
@@ -24,7 +25,23 @@ namespace SteelStructureSuite.Views
         public StructureManagerWindow()
         {
             InitializeComponent();
+            Width = Math.Max(Width, 960);
+            Height = Math.Max(Height, 560);
+            MinWidth = 820;
+            MinHeight = 460;
+            if (DgStructures != null)
+            {
+                DgStructures.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
+                DgStructures.VerticalScrollBarVisibility = ScrollBarVisibility.Auto;
+                foreach (var col in DgStructures.Columns)
+                {
+                    if (col.MinWidth < 65) col.MinWidth = 65;
+                }
+            }
             ReloadAllStructures();
+
+            UserSettings.RestoreWindowState(this, "StructureManagerWindow");
+            Closed += (s, e) => UserSettings.SaveWindowState(this, "StructureManagerWindow");
         }
 
         private void ReloadAllStructures()
@@ -259,7 +276,7 @@ namespace SteelStructureSuite.Views
 
             if (cfgWin.Options.OutputToNewDwgFile)
             {
-                string savePath = cfgWin.Options.NewDwgFilePath;
+                string savePath = SteelHlrDrawingService.NormalizeDwgPath(cfgWin.Options.NewDwgFilePath);
                 SteelHlrDrawingService.GenerateDetailDrawingToNewDwgFile(rec.Params, savePath, cfgWin.Options);
                 if (cfgWin.Options.OpenNewDwgAfterSave && File.Exists(savePath))
                 {
@@ -325,3 +342,4 @@ namespace SteelStructureSuite.Views
         }
     }
 }
+

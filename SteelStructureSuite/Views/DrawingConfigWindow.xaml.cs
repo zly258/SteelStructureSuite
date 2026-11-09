@@ -3,6 +3,7 @@ using System.IO;
 using System.Windows;
 using Microsoft.Win32;
 using SteelStructureSuite.Domain.Models;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
@@ -16,6 +17,10 @@ namespace SteelStructureSuite.Views
         public DrawingConfigWindow(SteelStructureParams targetParams)
         {
             InitializeComponent();
+            Width = Math.Max(Width, 530);
+            Height = Math.Max(Height, 530);
+            MinWidth = 490;
+            MinHeight = 480;
 
             Title = $"施工详图出图设置 - [{targetParams.Tag}]";
 
@@ -42,11 +47,93 @@ namespace SteelStructureSuite.Views
             CmbScale.Items.Add("1:200");
             CmbScale.SelectedIndex = 0;
 
-            TxtNewDwgPath.Text = Path.Combine(
-                Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory),
-                $"{targetParams.Tag}_{targetParams.StructureTypeDisplayName}.dwg");
+            RestoreLastSettings(targetParams);
 
             UpdateTargetControlsState();
+
+            UserSettings.RestoreWindowState(this, "DrawingConfigWindow");
+            Closed += (s, e) => UserSettings.SaveWindowState(this, "DrawingConfigWindow");
+        }
+
+        /// <summary>
+        /// 恢复上一次使用的出图设置（图幅、比例、各视图勾选、输出目标等）。
+        /// </summary>
+        private void RestoreLastSettings(SteelStructureParams targetParams)
+        {
+            int sheetIdx = UserSettings.GetInt("Drawing.SheetSizeIndex", 1);
+            if (sheetIdx >= 0 && sheetIdx < SheetNames.Length) CmbSheetSize.SelectedIndex = sheetIdx;
+
+            int scaleIdx = UserSettings.GetInt("Drawing.ScaleIndex", 0);
+            if (scaleIdx >= 0 && scaleIdx <= ScaleValues.Length) CmbScale.SelectedIndex = scaleIdx;
+
+            ChkFront.IsChecked = UserSettings.GetBool("Drawing.FrontView", true);
+            ChkSide.IsChecked = UserSettings.GetBool("Drawing.SideView", true);
+            ChkPlan.IsChecked = UserSettings.GetBool("Drawing.PlanView", true);
+            ChkIso.IsChecked = UserSettings.GetBool("Drawing.IsoView", true);
+            ChkDim.IsChecked = UserSettings.GetBool("Drawing.Dimensions", true);
+            ChkLeader.IsChecked = UserSettings.GetBool("Drawing.Leaders", true);
+            ChkBom.IsChecked = UserSettings.GetBool("Drawing.Bom", true);
+
+            bool toNewDwg = UserSettings.GetBool("Drawing.OutputToNewDwg", false);
+            RadNewDwg.IsChecked = toNewDwg;
+            RadCurrentDwg.IsChecked = !toNewDwg;
+            ChkOpenAfterSave.IsChecked = UserSettings.GetBool("Drawing.OpenAfterSave", true);
+
+            // 默认文件名：构件编号 + 类型显示名（标准号里含 "/" 等非法字符，必须净化）
+            string displayName = SafeFileNamePart(targetParams.StructureTypeDisplayName);
+            string fileName = SafeFileNamePart(targetParams.Tag) + "_" + displayName + ".dwg";
+            string folder = UserSettings.GetString("Drawing.LastDwgFolder", string.Empty);
+            if (string.IsNullOrEmpty(folder))
+                folder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+            TxtNewDwgPath.Text = Path.Combine(folder, fileName);
+        }
+
+        /// <summary>
+        /// 去除文件名中的 Windows 非法字符（标准号 "HG/T 21543"、"DL/T 5218" 等都含斜杠，
+        /// 直接拼进文件名会导致 SaveAs 失败并报 eWrongDatabase）。
+        /// </summary>
+        private static string SafeFileNamePart(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "详图";
+            var sb = new System.Text.StringBuilder(text.Length);
+            foreach (char ch in text)
+            {
+                if (char.IsControl(ch)) continue;
+                if ("< > : \"/ \\ | ? *".IndexOf(ch) >= 0) continue;
+                sb.Append(ch);
+            }
+            string result = sb.ToString().Trim().TrimEnd('.');
+            return result.Length == 0 ? "详图" : result;
+        }
+
+        /// <summary>
+        /// 保存本次使用的出图设置，供下次打开时恢复。
+        /// </summary>
+        private void SaveLastSettings()
+        {
+            UserSettings.SetInt("Drawing.SheetSizeIndex", CmbSheetSize.SelectedIndex);
+            UserSettings.SetInt("Drawing.ScaleIndex", CmbScale.SelectedIndex);
+            UserSettings.SetBool("Drawing.FrontView", ChkFront.IsChecked == true);
+            UserSettings.SetBool("Drawing.SideView", ChkSide.IsChecked == true);
+            UserSettings.SetBool("Drawing.PlanView", ChkPlan.IsChecked == true);
+            UserSettings.SetBool("Drawing.IsoView", ChkIso.IsChecked == true);
+            UserSettings.SetBool("Drawing.Dimensions", ChkDim.IsChecked == true);
+            UserSettings.SetBool("Drawing.Leaders", ChkLeader.IsChecked == true);
+            UserSettings.SetBool("Drawing.Bom", ChkBom.IsChecked == true);
+            UserSettings.SetBool("Drawing.OutputToNewDwg", RadNewDwg.IsChecked == true);
+            UserSettings.SetBool("Drawing.OpenAfterSave", ChkOpenAfterSave.IsChecked == true);
+
+            try
+            {
+                string folder = Path.GetDirectoryName(TxtNewDwgPath.Text);
+                if (!string.IsNullOrEmpty(folder)) UserSettings.SetString("Drawing.LastDwgFolder", folder);
+            }
+            catch
+            {
+                // 路径非法时忽略，不影响出图
+            }
+
+            UserSettings.Save();
         }
 
         private void OnOutputTargetChanged(object sender, RoutedEventArgs e)
@@ -100,6 +187,8 @@ namespace SteelStructureSuite.Views
             Options.OutputToNewDwgFile = RadNewDwg.IsChecked == true;
             Options.NewDwgFilePath = TxtNewDwgPath.Text?.Trim() ?? string.Empty;
             Options.OpenNewDwgAfterSave = ChkOpenAfterSave.IsChecked == true;
+
+            SaveLastSettings();
 
             DialogResult = true;
             Close();
