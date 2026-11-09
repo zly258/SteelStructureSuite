@@ -2,7 +2,7 @@
 <!-- ============================================================================
      AutoCAD 自动加载清单（Autodesk ApplicationPlugins Bundle）
      放置位置：<AutoCAD 安装目录>\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
-     适用版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2020 (R23.1)
+     适用版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2024 (R24.3)
      ============================================================================ -->
 <ApplicationPackage SchemaVersion="1.0"
                     AutodeskProduct="AutoCAD"
@@ -70,7 +70,7 @@
         <Command Global="SS_SADDLE"        Local="SS_SADDLE" />
         <Command Global="SS_LINEAR_CHAIN"  Local="SS_LINEAR_CHAIN" />
 
-        <!-- 化工 / 电力 / 冶金行业标准组件 (HG/T, NB/T, SH/T, DL/T, 16G519, 19G518) -->
+        <!-- 化工 / 电力 / 冶金行业标准组件 (HG/T 21543, HG/T 21629, NB/T 47041, SH/T 3007, DL/T 5218, DL/T 5221, 20G520, 19G518-3) -->
         <Command Global="SS_TOWER_PLAT"    Local="SS_TOWER_PLAT" />
         <Command Global="SS_SKIRT"         Local="SS_SKIRT" />
         <Command Global="SS_PIPESHOE"      Local="SS_PIPESHOE" />

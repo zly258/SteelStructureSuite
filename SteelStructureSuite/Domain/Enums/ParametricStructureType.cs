@@ -25,17 +25,17 @@
         ArcSteelMember = 16,        // 16. 弧形单根型钢(圆弧扫掠，支持两点绘制)
         SpiralSteelMember = 17,     // 17. 螺旋单根型钢(螺旋扫掠，支持两点绘制)
 
-        // 四、化工行业标准组件 (Chemical & Petrochemical - HG/T 21574, HG/T 21629, NB/T 47041, SH/T 3070)
-        VesselSupport = 15,         // 18. 卧式容器鞍式钢支座(NB/T 47042)
-        TowerCircularPlatform = 18, // 19. 塔器环形检修平台(HG/T 21574)
-        VerticalVesselSkirt = 19,   // 20. 立式塔器/容器钢裙座(NB/T 47041)
-        PipeShoeSupport = 20,       // 21. 化工管道加劲管托/支座(HG/T 21629)
-        TankRoofHandrail = 21,      // 22. 储罐拱顶环形安全栏杆(SH/T 3070)
+        // 四、化工行业标准组件 (Chemical & Petrochemical)
+        VesselSupport = 15,         // 18. 卧式容器鞍式支座(NB/T 47042《卧式容器》)
+        TowerCircularPlatform = 18, // 19. 塔器环形检修平台(HG/T 21543《圆形塔平台通用图》+ GB 4053.3)
+        VerticalVesselSkirt = 19,   // 20. 立式塔器钢裙座(NB/T 47041《塔式容器》)
+        PipeShoeSupport = 20,       // 21. 化工管道加劲管托/支座(HG/T 21629《管架标准图》)
+        TankRoofHandrail = 21,      // 22. 储罐拱顶环形安全栏杆(SH/T 3007 + GB 4053.3)
 
-        // 五、电力与冶金行业标准组件 (Electric Power & Metallurgy - DL/T 5218, DL/T 5221, 16G519, 19G518)
-        SubstationGantryFrame = 22, // 23. 变电站A字型龙门构架(DL/T 5218)
-        CableTrenchSupport = 23,    // 24. 电力电缆沟多层支架(DL/T 5221，支持线性绘制)
-        CraneRunwayGirder = 24,     // 25. 冶金厂房重型吊车梁系统(16G519，支持线性绘制)
-        CrossBracingFrame = 25      // 26. 冶金厂房柱间交叉支撑(19G518，支持线性绘制)
+        // 五、电力与冶金行业标准组件 (Electric Power & Metallurgy)
+        SubstationGantryFrame = 22, // 23. 变电站A字型龙门构架(DL/T 5218《220kV~750kV变电站设计技术规程》)
+        CableTrenchSupport = 23,    // 24. 电力电缆沟多层支架(DL/T 5221《城市电力电缆线路设计技术规定》，支持线性绘制)
+        CraneRunwayGirder = 24,     // 25. 冶金厂房重型吊车梁系统(20G520-1~2《钢吊车梁(6m~9m)》，支持线性绘制)
+        CrossBracingFrame = 25      // 26. 冶金厂房柱间交叉支撑(19G518-3《门式刚架轻型房屋钢结构(有吊车)》，支持线性绘制)
     }
 }

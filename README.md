@@ -1,9 +1,10 @@
 # SteelStructureSuite · 参数化钢结构套件
 
-面向 **AutoCAD 2019 / 2020（x64）** 的参数化钢结构建模插件。以 Autodesk Bundle 形式安装后随 AutoCAD 自动加载，在顶部生成「参数化钢结构」功能区，覆盖门式刚架、平台、管廊、桁架、梯道、栏杆、支座等常见钢结构形式的快速建模、正交夹点编辑、材料统计与标准图框详图出图。
+面向 **AutoCAD（x64）** 的参数化钢结构建模插件。以 Autodesk Bundle 形式安装后随 AutoCAD 自动加载，在顶部生成「参数化钢结构」功能区，覆盖门式刚架、平台、管廊、桁架、梯道、栏杆、支座，以及**化工、电力、冶金三大行业的 8 类标准参数化组件**，提供快速建模、正交夹点编辑、材料统计与标准图框详图出图。
 
 - 目标框架：.NET Framework 4.8 / WPF
-- 适用平台：Windows 10 x64，AutoCAD 2019 (R23.0) ~ 2020 (R23.1)
+- 适用平台：Windows 10 x64，AutoCAD 2019 (R23.0) ~ 2024 (R24.3)
+- 已验证环境：AutoCAD 2019、AutoCAD Plant 3D 2019
 - 程序集：`SteelStructureSuite.dll`（AutoCAD 托管程序集由 CAD 自身提供，不随包分发）
 
 ---
@@ -12,7 +13,7 @@
 
 | 模块 | 能力 |
 | --- | --- |
-| 参数化建模 | 门架、多跨门架、人字撑、双层管廊、装置框架、四柱平台、悬臂托架、屋面桁架、管廊桁桥、螺旋盘梯、直跑斜梯、护笼直梯、栏杆、走道、单根型钢、容器鞍座等 16+ 种构件 |
+| 参数化建模 | 厂房框架 6 种、平台梯道栏杆 7 种、单根型钢 3 种、化工设备标准件 5 种、电力与冶金标准件 4 种，共 **26 种**参数化构件 |
 | 动态放置 | 单点放置（60FPS 实时预览）、两点线性绘制、`SS_LINEAR_CHAIN` 连续折线绘制 |
 | 参数编辑 | 双击实体进入参数窗口；正交夹点复写（长度/高度/宽度/原点独立拉伸，互不干扰） |
 | 截面管理 | H 型钢、槽钢、角钢、方矩管、圆钢管 5 类截面库，支持 Excel 导入导出 |
@@ -27,12 +28,17 @@
 | 项目 | 要求 |
 | --- | --- |
 | 操作系统 | Windows 10 x64（安装包最低要求 10.0） |
-| AutoCAD | 2019 或 2020（64 位），.NET 加载 |
+| AutoCAD | 2019 ~ 2024（64 位），.NET 加载；高版本需用对应版本的托管程序集重新编译（见「四、编译」） |
 | 运行时 | .NET Framework 4.8 |
 | 编译 | Visual Studio 2019/2022，MSBuild（`Debug| x64` 或 `Release| x64`） |
 | 打包 | [Inno Setup 6.x](https://jrsoftware.org/isinfo.php)（含简体中文语言文件） |
 
-> 编译时需要本机安装 AutoCAD 2019，工程通过 `HintPath` 引用其 `AcCoreMgd.dll`、`AcDbMgd.dll`、`AcMgd.dll`、`AdWindows.dll`，这些引用均设置为 `Private=False`，不会复制到输出目录。
+> 编译时需要本机安装 AutoCAD，工程通过 `HintPath` 引用其 `AcCoreMgd.dll`、`AcDbMgd.dll`、`AcMgd.dll`、`AdWindows.dll`，这些引用均设置为 `Private=False`，不会复制到输出目录。
+> 引用路径由 MSBuild 属性 `AutoCADDir` 控制，默认 `C:\Program Files\Autodesk\AutoCAD 2019`。
+>
+> **版本兼容性说明**：AutoCAD 托管程序集的版本号随产品版本变化（2019 为 `23.0.0.0`，2021 为 `24.0.0.0`，AdWindows 亦然），且 AutoCAD 未提供通用的绑定重定向。因此面向 2021 及以上版本使用时，请用对应版本的 `AutoCADDir` 重新编译一份 DLL，不要直接沿用 2019 版二进制。
+>
+> **切换 `AutoCADDir` 后请先 `/t:Clean` 再 `/t:Rebuild`**：切换引用版本后 `obj` 中的中间产物会与新引用不一致，可能导致 WPF 标记编译报错 `RG1000 已添加了具有相同键的项`。
 
 ---
 
@@ -42,9 +48,14 @@
 SteelStructureSuite/
 ├─ SteelStructureSuite.sln
 ├─ README.md
+├─ CHANGELOG.md
+├─ CONTRIBUTING.md
 ├─ LICENSE                           # MIT 许可证
 ├─ docs/
 │  └─ UserManual.md                  # 详细使用说明
+├─ .github/
+│  ├─ ISSUE_TEMPLATE/                # 问题与需求模板
+│  └─ pull_request_template.md
 ├─ installer/
 │  ├─ PackageContents.xml            # AutoCAD Bundle 自动加载清单
 │  └─ SteelStructureSuite.iss        # Inno Setup 安装脚本
@@ -74,6 +85,21 @@ SteelStructureSuite/
    ```text
    SteelStructureSuite\bin\x64\Release\SteelStructureSuite.dll
    ```
+
+命令行方式（推荐，可指定 AutoCAD 版本）：
+
+```bash
+# 默认使用 C:\Program Files\Autodesk\AutoCAD 2019 的托管程序集
+msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64
+
+# 面向 AutoCAD 2021 及以上版本重新编译
+msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 ^
+        /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2021"
+```
+
+> ⚠️ **请务必使用 `/t:Rebuild`（或先清理 `bin` / `obj`）**。
+> 本工程输出路径为 `bin\x64\Release`，MSBuild 会依据时间戳做增量判断：当输出 DLL 比源文件新时会**跳过编译**并仍报告“生成成功”，导致部署了旧二进制却毫无察觉。
+> 校验产物是否包含最新命令：`rg -a -o "SS_[A-Z_]{3,}" SteelStructureSuite\bin\x64\Release\SteelStructureSuite.dll`。
 
 > `EnableDefaultCompileItems` 已关闭，新增 `.cs` / `.xaml` 文件时必须同步写入 `.csproj` 的 `<Compile>` / `<Page>` 节点。
 
@@ -144,7 +170,9 @@ C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
 | `SS_LADDER` | 护笼钢直梯（GB 4053.1） |
 | `SS_HANDRAIL` | 安全栏杆 |
 | `SS_MEMBER` | 任意两点绘制单根型钢 |
-| `SS_SADDLE` | 容器鞍式支座 |
+| `SS_ARC` | 两点绘制弧形单根型钢（第一点为圆心，第二点定半径与起始方向） |
+| `SS_SPIRAL` | 两点绘制螺旋单根型钢（第一点到第二点为轴线） |
+| `SS_SADDLE` | 卧式容器鞍式支座（NB/T 47042） |
 | `SS_LINEAR_CHAIN` | 连续折线绘制栏杆/走道/钢梁 |
 | `SS_EDIT` | 编辑选中构件参数（双击实体亦可） |
 | `SS_ALIGN` | 多构件 X/Y/Z/中心对齐 |
@@ -153,13 +181,28 @@ C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
 | `SS_OVERRULE_ON` | 开启参数化夹点复写 |
 | `SS_OVERRULE_OFF` | 关闭参数化夹点复写 |
 
+### 行业标准组件命令（化工 / 电力 / 冶金）
+
+| 命令 | 构件 | 参照标准 | 绘制方式 |
+| --- | --- | --- | --- |
+| `SS_TOWER_PLAT` | 塔器环形检修平台 | HG/T 21543《圆形塔平台通用图》、GB 4053.3 | 单点，60°~360° 包角 |
+| `SS_SKIRT` | 立式塔器钢裙座 | NB/T 47041《塔式容器》 | 单点 |
+| `SS_PIPESHOE` | 化工管道加劲管托 | HG/T 21629《管架标准图》 | 单点 / 两点定向 |
+| `SS_TANK_RAIL` | 储罐拱顶环形安全栏杆 | SH/T 3007、GB 4053.3 | 单点，60°~360° 包角 |
+| `SS_GANTRY` | 变电站 A 字型龙门构架 | DL/T 5218《220kV~750kV变电站设计技术规程》 | 单点 |
+| `SS_CABLE_RACK` | 电力电缆沟多层支架 | DL/T 5221《城市电力电缆线路设计技术规定》 | 两点 / 连续多段线性 |
+| `SS_CRANE_BEAM` | 冶金厂房重型吊车梁系统 | 20G520-1~2《钢吊车梁(6m~9m)》 | 两点线性 |
+| `SS_XBRACE` | 冶金厂房柱间交叉支撑 | 19G518-3《门式刚架轻型房屋钢结构(有吊车)》 | 两点线性 |
+
+各构件的参数含义、构造细节与材料清单组成详见 [docs/UserManual.md](docs/UserManual.md) 第六章。
+
 ---
 
 ## 七、打包发布
 
 ```bash
-# 1. 生成 Release 产物
-msbuild SteelStructureSuite.sln /p:Configuration=Release /p:Platform=x64
+# 1. 生成 Release 产物（务必 Rebuild，见「四、编译」的增量陷阱说明）
+msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64
 
 # 2. 生成安装包（Inno Setup 6）
 "C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.0.0 installer\SteelStructureSuite.iss
@@ -190,7 +233,15 @@ msbuild SteelStructureSuite.sln /p:Configuration=Release /p:Platform=x64
 安装前关闭 AutoCAD。DLL 被 `acad.exe` 加载后无法覆盖，安装包启用了 `CloseApplications`，但建议手动退出。
 
 **Q4. 支持 AutoCAD 2021 及以上吗？**
-当前清单限制 `SeriesMin=R23.0`、`SeriesMax=R23.1`。如需更高版本，需用对应版本的 `Ac*Mgd.dll` 重新编译，并同步修改 `PackageContents.xml` 的 `SeriesMax`。
+Bundle 清单的版本区间已放宽为 `SeriesMin=R23.0`、`SeriesMax=R24.3`，因此 2021 ~ 2024 会正常扫描并加载本插件。
+但**托管程序集需按版本分别编译**：AutoCAD 2021 提供 `AcCoreMgd 24.0.0.0`，与 2019 的 `23.0.0.0` 主版本不同，且 AutoCAD 未提供通用绑定重定向。面向高版本请执行：
+
+```bash
+msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 ^
+        /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2021"
+```
+
+本仓库随附的二进制为 **AutoCAD 2019 / Plant 3D 2019** 编译版本。
 
 **Q5. 双击实体没有弹出编辑窗口？**
 确认 `SS_OVERRULE_ON` 已开启且对象是由本插件创建（参数保存在实体 XData/扩展字典中）。
@@ -204,12 +255,26 @@ msbuild SteelStructureSuite.sln /p:Configuration=Release /p:Platform=x64
   1. 在 `PackageContents.xml` 的 `<Commands>` 中登记（Bundle 按需加载）；
   2. 在 `Ribbon/SteelRibbonBuilder.cs` 中添加按钮；
   3. 在本 README 命令表中补充说明。
+- 新增构件类型后还需同步：`Domain/Enums/ParametricStructureType.cs`（枚举与分类）、`Domain/Models/SteelStructureParams.cs`（显示名、分类与预设）、`Services/Modeling/SteelStructureBuilder.cs`（几何构造）、`Services/Interaction/SteelGripOverrule.cs`（夹点复写）、`Views/Controls/StructureSchematicControl.cs`（示意图）、`Views/StructureEditWindow.xaml.cs`（参数界面）；
+- 构件若引用国家/行业标准，**务必核对标准号与标准全称**（错误的标准号是开源后最容易被指出的问题），并在 `docs/UserManual.md` 同步登记；
+- 提交信息采用 [Conventional Commits](https://www.conventionalcommits.org/) 规范，示例：
+  `feat(components): 新增塔器环形检修平台等 8 类行业标准组件`、`fix(drawing): 修复出图服务 Vector2d/Point2d 类型误用`、`docs(readme): 更新支持版本区间`；
 - 参数持久化由 `Services/Modeling/SteelDataStorage.cs` 负责，编辑与算量均依赖该数据；
 - WPF 窗口统一通过 `Application.ShowModalWindow` 显示，保持 AutoCAD 模态消息循环兼容。
 
+贡献流程详见 [CONTRIBUTING.md](CONTRIBUTING.md)，版本变更记录见 [CHANGELOG.md](CHANGELOG.md)。
+
 ---
 
-## 十、许可证
+## 十、标准与版权声明
+
+- 本项目为**标准构件的参数化几何实现**：依据公开标准与标准图集所规定的构件形式、比例关系与构造要求进行参数化建模，**不包含标准原文、标准图集原图或任何第三方图纸内容**，与标准编制单位、标准出版单位无任何隶属或代理关系。
+- 构件几何为工程近似模型（用于快速方案建模与算量），**不得直接用于施工图**；正式工程请依据现行标准原文与专业设计校核。
+- 引用标准的名称与编号以官方发布版本为准；本项目在文档中标注的标准号供检索参考，如有勘误以官方原文为准。
+
+---
+
+## 十一、许可证
 
 本项目以 **MIT License** 发布，完整条款见仓库根目录 [LICENSE](LICENSE)。
 

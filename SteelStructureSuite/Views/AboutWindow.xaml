@@ -57,7 +57,7 @@
             <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" Margin="0,0,0,6" />
 
             <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Foreground="#5F6368" Margin="0,0,0,6" />
-            <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD 2019 / 2020（x64）" Margin="0,0,0,6" />
+            <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD 2019 ~ 2024（x64）" Margin="0,0,0,6" />
 
             <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Foreground="#5F6368" Margin="0,0,0,6" />
             <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8" Margin="0,0,0,6" />

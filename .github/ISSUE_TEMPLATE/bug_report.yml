@@ -1,0 +1,74 @@
+name: 问题反馈
+description: 报告插件异常、建模错误或出图问题
+title: "[Bug] "
+labels: ["bug"]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        感谢反馈！请尽量提供可复现的步骤，这能极大加快定位速度。
+  - type: input
+    id: auto-cad-version
+    attributes:
+      label: AutoCAD 版本
+      placeholder: 例如 AutoCAD 2021 / AutoCAD Plant 3D 2019
+    validations:
+      required: true
+  - type: input
+    id: plugin-version
+    attributes:
+      label: 插件版本
+      placeholder: 例如 v1.0.0（可执行 SS_ABOUT 查看）
+    validations:
+      required: true
+  - type: dropdown
+    id: component
+    attributes:
+      label: 问题涉及的构件类型
+      options:
+        - 厂房框架（门架/桁架/管廊）
+        - 平台梯道栏杆
+        - 单根型钢
+        - 化工设备标准件
+        - 电力与冶金标准件
+        - 截面库 / 模型管理器
+        - 材料统计 / 出图
+        - 功能区与命令
+        - 其他
+    validations:
+      required: true
+  - type: input
+    id: command
+    attributes:
+      label: 相关命令
+      placeholder: 例如 SS_TOWER_PLAT
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤
+      value: |
+        1.
+        2.
+        3.
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 期望结果
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 实际结果与报错信息
+      value: |
+        ```
+        ```
+    validations:
+      required: true
+  - type: textarea
+    id: other
+    attributes:
+      label: 补充信息
+      description: 参数取值、截图、DWG 或相关标准依据等

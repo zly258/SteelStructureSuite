@@ -1,7 +1,7 @@
 ; ===========================================================================================
 ;  SteelStructureSuite（参数化钢结构套件）安装脚本（Inno Setup 6.x）
 ;    · 以 Autodesk Bundle 形式安装到 AutoCAD 插件目录，随 AutoCAD 启动自动加载
-;    · 目标版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2020 (R23.1)，Windows 10 x64
+;    · 目标版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2024 (R24.3)，Windows 10 x64
 ;
 ;  编译方式：
 ;    1) Inno Setup Compiler 打开本文件 → Build → Compile

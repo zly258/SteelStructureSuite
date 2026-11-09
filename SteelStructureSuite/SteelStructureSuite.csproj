@@ -13,6 +13,17 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <AssemblyName>SteelStructureSuite</AssemblyName>
     <RootNamespace>SteelStructureSuite</RootNamespace>
+
+    <!--
+      AutoCAD 安装目录（用于解析 AcCoreMgd / AcDbMgd / AcMgd / AdWindows 引用）。
+      默认为本机 AutoCAD 2019；编译其它版本请覆盖该属性，例如：
+        msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 ^
+                /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2021"
+      注意：托管程序集版本随 AutoCAD 版本变化（2019 为 23.0.0.0，2021 为 24.0.0.0），
+      因此面向不同版本需分别编译，不可直接混用。
+    -->
+    <AutoCADDir Condition="'$(AutoCADDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
+    <AutoCADDir Condition="!Exists('$(AutoCADDir)\AcCoreMgd.dll')">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -113,19 +124,19 @@
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Xml" />
     <Reference Include="AcCoreMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcCoreMgd.dll</HintPath>
+      <HintPath>$(AutoCADDir)\AcCoreMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AcDbMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcDbMgd.dll</HintPath>
+      <HintPath>$(AutoCADDir)\AcDbMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AcMgd">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AcMgd.dll</HintPath>
+      <HintPath>$(AutoCADDir)\AcMgd.dll</HintPath>
       <Private>False</Private>
     </Reference>
     <Reference Include="AdWindows">
-      <HintPath>C:\Program Files\Autodesk\AutoCAD 2019\AdWindows.dll</HintPath>
+      <HintPath>$(AutoCADDir)\AdWindows.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>

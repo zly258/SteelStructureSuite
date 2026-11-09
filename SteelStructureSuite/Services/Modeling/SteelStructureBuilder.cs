@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Colors;
@@ -1373,7 +1373,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "弧形鞍面板", webProf, saddleArc, bendRadius: 0.0, smooth: true, closed: false);
         }
 
-        // ==================== 19. 化工塔器环形检修平台 (HG/T 21574) ====================
+        // ==================== 19. 化工塔器环形检修平台 (HG/T 21543《圆形塔平台通用图》 + GB 4053.3) ====================
         private static void BuildTowerCircularPlatformParts(
             List<SolidMemberPart> parts,
             SectionProfile bracketProf,
@@ -1431,7 +1431,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "外环中部横杆", pipeProf, midRailPts, 0.0, smooth: true, closed: isFullCircle);
         }
 
-        // ==================== 20. 立式塔器/容器钢裙座 (NB/T 47041) ====================
+        // ==================== 20. 立式塔器钢裙座 (NB/T 47041《塔式容器》) ====================
         private static void BuildVerticalVesselSkirtParts(
             List<SolidMemberPart> parts,
             SectionProfile shellRefProf,
@@ -1530,7 +1530,7 @@ namespace SteelStructureSuite.Services.Modeling
             }
         }
 
-        // ==================== 21. 化工管道加劲管托/支座 (HG/T 21629) ====================
+        // ==================== 21. 化工管道加劲管托/支座 (HG/T 21629《管架标准图》) ====================
         private static void BuildPipeShoeSupportParts(
             List<SolidMemberPart> parts,
             SectionProfile mainProf,
@@ -1571,7 +1571,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "重型双螺栓管卡", ribProf, upperClamp, 0.0, smooth: true, closed: false);
         }
 
-        // ==================== 22. 储罐拱顶环形安全栏杆 (SH/T 3070) ====================
+        // ==================== 22. 储罐拱顶环形安全栏杆 (SH/T 3007 + GB 4053.3) ====================
         private static void BuildTankRoofHandrailParts(
             List<SolidMemberPart> parts,
             SectionProfile postProf,
@@ -1714,7 +1714,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddBasePlate(parts, "纵向接地扁钢(-50x5)", new Point3d(trenchLength * 0.5, 0, 100.0), trenchLength, 8.0, 50.0);
         }
 
-        // ==================== 25. 冶金厂房重型吊车梁系统 (16G519，支持线性绘制) ====================
+        // ==================== 25. 冶金厂房重型吊车梁系统 (20G520-1~2《钢吊车梁(6m~9m)》，支持线性绘制) ====================
         private static void BuildCraneRunwayGirderParts(
             List<SolidMemberPart> parts,
             SectionProfile mainGirderProf,
@@ -1759,7 +1759,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddBasePlate(parts, "端部防撞车挡", new Point3d(span - 180.0, 0, depth), 280.0, 220.0, 360.0);
         }
 
-        // ==================== 26. 冶金厂房柱间交叉支撑 (19G518，支持线性绘制) ====================
+        // ==================== 26. 冶金厂房柱间交叉支撑 (19G518-3，支持线性绘制) ====================
         private static void BuildCrossBracingFrameParts(
             List<SolidMemberPart> parts,
             SectionProfile colProf,
