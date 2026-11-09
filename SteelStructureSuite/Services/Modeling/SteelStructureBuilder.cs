@@ -391,6 +391,147 @@ namespace SteelStructureSuite.Services.Modeling
                     }
                     break;
                 }
+                case ParametricStructureType.TowerCircularPlatform:
+                {
+                    double rIn = Math.Max(span * 0.5, 400.0);
+                    double rOut = rIn + Math.Max(len, 700.0);
+                    double sweepRad = Math.Min(360.0, Math.Max(60.0, subH)) * Math.PI / 180.0;
+                    int brackets = Math.Max(3, (int)Math.Ceiling(sweepRad / (Math.PI / 4.0)) + 1);
+                    double railH = 1050.0;
+                    for (int i = 0; i < brackets; i++)
+                    {
+                        double t0 = (double)i / Math.Max(1, brackets - 1);
+                        double a0 = t0 * sweepRad;
+                        Point3d pIn = new Point3d(rIn * Math.Cos(a0), rIn * Math.Sin(a0), h);
+                        Point3d pOut = new Point3d(rOut * Math.Cos(a0), rOut * Math.Sin(a0), h);
+                        Point3d pBot = new Point3d(rIn * Math.Cos(a0), rIn * Math.Sin(a0), 0);
+                        Point3d pTop = new Point3d(rOut * Math.Cos(a0), rOut * Math.Sin(a0), h + railH);
+                        addSeg(pIn, pOut);
+                        addSeg(pBot, pOut);
+                        addSeg(pOut, pTop);
+                        if (i + 1 < brackets)
+                        {
+                            double a1 = (double)(i + 1) / Math.Max(1, brackets - 1) * sweepRad;
+                            addSeg(pIn, new Point3d(rIn * Math.Cos(a1), rIn * Math.Sin(a1), h));
+                            addSeg(pOut, new Point3d(rOut * Math.Cos(a1), rOut * Math.Sin(a1), h));
+                            addSeg(pTop, new Point3d(rOut * Math.Cos(a1), rOut * Math.Sin(a1), h + railH));
+                        }
+                    }
+                    break;
+                }
+                case ParametricStructureType.VerticalVesselSkirt:
+                {
+                    double r = Math.Max(span * 0.5, 400.0);
+                    double rBase = r + Math.Max(len, 180.0);
+                    int segs = 12;
+                    for (int i = 0; i < segs; i++)
+                    {
+                        double a0 = 2.0 * Math.PI * i / segs;
+                        double a1 = 2.0 * Math.PI * (i + 1) / segs;
+                        addSeg(new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), 0),
+                               new Point3d(r * Math.Cos(a1), r * Math.Sin(a1), 0));
+                        addSeg(new Point3d(rBase * Math.Cos(a0), rBase * Math.Sin(a0), 0),
+                               new Point3d(rBase * Math.Cos(a1), rBase * Math.Sin(a1), 0));
+                        addSeg(new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), h),
+                               new Point3d(r * Math.Cos(a1), r * Math.Sin(a1), h));
+                        if (i % 3 == 0)
+                        {
+                            addSeg(new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), 0),
+                                   new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), h));
+                        }
+                    }
+                    break;
+                }
+                case ParametricStructureType.PipeShoeSupport:
+                {
+                    double rPipe = Math.Max(span * 0.5, 100.0);
+                    double shoeLen = Math.Max(len, 250.0);
+                    double baseW = Math.Max(subH, rPipe * 1.4);
+                    addSeg(new Point3d(-baseW * 0.5, -shoeLen * 0.5, 0), new Point3d(baseW * 0.5, -shoeLen * 0.5, 0));
+                    addSeg(new Point3d(baseW * 0.5, -shoeLen * 0.5, 0), new Point3d(baseW * 0.5, shoeLen * 0.5, 0));
+                    addSeg(new Point3d(baseW * 0.5, shoeLen * 0.5, 0), new Point3d(-baseW * 0.5, shoeLen * 0.5, 0));
+                    addSeg(new Point3d(-baseW * 0.5, shoeLen * 0.5, 0), new Point3d(-baseW * 0.5, -shoeLen * 0.5, 0));
+                    addSeg(new Point3d(0, -shoeLen * 0.5, 0), new Point3d(0, -shoeLen * 0.5, h));
+                    addSeg(new Point3d(0, shoeLen * 0.5, 0), new Point3d(0, shoeLen * 0.5, h));
+                    addSeg(new Point3d(0, -shoeLen * 0.5, h), new Point3d(0, shoeLen * 0.5, h));
+                    break;
+                }
+                case ParametricStructureType.TankRoofHandrail:
+                {
+                    double r = Math.Max(span * 0.5, 600.0);
+                    double sweepRad = Math.Min(360.0, Math.Max(60.0, subH)) * Math.PI / 180.0;
+                    int posts = Math.Max(4, (int)Math.Ceiling(r * sweepRad / 1100.0) + 1);
+                    for (int i = 0; i < posts; i++)
+                    {
+                        double a0 = sweepRad * i / Math.Max(1, posts - 1);
+                        Point3d pBot = new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), 0);
+                        Point3d pTop = new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), h);
+                        addSeg(pBot, pTop);
+                        if (i + 1 < posts)
+                        {
+                            double a1 = sweepRad * (i + 1) / Math.Max(1, posts - 1);
+                            addSeg(pTop, new Point3d(r * Math.Cos(a1), r * Math.Sin(a1), h));
+                            addSeg(new Point3d(r * Math.Cos(a0), r * Math.Sin(a0), h * 0.52),
+                                   new Point3d(r * Math.Cos(a1), r * Math.Sin(a1), h * 0.52));
+                        }
+                    }
+                    break;
+                }
+                case ParametricStructureType.SubstationGantryFrame:
+                {
+                    double halfLeg = Math.Max(len * 0.5, 600.0);
+                    double peakH = h + Math.Max(subH, 1200.0);
+                    addSeg(new Point3d(0, -halfLeg, 0), new Point3d(0, 0, h));
+                    addSeg(new Point3d(0, halfLeg, 0), new Point3d(0, 0, h));
+                    addSeg(new Point3d(0, 0, h), new Point3d(0, 0, peakH));
+                    addSeg(new Point3d(span, -halfLeg, 0), new Point3d(span, 0, h));
+                    addSeg(new Point3d(span, halfLeg, 0), new Point3d(span, 0, h));
+                    addSeg(new Point3d(span, 0, h), new Point3d(span, 0, peakH));
+                    addSeg(new Point3d(0, 0, h), new Point3d(span, 0, h));
+                    addSeg(new Point3d(0, 0, h - 800), new Point3d(span, 0, h - 800));
+                    break;
+                }
+                case ParametricStructureType.CableTrenchSupport:
+                {
+                    int cols = Math.Max(2, (int)Math.Ceiling(span / 1500.0) + 1);
+                    double pitch = span / (cols - 1);
+                    int tiers = Math.Max(2, Math.Min(6, p.BayCount));
+                    for (int i = 0; i < cols; i++)
+                    {
+                        double x = i * pitch;
+                        addSeg(new Point3d(x, 0, 0), new Point3d(x, 0, h));
+                        for (int t = 1; t <= tiers; t++)
+                        {
+                            double tz = h * t / (tiers + 0.5);
+                            addSeg(new Point3d(x, 0, tz), new Point3d(x, len, tz));
+                        }
+                    }
+                    addSeg(new Point3d(0, 0, 120), new Point3d(span, 0, 120));
+                    break;
+                }
+                case ParametricStructureType.CraneRunwayGirder:
+                {
+                    double walkW = Math.Max(len, 500.0);
+                    addThickMemberXZ(new Point3d(0, 0, h * 0.5), new Point3d(span, 0, h * 0.5), h * 0.5);
+                    addSeg(new Point3d(0, 0, h), new Point3d(span, 0, h));
+                    addSeg(new Point3d(0, walkW, h), new Point3d(span, walkW, h));
+                    addSeg(new Point3d(0, 0, h), new Point3d(0, walkW, h));
+                    addSeg(new Point3d(span, 0, h), new Point3d(span, walkW, h));
+                    break;
+                }
+                case ParametricStructureType.CrossBracingFrame:
+                {
+                    double corbelZ = Math.Min(Math.Max(subH, h * 0.55), h - 600.0);
+                    addThickMemberXZ(new Point3d(0, 0, 0), new Point3d(0, 0, h), colSec.H * 0.5);
+                    addThickMemberXZ(new Point3d(span, 0, 0), new Point3d(span, 0, h), colSec.H * 0.5);
+                    addSeg(new Point3d(0, 0, corbelZ), new Point3d(span, 0, corbelZ));
+                    addSeg(new Point3d(0, 0, h), new Point3d(span, 0, h));
+                    addSeg(new Point3d(0, 0, 0), new Point3d(span, 0, corbelZ));
+                    addSeg(new Point3d(span, 0, 0), new Point3d(0, 0, corbelZ));
+                    addSeg(new Point3d(0, 0, corbelZ), new Point3d(span, 0, h));
+                    addSeg(new Point3d(span, 0, corbelZ), new Point3d(0, 0, h));
+                    break;
+                }
             }
 
             return lines;
@@ -467,9 +608,31 @@ namespace SteelStructureSuite.Services.Modeling
                 case ParametricStructureType.VesselSupport:
                     BuildVesselSupportParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
                     break;
+                case ParametricStructureType.TowerCircularPlatform:
+                    BuildTowerCircularPlatformParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    break;
+                case ParametricStructureType.VerticalVesselSkirt:
+                    BuildVerticalVesselSkirtParts(parts, colProf, beamProf, braceProf, span, len, h, subH, Math.Max(8, p.BayCount));
+                    break;
+                case ParametricStructureType.PipeShoeSupport:
+                    BuildPipeShoeSupportParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    break;
+                case ParametricStructureType.TankRoofHandrail:
+                    BuildTankRoofHandrailParts(parts, colProf, beamProf, span, h, subH);
+                    break;
+                case ParametricStructureType.SubstationGantryFrame:
+                    BuildSubstationGantryFrameParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    break;
+                case ParametricStructureType.CableTrenchSupport:
+                    BuildCableTrenchSupportParts(parts, colProf, beamProf, braceProf, span, len, h, subH, Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.CraneRunwayGirder:
+                    BuildCraneRunwayGirderParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    break;
+                case ParametricStructureType.CrossBracingFrame:
+                    BuildCrossBracingFrameParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    break;
             }
-
-            TrimIncomingEnds(parts);
 
             double baseOffsetZ = GetBaseOffsetZ(p);
             Vector3d shift = new Vector3d(0, 0, -baseOffsetZ);
@@ -498,25 +661,34 @@ namespace SteelStructureSuite.Services.Modeling
         public static Solid3d BuildCombinedSolid(SteelStructureParams p)
         {
             List<SolidMemberPart> parts = BuildDetailedParts(p);
-            Solid3d master = null;
-
+            var solids = new List<Solid3d>();
             foreach (var part in parts)
             {
-                if (part?.Solid == null) continue;
-                if (master == null)
-                {
-                    master = part.Solid;
-                }
-                else
-                {
-                    try
-                    {
-                        master.BooleanOperation(BooleanOperationType.BoolUnite, part.Solid);
-                    }
-                    catch { }
-                    part.Solid.Dispose();
-                }
+                if (part?.Solid != null) solids.Add(part.Solid);
             }
+
+            // 两两合并，避免一根螺旋实体越并越大、后面每次布尔都卡死。
+            while (solids.Count > 1)
+            {
+                var next = new List<Solid3d>((solids.Count + 1) / 2);
+                for (int i = 0; i < solids.Count; i += 2)
+                {
+                    Solid3d a = solids[i];
+                    if (i + 1 >= solids.Count)
+                    {
+                        next.Add(a);
+                        continue;
+                    }
+                    Solid3d b = solids[i + 1];
+                    try { a.BooleanOperation(BooleanOperationType.BoolUnite, b); }
+                    catch { }
+                    b.Dispose();
+                    next.Add(a);
+                }
+                solids = next;
+            }
+
+            Solid3d master = solids.Count > 0 ? solids[0] : null;
 
             if (master != null)
             {
@@ -688,9 +860,10 @@ namespace SteelStructureSuite.Services.Modeling
                 AddMember(parts, prefix + "平台次梁", braceProf, new Point3d(0, len * 0.5, z), new Point3d(span, len * 0.5, z));
             }
 
-            // 侧面纵向柱间交叉斜撑
-            AddMemberExtended(parts, "柱间斜撑", braceProf, new Point3d(0, 0, 0), new Point3d(0, len, tier1Z), JointOverlapMm);
-            AddMemberExtended(parts, "柱间斜撑", braceProf, new Point3d(span, 0, 0), new Point3d(span, len, tier1Z), JointOverlapMm);
+            // 侧面纵向柱间交叉斜撑（起点置于柱脚底板上方，避免斜撑下翼缘突出于 Z=0 地面以下）
+            double braceBaseZ = Math.Max(100.0, braceProf.H * 0.65);
+            AddMemberExtended(parts, "柱间斜撑", braceProf, new Point3d(0, 0, braceBaseZ), new Point3d(0, len, tier1Z), JointOverlapMm);
+            AddMemberExtended(parts, "柱间斜撑", braceProf, new Point3d(span, 0, braceBaseZ), new Point3d(span, len, tier1Z), JointOverlapMm);
         }
 
         // ==================== 6. 悬臂三角托架 ====================
@@ -944,14 +1117,18 @@ namespace SteelStructureSuite.Services.Modeling
             int stepCount = Math.Max(8, (int)Math.Round(totalHeight / 220.0));
             double handrailH = 1050.0;
 
-            AddContinuousMember(parts, "内螺旋斜梁", stringerProf, SampleHelix(innerR, totalHeight, totalRad, 0.0), 0.0, smooth: true, closed: false);
-            AddContinuousMember(parts, "外螺旋斜梁", stringerProf, SampleHelix(outerR, totalHeight, totalRad, 0.0), 0.0, smooth: true, closed: false);
-            AddContinuousMember(parts, "外侧螺旋扶手", handrailProf, SampleHelix(outerR, totalHeight, totalRad, handrailH), 0.0, smooth: true, closed: false);
-            AddContinuousMember(parts, "螺旋中栏杆", handrailProf, SampleHelix(outerR, totalHeight, totalRad, handrailH * 0.5), 0.0, smooth: true, closed: false);
+            // 螺旋不要走样条扫略：槽钢沿样条扫掠再布尔，AutoCAD 会卡很久。
+            // 用约 24° 一段的直杆接成螺旋，外形仍然连续，生成快一个数量级。
+            AddHelixChords(parts, "内螺旋斜梁", stringerProf, innerR, totalHeight, totalRad, 0.0);
+            AddHelixChords(parts, "外螺旋斜梁", stringerProf, outerR, totalHeight, totalRad, 0.0);
+            AddHelixChords(parts, "外侧螺旋扶手", handrailProf, outerR, totalHeight, totalRad, handrailH);
+            AddHelixChords(parts, "螺旋中栏杆", handrailProf, outerR, totalHeight, totalRad, handrailH * 0.5);
 
-            for (int i = 0; i < stepCount; i++)
+            int solidSteps = Math.Min(stepCount, 12);
+            int postStride = Math.Max(1, solidSteps / 6);
+            for (int i = 0; i < solidSteps; i++)
             {
-                double t1 = (double)(i + 1) / stepCount;
+                double t1 = (double)(i + 1) / solidSteps;
                 double aStep = t1 * totalRad;
                 double zStep = t1 * totalHeight;
 
@@ -959,9 +1136,12 @@ namespace SteelStructureSuite.Services.Modeling
                 Point3d stepOut = new Point3d((outerR + 25.0) * Math.Cos(aStep), (outerR + 25.0) * Math.Sin(aStep), zStep);
                 AddMember(parts, "防滑踏步板", stepProf, stepIn, stepOut);
 
-                Point3d postBot = new Point3d(outerR * Math.Cos(aStep), outerR * Math.Sin(aStep), zStep - 35.0);
-                Point3d postTop = new Point3d(outerR * Math.Cos(aStep), outerR * Math.Sin(aStep), zStep + handrailH + 25.0);
-                AddMember(parts, "栏杆立柱", handrailProf, postBot, postTop);
+                if (i % postStride == 0 || i == solidSteps - 1)
+                {
+                    Point3d postBot = new Point3d(outerR * Math.Cos(aStep), outerR * Math.Sin(aStep), zStep - 35.0);
+                    Point3d postTop = new Point3d(outerR * Math.Cos(aStep), outerR * Math.Sin(aStep), zStep + handrailH + 25.0);
+                    AddMember(parts, "栏杆立柱", handrailProf, postBot, postTop);
+                }
             }
 
             Point3d firstBot = new Point3d(outerR, 0, 0);
@@ -1191,6 +1371,434 @@ namespace SteelStructureSuite.Services.Modeling
                 saddleArc.Add(new Point3d(r * Math.Cos(a), 0, h + r * Math.Sin(a)));
             }
             AddContinuousMember(parts, "弧形鞍面板", webProf, saddleArc, bendRadius: 0.0, smooth: true, closed: false);
+        }
+
+        // ==================== 19. 化工塔器环形检修平台 (HG/T 21574) ====================
+        private static void BuildTowerCircularPlatformParts(
+            List<SolidMemberPart> parts,
+            SectionProfile bracketProf,
+            SectionProfile ringProf,
+            SectionProfile braceProf,
+            double towerDia,
+            double platformWidth,
+            double bracketDropH,
+            double sweepAngleDeg)
+        {
+            double rIn = Math.Max(towerDia * 0.5, 450.0);
+            double rOut = rIn + Math.Max(platformWidth, 700.0);
+            double dropH = Math.Max(bracketDropH, 600.0);
+            double sweepDeg = Math.Min(360.0, Math.Max(60.0, sweepAngleDeg));
+            double sweepRad = sweepDeg * Math.PI / 180.0;
+            bool isFullCircle = sweepDeg >= 355.0;
+
+            int bracketCount = Math.Max(3, (int)Math.Ceiling(sweepDeg / 40.0) + (isFullCircle ? 0 : 1));
+            SectionProfile pipeProf = SectionCatalogService.GetByName("P42x3.5");
+            double railH = 1050.0;
+
+            var innerArcPts = new List<Point3d>();
+            var outerArcPts = new List<Point3d>();
+            var topRailPts = new List<Point3d>();
+            var midRailPts = new List<Point3d>();
+
+            int totalSteps = isFullCircle ? bracketCount : bracketCount - 1;
+            for (int i = 0; i <= totalSteps; i++)
+            {
+                double t = (double)i / Math.Max(1, totalSteps);
+                double ang = t * sweepRad;
+                double cos = Math.Cos(ang), sin = Math.Sin(ang);
+
+                Point3d pIn = new Point3d(rIn * cos, rIn * sin, dropH);
+                Point3d pOut = new Point3d(rOut * cos, rOut * sin, dropH);
+                Point3d pBraceBot = new Point3d(rIn * cos, rIn * sin, 0);
+                Point3d pBraceTop = new Point3d((rIn + (rOut - rIn) * 0.82) * cos, (rIn + (rOut - rIn) * 0.82) * sin, dropH);
+
+                innerArcPts.Add(pIn);
+                outerArcPts.Add(pOut);
+                topRailPts.Add(new Point3d(rOut * cos, rOut * sin, dropH + railH));
+                midRailPts.Add(new Point3d(rOut * cos, rOut * sin, dropH + railH * 0.52));
+
+                if (!isFullCircle || i < totalSteps)
+                {
+                    AddMemberExtended(parts, "塔器悬挑牛腿梁", bracketProf, pIn, pOut, 18.0);
+                    AddMemberExtended(parts, "牛腿斜撑杆", braceProf, pBraceBot, pBraceTop, 20.0);
+                    AddMemberExtended(parts, "外环栏杆立柱", pipeProf, pOut, new Point3d(pOut.X, pOut.Y, dropH + railH + 15.0), 12.0);
+                }
+            }
+
+            AddContinuousMember(parts, "内环联系梁", ringProf, innerArcPts, 0.0, smooth: true, closed: isFullCircle);
+            AddContinuousMember(parts, "外环边梁", ringProf, outerArcPts, 0.0, smooth: true, closed: isFullCircle);
+            AddContinuousMember(parts, "外环顶部扶手", pipeProf, topRailPts, 0.0, smooth: true, closed: isFullCircle);
+            AddContinuousMember(parts, "外环中部横杆", pipeProf, midRailPts, 0.0, smooth: true, closed: isFullCircle);
+        }
+
+        // ==================== 20. 立式塔器/容器钢裙座 (NB/T 47041) ====================
+        private static void BuildVerticalVesselSkirtParts(
+            List<SolidMemberPart> parts,
+            SectionProfile shellRefProf,
+            SectionProfile ringRefProf,
+            SectionProfile gussetRefProf,
+            double skirtOuterDia,
+            double baseRingWidth,
+            double skirtHeight,
+            double manholeDia,
+            int gussetCount)
+        {
+            double rOut = Math.Max(skirtOuterDia * 0.5, 450.0);
+            double wallT = Math.Max(14.0, Math.Min(32.0, shellRefProf.Tw * 2.0));
+            double rIn = Math.Max(100.0, rOut - wallT);
+            double ringW = Math.Max(baseRingWidth, 180.0);
+            double baseRingT = 28.0;
+            double chairH = 260.0;
+
+            // 1. 基础底环板 (Base Ring)
+            Solid3d baseRing = new Solid3d();
+            baseRing.SetDatabaseDefaults();
+            baseRing.CreateFrustum(baseRingT, rOut + ringW * 0.65, rOut + ringW * 0.65, rOut + ringW * 0.65);
+            baseRing.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, baseRingT * 0.5)));
+            using (Solid3d innerCut = new Solid3d())
+            {
+                innerCut.SetDatabaseDefaults();
+                innerCut.CreateFrustum(baseRingT + 10.0, Math.Max(50.0, rIn - ringW * 0.35), Math.Max(50.0, rIn - ringW * 0.35), Math.Max(50.0, rIn - ringW * 0.35));
+                innerCut.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, baseRingT * 0.5)));
+                baseRing.BooleanOperation(BooleanOperationType.BoolSubtract, innerCut);
+            }
+
+            // 2. 裙座主圆筒体 (Skirt Cylinder) + 侧面引出管检查孔
+            Solid3d skirtShell = new Solid3d();
+            skirtShell.SetDatabaseDefaults();
+            skirtShell.CreateFrustum(skirtHeight, rOut, rOut, rOut);
+            skirtShell.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, skirtHeight * 0.5)));
+            using (Solid3d shellCore = new Solid3d())
+            {
+                shellCore.SetDatabaseDefaults();
+                shellCore.CreateFrustum(skirtHeight + 10.0, rIn, rIn, rIn);
+                shellCore.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, skirtHeight * 0.5)));
+                skirtShell.BooleanOperation(BooleanOperationType.BoolSubtract, shellCore);
+            }
+
+            double holeR = Math.Min(Math.Max(manholeDia * 0.5, 180.0), Math.Min(rOut * 0.45, skirtHeight * 0.22));
+            double holeZ = Math.Max(chairH + holeR + 150.0, skirtHeight * 0.38);
+            using (Solid3d holeCut = new Solid3d())
+            {
+                holeCut.SetDatabaseDefaults();
+                holeCut.CreateFrustum(rOut * 2.4, holeR, holeR, holeR);
+                holeCut.TransformBy(Matrix3d.Rotation(Math.PI * 0.5, Vector3d.YAxis, Point3d.Origin));
+                holeCut.TransformBy(Matrix3d.Displacement(new Vector3d(rOut * 0.5, 0, holeZ)));
+                try { skirtShell.BooleanOperation(BooleanOperationType.BoolSubtract, holeCut); } catch { }
+            }
+
+            parts.Add(new SolidMemberPart
+            {
+                Solid = baseRing,
+                RoleName = "地脚螺栓底环板",
+                SectionName = $"PL{baseRingT:0}x{ringW:0}",
+                IsPlate = true,
+                StartPt = Point3d.Origin,
+                EndPt = new Point3d(0, 0, baseRingT)
+            });
+
+            parts.Add(new SolidMemberPart
+            {
+                Solid = skirtShell,
+                RoleName = "裙座圆筒体",
+                SectionName = $"DN{skirtOuterDia:0}x{wallT:0}",
+                IsPlate = true,
+                StartPt = new Point3d(0, 0, baseRingT),
+                EndPt = new Point3d(0, 0, skirtHeight)
+            });
+
+            // 3. 地脚螺栓座筋板 (Anchor Chair Gussets)
+            int nGussets = Math.Max(8, Math.Min(24, gussetCount));
+            for (int i = 0; i < nGussets; i++)
+            {
+                double ang = 2.0 * Math.PI * i / nGussets;
+                double rMid = rOut + ringW * 0.32;
+                Solid3d gusset = new Solid3d();
+                gusset.SetDatabaseDefaults();
+                gusset.CreateBox(ringW * 0.62, 16.0, chairH);
+                gusset.TransformBy(Matrix3d.Rotation(ang, Vector3d.ZAxis, Point3d.Origin));
+                gusset.TransformBy(Matrix3d.Displacement(new Vector3d(rMid * Math.Cos(ang), rMid * Math.Sin(ang), baseRingT + chairH * 0.5)));
+                parts.Add(new SolidMemberPart
+                {
+                    Solid = gusset,
+                    RoleName = "座圈竖向筋板",
+                    SectionName = $"PL16x{ringW * 0.62:0}x{chairH:0}",
+                    IsPlate = true,
+                    StartPt = new Point3d(rMid * Math.Cos(ang), rMid * Math.Sin(ang), baseRingT),
+                    EndPt = new Point3d(rMid * Math.Cos(ang), rMid * Math.Sin(ang), baseRingT + chairH)
+                });
+            }
+        }
+
+        // ==================== 21. 化工管道加劲管托/支座 (HG/T 21629) ====================
+        private static void BuildPipeShoeSupportParts(
+            List<SolidMemberPart> parts,
+            SectionProfile mainProf,
+            SectionProfile clampProf,
+            SectionProfile ribProf,
+            double pipeOuterDia,
+            double shoeLength,
+            double centerElevationH,
+            double basePlateWidth)
+        {
+            double rPipe = Math.Max(pipeOuterDia * 0.5, 80.0);
+            double len = Math.Max(shoeLength, 250.0);
+            double hCenter = Math.Max(centerElevationH, rPipe + 120.0);
+            double baseW = Math.Max(basePlateWidth, rPipe * 1.25);
+            double webH = Math.Max(60.0, hCenter - rPipe - 16.0);
+
+            // 1. 底部滑动底板
+            AddBasePlate(parts, "管托滑动底板", new Point3d(0, 0, 0), baseW, len, 16.0);
+            // 2. 纵向主腹板
+            AddBasePlate(parts, "管托纵向主腹板", new Point3d(0, 0, 16.0), 14.0, len, webH);
+            // 3. 横向双加劲肋板
+            AddBasePlate(parts, "管托横向加劲肋", new Point3d(0, -len * 0.32, 16.0), baseW * 0.86, 12.0, webH);
+            AddBasePlate(parts, "管托横向加劲肋", new Point3d(0, len * 0.32, 16.0), baseW * 0.86, 12.0, webH);
+
+            // 4. 顶部弧形鞍板与双管卡 (Clamps)
+            int segs = 12;
+            var lowerArc = new List<Point3d>();
+            var upperClamp = new List<Point3d>();
+            for (int i = 0; i <= segs; i++)
+            {
+                double aLow = -Math.PI * 0.85 + (Math.PI * 0.70 * i / segs);
+                lowerArc.Add(new Point3d(rPipe * Math.Cos(aLow), 0, hCenter + rPipe * Math.Sin(aLow)));
+
+                double aUp = -Math.PI * 0.15 + (Math.PI * 1.30 * i / segs);
+                upperClamp.Add(new Point3d((rPipe + 12.0) * Math.Cos(aUp), 0, hCenter + (rPipe + 12.0) * Math.Sin(aUp)));
+            }
+            AddContinuousMember(parts, "弧形承重鞍板", clampProf, lowerArc, 0.0, smooth: true, closed: false);
+            AddContinuousMember(parts, "重型双螺栓管卡", ribProf, upperClamp, 0.0, smooth: true, closed: false);
+        }
+
+        // ==================== 22. 储罐拱顶环形安全栏杆 (SH/T 3070) ====================
+        private static void BuildTankRoofHandrailParts(
+            List<SolidMemberPart> parts,
+            SectionProfile postProf,
+            SectionProfile railProf,
+            double tankDia,
+            double handrailH,
+            double sweepAngleDeg)
+        {
+            double r = Math.Max(tankDia * 0.5, 600.0);
+            double h = Math.Max(handrailH, 1050.0);
+            double sweepDeg = Math.Min(360.0, Math.Max(60.0, sweepAngleDeg));
+            double sweepRad = sweepDeg * Math.PI / 180.0;
+            bool isClosed = sweepDeg >= 355.0;
+
+            int postCount = Math.Max(4, (int)Math.Ceiling(r * sweepRad / 1100.0) + (isClosed ? 0 : 1));
+            var topPts = new List<Point3d>();
+            var midPts = new List<Point3d>();
+
+            int steps = isClosed ? postCount : postCount - 1;
+            for (int i = 0; i <= steps; i++)
+            {
+                double t = (double)i / Math.Max(1, steps);
+                double a = t * sweepRad;
+                double x = r * Math.Cos(a), y = r * Math.Sin(a);
+                topPts.Add(new Point3d(x, y, h));
+                midPts.Add(new Point3d(x, y, h * 0.52));
+
+                if (!isClosed || i < steps)
+                {
+                    AddMemberExtended(parts, "罐顶栏杆立柱", postProf, new Point3d(x, y, 0), new Point3d(x, y, h + 15.0), 10.0);
+                    AddBasePlate(parts, "立柱连接底板", new Point3d(x, y, 0), 120, 120, 12);
+                }
+            }
+
+            AddContinuousMember(parts, "环形顶部扶手", railProf, topPts, 0.0, smooth: true, closed: isClosed);
+            AddContinuousMember(parts, "环形中部横杆", railProf, midPts, 0.0, smooth: true, closed: isClosed);
+        }
+
+        // ==================== 23. 变电站A字型龙门构架 (DL/T 5218) ====================
+        private static void BuildSubstationGantryFrameParts(
+            List<SolidMemberPart> parts,
+            SectionProfile legProf,
+            SectionProfile chordProf,
+            SectionProfile webProf,
+            double gantrySpan,
+            double legBaseSpread,
+            double beamElevationH,
+            double lightningRodH)
+        {
+            double halfSpread = Math.Max(legBaseSpread * 0.5, 650.0);
+            double beamDepth = Math.Max(900.0, gantrySpan * 0.08);
+            double rodH = Math.Max(lightningRodH, 1500.0);
+
+            // 左右两榀 A 字型双肢钢管构架柱
+            foreach (double x in new[] { 0.0, gantrySpan })
+            {
+                Point3d legFront = new Point3d(x, -halfSpread, 0);
+                Point3d legBack = new Point3d(x, halfSpread, 0);
+                Point3d apex = new Point3d(x, 0, beamElevationH);
+
+                AddMemberExtended(parts, "A字柱斜腿主材", legProf, legFront, apex, 25.0);
+                AddMemberExtended(parts, "A字柱斜腿主材", legProf, legBack, apex, 25.0);
+                AddBasePlate(parts, "构架柱法兰底板", legFront, legProf.H + 140, legProf.B + 140, 24);
+                AddBasePlate(parts, "构架柱法兰底板", legBack, legProf.H + 140, legProf.B + 140, 24);
+
+                // A 字柱中部水平横隔杆
+                for (int k = 1; k <= 3; k++)
+                {
+                    double t = k / 4.0;
+                    double ySpread = halfSpread * (1.0 - t);
+                    double zk = beamElevationH * t;
+                    AddMemberExtended(parts, "A字柱水平横隔", webProf,
+                        new Point3d(x, -ySpread, zk), new Point3d(x, ySpread, zk), 18.0);
+                }
+
+                // 柱顶避雷针立杆
+                AddMemberExtended(parts, "柱顶避雷针架", webProf,
+                    apex, new Point3d(x, 0, beamElevationH + rodH), 20.0);
+            }
+
+            // 顶部三角形空间格构挂线横梁
+            double wHalf = Math.Max(450.0, beamDepth * 0.45);
+            double zBot = beamElevationH - beamDepth;
+            double zTop = beamElevationH;
+
+            AddMemberExtended(parts, "格构梁上弦杆", chordProf, new Point3d(0, 0, zTop), new Point3d(gantrySpan, 0, zTop), 25.0);
+            AddMemberExtended(parts, "格构梁下弦杆", chordProf, new Point3d(0, -wHalf, zBot), new Point3d(gantrySpan, -wHalf, zBot), 25.0);
+            AddMemberExtended(parts, "格构梁下弦杆", chordProf, new Point3d(0, wHalf, zBot), new Point3d(gantrySpan, wHalf, zBot), 25.0);
+
+            int panels = Math.Max(4, (int)Math.Round(gantrySpan / 1600.0));
+            double pLen = gantrySpan / panels;
+            for (int i = 0; i <= panels; i++)
+            {
+                double x = i * pLen;
+                Point3d pTop = new Point3d(x, 0, zTop);
+                Point3d pBotF = new Point3d(x, -wHalf, zBot);
+                Point3d pBotB = new Point3d(x, wHalf, zBot);
+                AddMemberExtended(parts, "格构梁横隔腹杆", webProf, pBotF, pBotB, 16.0);
+                AddMemberExtended(parts, "格构梁斜腹杆", webProf, pBotF, pTop, 16.0);
+                AddMemberExtended(parts, "格构梁斜腹杆", webProf, pBotB, pTop, 16.0);
+            }
+        }
+
+        // ==================== 24. 电力电缆沟多层支架 (DL/T 5221，支持线性绘制) ====================
+        private static void BuildCableTrenchSupportParts(
+            List<SolidMemberPart> parts,
+            SectionProfile postProf,
+            SectionProfile armProf,
+            SectionProfile groundProf,
+            double trenchLength,
+            double armWidth,
+            double postHeight,
+            double tierSpacing,
+            int tierCount)
+        {
+            int postCount = Math.Max(2, (int)Math.Ceiling(trenchLength / 1500.0) + 1);
+            double pitch = trenchLength / (postCount - 1);
+            int tiers = Math.Max(2, Math.Min(6, tierCount));
+            double spacing = Math.Min(Math.Max(tierSpacing, 220.0), (postHeight - 200.0) / tiers);
+
+            for (int i = 0; i < postCount; i++)
+            {
+                double x = i * pitch;
+                // 预埋槽钢立柱
+                AddMember(parts, "电缆沟槽钢立柱", postProf, new Point3d(x, 0, 0), new Point3d(x, 0, postHeight));
+                AddBasePlate(parts, "预埋锚固板", new Point3d(x, 0, 120), 140, 12, 140);
+                AddBasePlate(parts, "预埋锚固板", new Point3d(x, 0, postHeight - 160), 140, 12, 140);
+
+                // 多层悬臂角钢电缆托臂
+                for (int t = 0; t < tiers; t++)
+                {
+                    double zArm = postHeight - 120.0 - t * spacing;
+                    if (zArm < 180.0) break;
+                    AddMemberExtended(parts, "角钢悬臂托臂", armProf,
+                        new Point3d(x, 0, zArm), new Point3d(x, armWidth, zArm), 15.0);
+                }
+            }
+
+            // 底部纵向贯通接地扁钢汇流排
+            AddBasePlate(parts, "纵向接地扁钢(-50x5)", new Point3d(trenchLength * 0.5, 0, 100.0), trenchLength, 8.0, 50.0);
+        }
+
+        // ==================== 25. 冶金厂房重型吊车梁系统 (16G519，支持线性绘制) ====================
+        private static void BuildCraneRunwayGirderParts(
+            List<SolidMemberPart> parts,
+            SectionProfile mainGirderProf,
+            SectionProfile brakeBeamProf,
+            SectionProfile stiffenerProf,
+            double girderSpan,
+            double brakePlateWidth,
+            double girderDepth,
+            double stiffenerSpacing)
+        {
+            double span = Math.Max(girderSpan, 1500.0);
+            double depth = Math.Max(girderDepth, 500.0);
+            double walkW = Math.Max(brakePlateWidth, 550.0);
+            double flangeW = Math.Max(320.0, depth * 0.42);
+            double flangeT = 24.0;
+            double webT = 16.0;
+
+            // 1. 焊接工字形重型吊车梁主梁 (下翼缘 + 腹板 + 上翼缘)
+            AddBasePlate(parts, "吊车梁下翼缘板", new Point3d(span * 0.5, 0, 0), span, flangeW, flangeT);
+            AddBasePlate(parts, "吊车梁主腹板", new Point3d(span * 0.5, 0, flangeT), span, webT, depth - flangeT * 2.0);
+            AddBasePlate(parts, "吊车梁上翼缘板", new Point3d(span * 0.5, 0, depth - flangeT), span, flangeW * 1.15, flangeT);
+
+            // 2. 顶部起重机重轨 (QU80/QU100 钢轨)
+            AddBasePlate(parts, "重型起重机钢轨(QU轨)", new Point3d(span * 0.5, 0, depth), span, 130.0, 130.0);
+
+            // 3. 上翼缘外侧花纹走道制动板与制动边梁
+            AddBasePlate(parts, "制动走道花纹钢板", new Point3d(span * 0.5, walkW * 0.5, depth - 10.0), span, walkW, 10.0);
+            AddMemberExtended(parts, "制动边梁", brakeBeamProf,
+                new Point3d(0, walkW, depth - brakeBeamProf.H * 0.5),
+                new Point3d(span, walkW, depth - brakeBeamProf.H * 0.5), 15.0);
+
+            // 4. 成对横向竖向加劲肋板 + 两端车挡底座
+            double pitch = Math.Max(800.0, Math.Min(stiffenerSpacing, 1500.0));
+            int ribCount = Math.Max(3, (int)Math.Round(span / pitch) + 1);
+            for (int i = 0; i < ribCount; i++)
+            {
+                double x = span * i / (ribCount - 1);
+                AddBasePlate(parts, "腹板竖向加劲肋", new Point3d(x, 0, flangeT), 14.0, flangeW * 0.92, depth - flangeT * 2.0);
+            }
+
+            // 端部起重机防撞车挡 (Buffer Stop)
+            AddBasePlate(parts, "端部防撞车挡", new Point3d(span - 180.0, 0, depth), 280.0, 220.0, 360.0);
+        }
+
+        // ==================== 26. 冶金厂房柱间交叉支撑 (19G518，支持线性绘制) ====================
+        private static void BuildCrossBracingFrameParts(
+            List<SolidMemberPart> parts,
+            SectionProfile colProf,
+            SectionProfile tieStrutProf,
+            SectionProfile braceProf,
+            double baySpan,
+            double colWidth,
+            double totalHeight,
+            double craneCorbelZ)
+        {
+            double corbelZ = Math.Min(Math.Max(craneCorbelZ, totalHeight * 0.55), totalHeight - 800.0);
+
+            // 两端厂房主柱 + 吊车梁支承牛腿
+            AddMember(parts, "厂房左主柱", colProf, new Point3d(0, 0, 0), new Point3d(0, 0, totalHeight));
+            AddMember(parts, "厂房右主柱", colProf, new Point3d(baySpan, 0, 0), new Point3d(baySpan, 0, totalHeight));
+            AddBasePlate(parts, "柱脚底板", new Point3d(0, 0, 0), colProf.H + 140, colProf.B + 140, 24);
+            AddBasePlate(parts, "柱脚底板", new Point3d(baySpan, 0, 0), colProf.H + 140, colProf.B + 140, 24);
+
+            // 柱顶刚性系杆与牛腿处中部刚性系杆
+            AddMemberExtended(parts, "柱顶刚性系杆", tieStrutProf,
+                new Point3d(0, 0, totalHeight - tieStrutProf.H * 0.5),
+                new Point3d(baySpan, 0, totalHeight - tieStrutProf.H * 0.5), 20.0);
+            AddMemberExtended(parts, "中部刚性系杆", tieStrutProf,
+                new Point3d(0, 0, corbelZ),
+                new Point3d(baySpan, 0, corbelZ), 20.0);
+
+            // 下柱柱间十字交叉支撑 (ZC-下) + 中央节点板
+            AddMemberExtended(parts, "下柱交叉斜撑", braceProf,
+                new Point3d(0, 0, 200.0), new Point3d(baySpan, 0, corbelZ), 25.0);
+            AddMemberExtended(parts, "下柱交叉斜撑", braceProf,
+                new Point3d(baySpan, 0, 200.0), new Point3d(0, 0, corbelZ), 25.0);
+            AddBasePlate(parts, "交叉节点连接板", new Point3d(baySpan * 0.5, 0, (corbelZ + 200.0) * 0.5 - 160.0), 340, 16, 320);
+
+            // 上柱柱间十字交叉支撑 (ZC-上) + 中央节点板
+            AddMemberExtended(parts, "上柱交叉斜撑", braceProf,
+                new Point3d(0, 0, corbelZ), new Point3d(baySpan, 0, totalHeight - tieStrutProf.H * 0.5), 25.0);
+            AddMemberExtended(parts, "上柱交叉斜撑", braceProf,
+                new Point3d(baySpan, 0, corbelZ), new Point3d(0, 0, totalHeight - tieStrutProf.H * 0.5), 25.0);
+            AddBasePlate(parts, "交叉节点连接板", new Point3d(baySpan * 0.5, 0, (corbelZ + totalHeight) * 0.5 - 140.0), 280, 14, 280);
         }
 
         private static void AddMember(
@@ -1498,6 +2106,94 @@ namespace SteelStructureSuite.Services.Modeling
                     addPlate("鞍座底板", 24, span * 0.78, len, 1);
                     addPlate("鞍座腹板", 20, span * 0.70, h * 0.55, 1);
                     break;
+                case ParametricStructureType.TowerCircularPlatform:
+                {
+                    double rIn = Math.Max(span * 0.5, 450.0);
+                    double rOut = rIn + Math.Max(len, 700.0);
+                    double sweepRad = Math.Min(360.0, Math.Max(60.0, subH)) * Math.PI / 180.0;
+                    int brackets = Math.Max(3, (int)Math.Ceiling(subH / 40.0) + 1);
+                    addRow("塔器悬挑牛腿梁", col, brackets, len);
+                    addRow("牛腿斜撑杆", brace, brackets, Math.Sqrt(len * len + h * h));
+                    addRow("内外弧形环梁", beam, 2, (rIn + rOut) * 0.5 * sweepRad);
+                    addRow("外环顶部扶手与中杆", pipe, 2, rOut * sweepRad);
+                    addRow("外环栏杆立柱", pipe, brackets, 1050.0);
+                    break;
+                }
+                case ParametricStructureType.VerticalVesselSkirt:
+                {
+                    int gussets = Math.Max(8, p.BayCount);
+                    addPlate("裙座圆筒体", 18, Math.PI * span, h, 1);
+                    addPlate("地脚螺栓底环板", 28, len, Math.PI * (span + len), 1);
+                    addPlate("座圈竖向筋板", 16, len * 0.65, 260, gussets);
+                    break;
+                }
+                case ParametricStructureType.PipeShoeSupport:
+                {
+                    addPlate("管托滑动底板", 16, Math.Max(subH, span * 0.7), len, 1);
+                    addPlate("管托纵向主腹板", 14, Math.Max(80.0, h - span * 0.5), len, 1);
+                    addPlate("管托横向加劲肋", 12, Math.Max(subH, span * 0.6), Math.Max(80.0, h - span * 0.5), 2);
+                    addRow("弧形承重鞍板", beam, 1, Math.PI * span * 0.4);
+                    addRow("重型双螺栓管卡", brace, 2, Math.PI * span * 0.6);
+                    break;
+                }
+                case ParametricStructureType.TankRoofHandrail:
+                {
+                    double r = Math.Max(span * 0.5, 600.0);
+                    double sweepRad = Math.Min(360.0, Math.Max(60.0, subH)) * Math.PI / 180.0;
+                    int posts = Math.Max(4, (int)Math.Ceiling(r * sweepRad / 1100.0) + 1);
+                    addRow("罐顶栏杆立柱", col, posts, h);
+                    addRow("环形顶部扶手", beam, 1, r * sweepRad);
+                    addRow("环形中部横杆", beam, 1, r * sweepRad);
+                    addPlate("立柱连接底板", 12, 120, 120, posts);
+                    break;
+                }
+                case ParametricStructureType.SubstationGantryFrame:
+                {
+                    double legLen = Math.Sqrt(Math.Pow(len * 0.5, 2) + h * h);
+                    int panels = Math.Max(4, (int)Math.Round(span / 1600.0));
+                    addRow("A字柱斜腿主材", col, 4, legLen);
+                    addRow("A字柱水平横隔", brace, 6, len * 0.5);
+                    addRow("格构梁上下弦杆", beam, 3, span);
+                    addRow("格构梁斜腹杆", brace, (panels + 1) * 3, 1100.0);
+                    addRow("柱顶避雷针架", brace, 2, subH);
+                    addPlate("构架柱法兰底板", 24, col.H + 140, col.B + 140, 4);
+                    break;
+                }
+                case ParametricStructureType.CableTrenchSupport:
+                {
+                    int cols = Math.Max(2, (int)Math.Ceiling(span / 1500.0) + 1);
+                    int tiers = Math.Max(2, Math.Min(6, p.BayCount));
+                    addRow("电缆沟槽钢立柱", col, cols, h);
+                    addRow("角钢悬臂托臂", beam, cols * tiers, len);
+                    addPlate("纵向接地扁钢(-50x5)", 6, 50, span, 1);
+                    addPlate("预埋锚固板", 12, 140, 140, cols * 2);
+                    break;
+                }
+                case ParametricStructureType.CraneRunwayGirder:
+                {
+                    double flangeW = Math.Max(320.0, h * 0.42);
+                    int ribs = Math.Max(3, (int)Math.Round(span / Math.Max(800.0, subH)) + 1);
+                    addPlate("吊车梁上下翼缘板", 24, flangeW, span, 2);
+                    addPlate("吊车梁主腹板", 16, h - 48.0, span, 1);
+                    addPlate("制动走道花纹钢板", 10, len, span, 1);
+                    addRow("制动边梁", beam, 1, span);
+                    addPlate("腹板竖向加劲肋", 14, flangeW * 0.9, h - 48.0, ribs);
+                    addPlate("重型起重机钢轨(QU轨)", 40, 130, span, 1);
+                    break;
+                }
+                case ParametricStructureType.CrossBracingFrame:
+                {
+                    double corbelZ = Math.Min(Math.Max(subH, h * 0.55), h - 800.0);
+                    double diagLow = Math.Sqrt(span * span + corbelZ * corbelZ);
+                    double diagUp = Math.Sqrt(span * span + Math.Pow(h - corbelZ, 2));
+                    addRow("厂房左右主柱", col, 2, h);
+                    addRow("柱顶与中部刚性系杆", beam, 2, span);
+                    addRow("下柱交叉斜撑", brace, 2, diagLow);
+                    addRow("上柱交叉斜撑", brace, 2, diagUp);
+                    addPlate("交叉节点连接板", 16, 320, 320, 2);
+                    addPlate("柱脚底板", 24, col.H + 140, col.B + 140, 2);
+                    break;
+                }
             }
 
             return list;
@@ -1633,90 +2329,34 @@ namespace SteelStructureSuite.Services.Modeling
             AddContinuousMember(parts, "螺旋型钢", sec, path, 0.0, smooth: true, closed: false);
         }
 
+        private static void AddHelixChords(
+            List<SolidMemberPart> parts,
+            string role,
+            SectionProfile prof,
+            double radius,
+            double height,
+            double totalRad,
+            double z0)
+        {
+            if (prof == null) return;
+            int seg = (int)Math.Ceiling(Math.Abs(totalRad) / (Math.PI / 7.5));
+            if (seg < 6) seg = 6;
+            if (seg > 14) seg = 14;
+            Point3d prev = new Point3d(radius, 0, z0);
+            for (int i = 1; i <= seg; i++)
+            {
+                double t = (double)i / seg;
+                double a = t * totalRad;
+                Point3d cur = new Point3d(radius * Math.Cos(a), radius * Math.Sin(a), z0 + height * t);
+                AddMember(parts, role, prof, prev, cur);
+                prev = cur;
+            }
+        }
+
         private static double SpiralTurns(double subH)
         {
             if (subH > 30.0) return Math.Max(0.25, subH / 360.0);
             return Math.Max(0.25, subH);
-        }
-
-        /// <summary>
-        /// 直杆端部伸进另一根杆件腹中时，用对方实体把伸入段切掉。
-        /// 只切“端头插入”，不切角部对接，也不切几乎共线的搭接。曲线扫略件同样只在端头被切。
-        /// </summary>
-        private static void TrimIncomingEnds(List<SolidMemberPart> parts)
-        {
-            var hosts = new List<SolidMemberPart>();
-            foreach (var part in parts)
-            {
-                if (part?.Solid == null || part.IsPlate || part.Section == null) continue;
-                if ((part.EndPt - part.StartPt).Length < 20.0 &&
-                    (part.PathPoints == null || part.PathPoints.Count < 2)) continue;
-                hosts.Add(part);
-            }
-            if (hosts.Count < 2) return;
-
-            var originals = new Dictionary<SolidMemberPart, Solid3d>();
-            foreach (var host in hosts)
-            {
-                try { originals[host] = (Solid3d)host.Solid.Clone(); }
-                catch { }
-            }
-
-            try
-            {
-                foreach (var guest in hosts)
-                {
-                    foreach (var host in hosts)
-                    {
-                        if (ReferenceEquals(guest, host) || !originals.ContainsKey(host)) continue;
-                        if (!EndFramesInto(guest, host)) continue;
-                        Solid3d tool = null;
-                        try
-                        {
-                            tool = (Solid3d)originals[host].Clone();
-                            guest.Solid.BooleanOperation(BooleanOperationType.BoolSubtract, tool);
-                            tool = null;
-                        }
-                        catch
-                        {
-                            tool?.Dispose();
-                        }
-                    }
-                }
-            }
-            finally
-            {
-                foreach (var solid in originals.Values) solid?.Dispose();
-            }
-        }
-
-        private static bool EndFramesInto(SolidMemberPart guest, SolidMemberPart host)
-        {
-            if (guest.PathPoints != null && guest.PathPoints.Count >= 2)
-            {
-                return PointFramesInto(guest.PathPoints[0], guest, host) ||
-                       PointFramesInto(guest.PathPoints[guest.PathPoints.Count - 1], guest, host);
-            }
-            return PointFramesInto(guest.StartPt, guest, host) ||
-                   PointFramesInto(guest.EndPt, guest, host);
-        }
-
-        private static bool PointFramesInto(Point3d end, SolidMemberPart guest, SolidMemberPart host)
-        {
-            Vector3d axis = host.EndPt - host.StartPt;
-            double len = axis.Length;
-            if (len < 30.0) return false;
-            Vector3d u = axis / len;
-            double reach = 0.55 * Math.Max(host.Section.H, host.Section.B);
-            double t = (end - host.StartPt).DotProduct(u);
-            if (t < reach || t > len - reach) return false;
-            Vector3d radial = (end - host.StartPt) - u * t;
-            if (radial.Length > reach) return false;
-
-            Vector3d guestAxis = guest.EndPt - guest.StartPt;
-            if (guestAxis.Length > 20.0 && Math.Abs(guestAxis.GetNormal().DotProduct(u)) > 0.985)
-                return false;
-            return true;
         }
 
         /// <summary>

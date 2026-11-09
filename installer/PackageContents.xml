@@ -22,13 +22,13 @@
   <RuntimeRequirements OS="Win64"
                        Platform="AutoCAD*"
                        SeriesMin="R23.0"
-                       SeriesMax="R23.1" />
+                       SeriesMax="R24.3" />
 
   <Components Description="参数化钢结构套件主程序">
     <RuntimeRequirements OS="Win64"
                          Platform="AutoCAD*"
                          SeriesMin="R23.0"
-                         SeriesMax="R23.1" />
+                         SeriesMax="R24.3" />
 
     <ComponentEntry AppName="SteelStructureSuite"
                     Version="1.0.0"
@@ -69,6 +69,16 @@
         <Command Global="SS_SPIRAL"        Local="SS_SPIRAL" />
         <Command Global="SS_SADDLE"        Local="SS_SADDLE" />
         <Command Global="SS_LINEAR_CHAIN"  Local="SS_LINEAR_CHAIN" />
+
+        <!-- 化工 / 电力 / 冶金行业标准组件 (HG/T, NB/T, SH/T, DL/T, 16G519, 19G518) -->
+        <Command Global="SS_TOWER_PLAT"    Local="SS_TOWER_PLAT" />
+        <Command Global="SS_SKIRT"         Local="SS_SKIRT" />
+        <Command Global="SS_PIPESHOE"      Local="SS_PIPESHOE" />
+        <Command Global="SS_TANK_RAIL"     Local="SS_TANK_RAIL" />
+        <Command Global="SS_GANTRY"        Local="SS_GANTRY" />
+        <Command Global="SS_CABLE_RACK"    Local="SS_CABLE_RACK" />
+        <Command Global="SS_CRANE_BEAM"    Local="SS_CRANE_BEAM" />
+        <Command Global="SS_XBRACE"        Local="SS_XBRACE" />
 
         <!-- 编辑与定位 -->
         <Command Global="SS_EDIT"          Local="SS_EDIT" />

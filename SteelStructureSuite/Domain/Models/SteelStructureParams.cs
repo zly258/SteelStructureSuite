@@ -1,4 +1,5 @@
 ﻿using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
 using Autodesk.AutoCAD.Geometry;
@@ -6,6 +7,19 @@ using SteelStructureSuite.Domain.Enums;
 
 namespace SteelStructureSuite.Domain.Models
 {
+    public class StructurePresetItem
+    {
+        public string Name { get; set; }
+        public double Span { get; set; }
+        public double Length { get; set; }
+        public double Height { get; set; }
+        public double SubHeight { get; set; }
+        public int BayCount { get; set; } = 2;
+        public string ColSec { get; set; }
+        public string BeamSec { get; set; }
+        public string BraceSec { get; set; }
+    }
+
     [Serializable]
     public class SteelStructureParams
     {
@@ -45,6 +59,13 @@ namespace SteelStructureSuite.Domain.Models
         public double EndPointOffsetZ { get; set; } = 0.0;
         public int BayCount { get; set; } = 2;
 
+        [XmlIgnore]
+        public double RotationDeg
+        {
+            get => Math.Round(RotationRad * 180.0 / Math.PI, 1);
+            set => RotationRad = value * Math.PI / 180.0;
+        }
+
         public string StructureTypeDisplayName
         {
             get
@@ -66,15 +87,23 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.SafetyCagedLadder: return "带安全护笼钢直梯";
                     case ParametricStructureType.HandrailGuardrail: return "平台安全栏杆扶手";
                     case ParametricStructureType.LinearSteelMember: return "直线型钢(梁/柱/撑)";
-                    case ParametricStructureType.VesselSupport: return "容器鞍式钢支座";
                     case ParametricStructureType.ArcSteelMember: return "弧形型钢";
                     case ParametricStructureType.SpiralSteelMember: return "螺旋型钢";
+                    case ParametricStructureType.VesselSupport: return "卧式容器鞍式支座";
+                    case ParametricStructureType.TowerCircularPlatform: return "塔器环形检修平台(HG/T)";
+                    case ParametricStructureType.VerticalVesselSkirt: return "立式塔器钢裙座(NB/T)";
+                    case ParametricStructureType.PipeShoeSupport: return "化工管道加劲管托(HG/T)";
+                    case ParametricStructureType.TankRoofHandrail: return "储罐拱顶环形栏杆(SH/T)";
+                    case ParametricStructureType.SubstationGantryFrame: return "变电站A字龙门构架(DL/T)";
+                    case ParametricStructureType.CableTrenchSupport: return "电力电缆沟多层支架(DL/T)";
+                    case ParametricStructureType.CraneRunwayGirder: return "冶金重型吊车梁(16G519)";
+                    case ParametricStructureType.CrossBracingFrame: return "冶金柱间交叉支撑(19G518)";
                     default: return "参数化钢结构";
                 }
             }
         }
 
-        /// <summary>功能区与模型树使用的构件大类，不写入图元。</summary>
+        /// <summary>功能区与模型树使用的工业大类</summary>
         public string CategoryName
         {
             get
@@ -86,27 +115,34 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.BracedFrame:
                     case ParametricStructureType.DoubleTierFrame:
                     case ParametricStructureType.MultiBaySpaceFrame:
-                        return "框架";
+                    case ParametricStructureType.RoofTruss:
+                        return "厂房与装置框架";
                     case ParametricStructureType.SpacePlatform:
                     case ParametricStructureType.CantileverBracket:
                     case ParametricStructureType.CantileverWalkway:
-                        return "平台托架";
-                    case ParametricStructureType.RoofTruss:
                     case ParametricStructureType.PipeBridgeTruss:
-                        return "桁架";
                     case ParametricStructureType.SpiralStair:
                     case ParametricStructureType.StraightStair:
                     case ParametricStructureType.SafetyCagedLadder:
                     case ParametricStructureType.HandrailGuardrail:
-                        return "梯道栏杆";
+                        return "平台梯道与栏杆";
+                    case ParametricStructureType.VesselSupport:
+                    case ParametricStructureType.TowerCircularPlatform:
+                    case ParametricStructureType.VerticalVesselSkirt:
+                    case ParametricStructureType.PipeShoeSupport:
+                    case ParametricStructureType.TankRoofHandrail:
+                        return "化工设备标准件";
+                    case ParametricStructureType.SubstationGantryFrame:
+                    case ParametricStructureType.CableTrenchSupport:
+                    case ParametricStructureType.CraneRunwayGirder:
+                    case ParametricStructureType.CrossBracingFrame:
+                        return "电力与冶金标准件";
                     case ParametricStructureType.LinearSteelMember:
                     case ParametricStructureType.ArcSteelMember:
                     case ParametricStructureType.SpiralSteelMember:
-                        return "单根型钢";
-                    case ParametricStructureType.VesselSupport:
-                        return "支座";
+                        return "单根型钢构件";
                     default:
-                        return "其他";
+                        return "其他结构";
                 }
             }
         }
@@ -117,21 +153,16 @@ namespace SteelStructureSuite.Domain.Models
             {
                 switch (CategoryName)
                 {
-                    case "框架": return 1;
-                    case "平台托架": return 2;
-                    case "桁架": return 3;
-                    case "梯道栏杆": return 4;
-                    case "单根型钢": return 5;
-                    case "支座": return 6;
+                    case "厂房与装置框架": return 1;
+                    case "平台梯道与栏杆": return 2;
+                    case "化工设备标准件": return 3;
+                    case "电力与冶金标准件": return 4;
+                    case "单根型钢构件": return 5;
                     default: return 9;
                 }
             }
         }
 
-        /// <summary>
-        /// 线状构件默认走两点：长度和方向就是绘制结果。
-        /// 框架、桁架、平台也可以两点，但默认仍是单点放下。
-        /// </summary>
         public bool PrefersLinearTwoPointDraw
         {
             get
@@ -142,13 +173,13 @@ namespace SteelStructureSuite.Domain.Models
                        StructureType == ParametricStructureType.ArcSteelMember ||
                        StructureType == ParametricStructureType.SpiralSteelMember ||
                        StructureType == ParametricStructureType.CantileverWalkway ||
-                       StructureType == ParametricStructureType.PipeBridgeTruss;
+                       StructureType == ParametricStructureType.PipeBridgeTruss ||
+                       StructureType == ParametricStructureType.CableTrenchSupport ||
+                       StructureType == ParametricStructureType.CraneRunwayGirder ||
+                       StructureType == ParametricStructureType.CrossBracingFrame;
             }
         }
 
-        /// <summary>
-        /// 能否两点放置。盘梯、护笼直梯、鞍座只按插入点放下，避免把外径或宽度拉乱。
-        /// </summary>
         public bool SupportsTwoPointDraw
         {
             get
@@ -161,7 +192,9 @@ namespace SteelStructureSuite.Domain.Models
                        StructureType == ParametricStructureType.MultiBaySpaceFrame ||
                        StructureType == ParametricStructureType.CantileverBracket ||
                        StructureType == ParametricStructureType.SpacePlatform ||
-                       StructureType == ParametricStructureType.RoofTruss;
+                       StructureType == ParametricStructureType.RoofTruss ||
+                       StructureType == ParametricStructureType.SubstationGantryFrame ||
+                       StructureType == ParametricStructureType.PipeShoeSupport;
             }
         }
 
@@ -219,9 +252,6 @@ namespace SteelStructureSuite.Domain.Models
             }
         }
 
-        /// <summary>
-        /// 是否支持“连续折线绘制”。仅线状构件可首尾相接，框架/平台/梯子等不可连续拼接。
-        /// </summary>
         public bool SupportsChainDraw
         {
             get
@@ -229,7 +259,10 @@ namespace SteelStructureSuite.Domain.Models
                 return StructureType == ParametricStructureType.HandrailGuardrail ||
                        StructureType == ParametricStructureType.LinearSteelMember ||
                        StructureType == ParametricStructureType.CantileverWalkway ||
-                       StructureType == ParametricStructureType.PipeBridgeTruss;
+                       StructureType == ParametricStructureType.PipeBridgeTruss ||
+                       StructureType == ParametricStructureType.CableTrenchSupport ||
+                       StructureType == ParametricStructureType.CraneRunwayGirder ||
+                       StructureType == ParametricStructureType.CrossBracingFrame;
             }
         }
 
@@ -257,9 +290,85 @@ namespace SteelStructureSuite.Domain.Models
                 case ParametricStructureType.SpiralStair:
                     return $"{StructureTypeDisplayName} D={Span:0.#}xH={Height:0.#}";
                 case ParametricStructureType.VesselSupport:
+                case ParametricStructureType.TowerCircularPlatform:
+                case ParametricStructureType.VerticalVesselSkirt:
+                case ParametricStructureType.PipeShoeSupport:
+                case ParametricStructureType.TankRoofHandrail:
                     return $"{StructureTypeDisplayName} DN={Span:0.#}xH={Height:0.#}";
+                case ParametricStructureType.SubstationGantryFrame:
+                case ParametricStructureType.CableTrenchSupport:
+                case ParametricStructureType.CraneRunwayGirder:
+                case ParametricStructureType.CrossBracingFrame:
+                    return $"{StructureTypeDisplayName} L={Span:0.#}xH={Height:0.#} ({ColumnSection})";
                 default:
                     return $"{StructureTypeDisplayName} B={Span:0.#}xH={Height:0.#} ({ColumnSection}/{BeamSection})";
+            }
+        }
+
+        public static List<StructurePresetItem> GetPresetsForType(ParametricStructureType type)
+        {
+            switch (type)
+            {
+                case ParametricStructureType.PortalFrame:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "轻型门架 (B=3000, H=3600)", Span = 3000, Length = 1500, Height = 3600, SubHeight = 1800, ColSec = "HW200x200x8x12", BeamSec = "HW200x200x8x12", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "中型门架 (B=6000, H=4800)", Span = 6000, Length = 1500, Height = 4800, SubHeight = 2400, ColSec = "HW250x250x9x14", BeamSec = "HN300x150x6.5x9", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "重型门架 (B=9000, H=6500)", Span = 9000, Length = 1500, Height = 6500, SubHeight = 3200, ColSec = "HW300x300x10x15", BeamSec = "HW300x300x10x15", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.TowerCircularPlatform:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "HG/T DN1600 塔环形平台 (180°)", Span = 1600, Length = 1000, Height = 900, SubHeight = 180, BayCount = 5, ColSec = "C16a", BeamSec = "C14a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "HG/T DN2400 塔环形平台 (270°)", Span = 2400, Length = 1100, Height = 1000, SubHeight = 270, BayCount = 7, ColSec = "C20a", BeamSec = "C16a", BraceSec = "L90x90x8" },
+                        new StructurePresetItem { Name = "HG/T DN3600 塔全周平台 (360°)", Span = 3600, Length = 1200, Height = 1100, SubHeight = 360, BayCount = 10, ColSec = "HW200x200x8x12", BeamSec = "C20a", BraceSec = "L100x100x8" }
+                    };
+                case ParametricStructureType.VerticalVesselSkirt:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "NB/T DN1800 塔器裙座 (H=3000)", Span = 1800, Length = 260, Height = 3000, SubHeight = 500, BayCount = 12, ColSec = "HW200x200x8x12", BeamSec = "C20a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "NB/T DN2600 塔器裙座 (H=4200)", Span = 2600, Length = 320, Height = 4200, SubHeight = 600, BayCount = 16, ColSec = "HW250x250x9x14", BeamSec = "C25a", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "NB/T DN3600 重型裙座 (H=5500)", Span = 3600, Length = 380, Height = 5500, SubHeight = 700, BayCount = 20, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.PipeShoeSupport:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "HG/T 21629 DN300 加劲管托", Span = 325, Length = 400, Height = 300, SubHeight = 260, ColSec = "HW150x150x7x10", BeamSec = "C14a", BraceSec = "L63x63x6" },
+                        new StructurePresetItem { Name = "HG/T 21629 DN600 加劲管托", Span = 630, Length = 500, Height = 480, SubHeight = 420, ColSec = "HW200x200x8x12", BeamSec = "C16a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "HG/T 21629 DN1000 重型管托", Span = 1020, Length = 600, Height = 720, SubHeight = 650, ColSec = "HW250x250x9x14", BeamSec = "C20a", BraceSec = "L100x100x8" }
+                    };
+                case ParametricStructureType.SubstationGantryFrame:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "110kV 变电A字构架 (B=9000, H=11000)", Span = 9000, Length = 2200, Height = 11000, SubHeight = 2500, ColSec = "P219x8", BeamSec = "L100x100x8", BraceSec = "L63x63x6" },
+                        new StructurePresetItem { Name = "220kV 变电A字构架 (B=14000, H=15000)", Span = 14000, Length = 3000, Height = 15000, SubHeight = 3500, ColSec = "P219x8", BeamSec = "L125x125x10", BraceSec = "L75x75x6" }
+                    };
+                case ParametricStructureType.CableTrenchSupport:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "DL/T 3层电缆沟支架 (L=4000, W=450)", Span = 4000, Length = 450, Height = 1200, SubHeight = 300, BayCount = 3, ColSec = "C10", BeamSec = "L50x50x5", BraceSec = "L50x50x5" },
+                        new StructurePresetItem { Name = "DL/T 5层电缆隧道支架 (L=6000, W=600)", Span = 6000, Length = 600, Height = 1850, SubHeight = 320, BayCount = 5, ColSec = "C12.6", BeamSec = "L63x63x6", BraceSec = "L50x50x5" }
+                    };
+                case ParametricStructureType.CraneRunwayGirder:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "16G519 6m跨度吊车梁 (L=6000, H=800)", Span = 6000, Length = 650, Height = 800, SubHeight = 1000, ColSec = "HW300x300x10x15", BeamSec = "C20a", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "16G519 7.5m重型吊车梁 (L=7500, H=1000)", Span = 7500, Length = 800, Height = 1000, SubHeight = 1250, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "16G519 9m冶金吊车梁 (L=9000, H=1200)", Span = 9000, Length = 950, Height = 1200, SubHeight = 1500, ColSec = "HW300x300x10x15", BeamSec = "C25a", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.CrossBracingFrame:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "19G518 6m柱距双层交叉支撑 (H=7200)", Span = 6000, Length = 250, Height = 7200, SubHeight = 4800, ColSec = "HW250x250x9x14", BeamSec = "F150x150x8", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "19G518 7.5m柱距重型柱间支撑 (H=9600)", Span = 7500, Length = 300, Height = 9600, SubHeight = 6500, ColSec = "HW300x300x10x15", BeamSec = "F200x200x10", BraceSec = "L125x125x10" }
+                    };
+                default:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "标准工况 1 (轻型)", Span = 2400, Length = 1200, Height = 3000, SubHeight = 1050, ColSec = "HW150x150x7x10", BeamSec = "HM194x150x6x9", BraceSec = "L63x63x6" },
+                        new StructurePresetItem { Name = "标准工况 2 (中型推荐)", Span = 3600, Length = 1800, Height = 4200, SubHeight = 1800, ColSec = "HW200x200x8x12", BeamSec = "HW200x200x8x12", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "标准工况 3 (重型)", Span = 5400, Length = 2400, Height = 5600, SubHeight = 2600, ColSec = "HW250x250x9x14", BeamSec = "HN300x150x6.5x9", BraceSec = "L100x100x8" }
+                    };
             }
         }
 

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -26,9 +26,11 @@ namespace SteelStructureSuite.Services.Drawing
 
         private class ProjectedPart2D
         {
+            public SteelStructureBuilder.SolidMemberPart SourcePart;
             public string RoleName;
             public string SectionName;
             public int PartNo;
+            public bool IsPlate;
             public double MinX;
             public double MaxX;
             public double MinY;
@@ -40,8 +42,10 @@ namespace SteelStructureSuite.Services.Drawing
 
         private class IsoPart2D
         {
+            public SteelStructureBuilder.SolidMemberPart SourcePart;
             public int PartNo;
             public List<Point2d> Hull;
+            public Point2d Anchor2D;
             public double MinX;
             public double MaxX;
             public double MinY;
@@ -61,14 +65,14 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static readonly double[] StandardScales =
         {
-            1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 75, 100, 150, 200, 250, 300, 400, 500
+            1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200, 250, 300, 400, 500
         };
 
         private class LeaderRequest
         {
             public Point3d AnchorPt;
             public string LabelText;
-            public int Side; // 0 左, 1 右, 2 上, 3 下
+            public int Side; // 0 左水平引线, 1 右水平引线（严禁向图框上方发射竖向引线）
         }
 
         public static void GenerateDetailDrawingToNewDwgFile(
@@ -198,7 +202,7 @@ namespace SteelStructureSuite.Services.Drawing
 
             double frameW = paperWMm * scale;
             double frameH = paperHMm * scale;
-            double borderLeft = 25.0 * scale; // 国标装订边 25mm
+            double borderLeft = 25.0 * scale;  // 国标装订边 25mm
             double borderOther = 10.0 * scale; // 国标其余留边 10mm
 
             ObjectId simSunTextStyleId = EnsureSimSunTextStyle(db);
@@ -215,87 +219,127 @@ namespace SteelStructureSuite.Services.Drawing
                     double innerY0 = sheetOrigin.Y + borderOther;
                     double innerX1 = sheetOrigin.X + frameW - borderOther;
                     double innerY1 = sheetOrigin.Y + frameH - borderOther;
-                    double margin = 10.0 * scale;
-                    double gap = 14.0 * scale;
-                    double labelSpace = 9.5 * textH;
+                    double innerW = innerX1 - innerX0;
+                    double innerH = innerY1 - innerY0;
 
-                    // 顶排视图在本带内垂直居中。轴测图四周留出件号引线，平面图放在正立面正下方。
-                    double leaderPad = hasIso ? 8.0 * textH : 0.0;
-                    double topContentH = Math.Max(
-                        Math.Max(hasFront ? frontBounds.Height : 0.0, hasSide ? sideBounds.Height : 0.0),
-                        hasIso ? isoBounds.Height : 0.0);
-                    double belowViews = (hasFront || hasSide) ? labelSpace : textH * 3.5;
-                    double topRowH = topContentH + belowViews;
-                    double topRowBottom = innerY1 - margin - leaderPad - topRowH;
-                    double topContentBottom = topRowBottom + belowViews;
-                    double cursorX = innerX0 + margin;
+                    double margin = 9.0 * scale;
+                    double gap = 14.0 * scale;
+                    double dimPad = dimGapStep * 2.55;
+                    double belowOrtho = dimGapStep * 2.15 + 4.2 * textH;
+                    double colGap = Math.Max(gap, dimPad * 1.15);
+
+                    double titleW = 180.0 * scale;
+                    double titleH = 32.0 * scale;
+                    double titleTop = innerY0 + titleH;
+                    double bomRowH = textH * 2.05;
+                    double bomHeaderH = textH * 2.45;
+                    double bomH = hasBom ? bomHeaderH + (billItems.Count + 2) * bomRowH : 0.0;
+                    double rightTableTop = titleTop + bomH;
+
+                    double frontW = hasFront ? frontBounds.Width : 0.0;
+                    double sideW = hasSide ? sideBounds.Width : 0.0;
+                    double planW = hasPlan ? planBounds.Width : 0.0;
+                    double isoW = hasIso ? isoBounds.Width : 0.0;
+                    double frontH = hasFront ? frontBounds.Height : 0.0;
+                    double sideH = hasSide ? sideBounds.Height : 0.0;
+                    double planH = hasPlan ? planBounds.Height : 0.0;
+                    double isoH = hasIso ? isoBounds.Height : 0.0;
+
+                    double orthoH = Math.Max(frontH, sideH);
+                    double leaderSideReserve = hasIso ? 11.5 * textH : 0.0;
+
+                    // 左中区（正立面 + 侧立面 + 平面图）与右区（轴测图 + 材料表 + 标题栏）双区独立核算
+                    double orthoRowW = (hasFront ? dimPad + frontW : 0.0)
+                                     + (hasFront && hasSide ? colGap : 0.0)
+                                     + (hasSide ? dimPad + sideW : 0.0);
+                    double planRowW = hasPlan ? dimPad + planW : 0.0;
+                    double leftZoneW = Math.Max(orthoRowW, planRowW);
+                    double rightZoneW = Math.Max(
+                        hasIso ? isoW + leaderSideReserve * 2.0 : 0.0,
+                        titleW);
+
+                    double freeW = Math.Max(0.0, innerW - margin * 2.0 - leftZoneW - rightZoneW - (leftZoneW > 0 && rightZoneW > 0 ? gap : 0.0));
+                    double extraColGap = freeW * 0.35;
+                    double leftStartX = innerX0 + margin + freeW * 0.18;
+
+                    // 左中区竖向均衡排布（正/侧立面在上，平面图在下）
+                    double leftStackH = (orthoH > 0 ? orthoH + belowOrtho : 0.0)
+                                      + (hasPlan ? planH + belowOrtho : 0.0);
+                    double leftAvailH = innerH - margin * 2.0;
+                    double leftFreeH = Math.Max(0.0, leftAvailH - leftStackH);
+                    double orthoTop = innerY1 - margin - leftFreeH * 0.30;
+                    double orthoBottom = orthoTop - orthoH;
+
+                    double cursorX = leftStartX;
 
                     if (hasFront)
                     {
-                        double slotY = topContentBottom + (topContentH - frontBounds.Height) * 0.5;
-                        Point3d viewBase = new Point3d(
-                            cursorX - frontBounds.MinX,
-                            slotY - frontBounds.MinY,
-                            0);
+                        double frontX = cursorX + dimPad;
+                        double slotY = orthoBottom + (orthoH - frontH) * 0.5;
+                        Point3d viewBase = new Point3d(frontX - frontBounds.MinX, slotY - frontBounds.MinY, 0);
                         DrawOrthographicHlrView(
                             tr, ms, p, parts3d, roleToPartNo, viewBase,
-                            frontProj,
-                            pt => pt.Y,
-                            "正立面图",
+                            frontProj, pt => pt.Y, "正立面图",
                             frontBounds.Width, frontBounds.Height,
                             isFrontView: true, isSideView: false, isPlanView: false,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
-                        cursorX += frontBounds.Width + gap;
+                        cursorX = frontX + frontW + colGap + extraColGap * 0.45;
                     }
 
                     if (hasSide)
                     {
-                        double slotY = topContentBottom + (topContentH - sideBounds.Height) * 0.5;
-                        Point3d viewBase = new Point3d(
-                            cursorX - sideBounds.MinX,
-                            slotY - sideBounds.MinY,
-                            0);
+                        double sideX = cursorX + dimPad;
+                        double slotY = orthoBottom + (orthoH - sideH) * 0.5;
+                        Point3d viewBase = new Point3d(sideX - sideBounds.MinX, slotY - sideBounds.MinY, 0);
                         DrawOrthographicHlrView(
                             tr, ms, p, parts3d, roleToPartNo, viewBase,
-                            sideProj,
-                            pt => pt.X,
-                            "侧立面图",
+                            sideProj, pt => pt.X, "侧立面图",
                             sideBounds.Width, sideBounds.Height,
                             isFrontView: false, isSideView: true, isPlanView: false,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
-                        cursorX += sideBounds.Width + gap;
-                    }
-
-                    if (hasIso)
-                    {
-                        cursorX += leaderPad;
-                        double slotY = topContentBottom + (topContentH - isoBounds.Height) * 0.5;
-                        Point3d isoBase = new Point3d(
-                            cursorX - isoBounds.MinX,
-                            slotY - isoBounds.MinY,
-                            0);
-                        DrawIsometricHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, isoBase,
-                            options, simSunTextStyleId, textH);
+                        cursorX = sideX + sideW + gap;
                     }
 
                     if (hasPlan)
                     {
-                        double planBottom = topRowBottom - gap - planBounds.Height;
-                        double minPlanBottom = innerY0 + margin;
+                        double planLeft = leftStartX + dimPad;
+                        double planBottom = (orthoH > 0 ? orthoBottom - belowOrtho - leftFreeH * 0.25 : innerY1 - margin) - planH;
+                        double minPlanBottom = innerY0 + margin + belowOrtho;
                         if (planBottom < minPlanBottom) planBottom = minPlanBottom;
-                        Point3d planBase = new Point3d(
-                            innerX0 + margin - planBounds.MinX,
-                            planBottom - planBounds.MinY,
-                            0);
+                        Point3d planBase = new Point3d(planLeft - planBounds.MinX, planBottom - planBounds.MinY, 0);
                         DrawOrthographicHlrView(
                             tr, ms, p, parts3d, roleToPartNo, planBase,
-                            planProj,
-                            pt => pt.Z,
-                            "平面图",
+                            planProj, pt => pt.Z, "平面图",
                             planBounds.Width, planBounds.Height,
                             isFrontView: false, isSideView: false, isPlanView: true,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
+                    }
+
+                    // 右上区：西南等轴测图（严格控制在 [rightTableTop + 6*textH, innerY1 - margin] 与左右引线安全边距内，绝不穿出图框！）
+                    if (hasIso)
+                    {
+                        double rightZoneLeft = Math.Max(cursorX, innerX1 - margin - rightZoneW);
+                        double rightZoneRight = innerX1 - margin;
+                        double availIsoW = Math.Max(isoW, (rightZoneRight - rightZoneLeft) - leaderSideReserve * 2.0);
+                        double isoLeft = rightZoneLeft + leaderSideReserve + Math.Max(0.0, (availIsoW - isoW) * 0.5);
+                        if (isoLeft + isoW + leaderSideReserve > innerX1 - margin * 0.6)
+                        {
+                            isoLeft = (innerX1 - margin * 0.6) - leaderSideReserve - isoW;
+                        }
+
+                        double isoFloorY = rightTableTop + 6.2 * textH;
+                        double isoCeilY = innerY1 - margin - 1.5 * textH;
+                        double isoFreeY = Math.Max(0.0, (isoCeilY - isoFloorY) - isoH);
+                        double isoBottom = isoFloorY + isoFreeY * 0.52;
+                        if (isoBottom + isoH > isoCeilY)
+                        {
+                            isoBottom = isoCeilY - isoH;
+                        }
+
+                        Point3d isoBase = new Point3d(isoLeft - isoBounds.MinX, isoBottom - isoBounds.MinY, 0);
+                        DrawIsometricHlrView(
+                            tr, ms, p, parts3d, billItems, roleToPartNo, isoBase,
+                            options, simSunTextStyleId, textH);
                     }
 
                     // 国标 A1~A4 标准图框与右下角紧凑标题栏
@@ -305,14 +349,14 @@ namespace SteelStructureSuite.Services.Drawing
                         frameW, frameH, borderLeft, borderOther,
                         simSunTextStyleId, textH, scale, sheetCaption);
 
-                    // 标题栏上方：内嵌构件材料明细表（件号 #1, #2... 与轴测图序号一一对应）
+                    // 标题栏正上方：零缝隙、左右边框 100% 共线对齐的国标构件材料明细表（件号 #1, #2... 与轴测图引线一一对应）
                     if (hasBom)
                     {
-                        // 与标题栏同宽，底边贴在标题栏上沿。表格向上生长，避免压进标题栏或飘到图面中部。
-                        double tbWidth = 180.0 * scale;
-                        double titleTop = innerY0 + 32.0 * scale;
-                        Point3d bomPt = new Point3d(innerX1 - tbWidth, titleTop + 1.0 * scale, 0);
-                        AppendDetailedPartBomTable(tr, db, ms, p, billItems, bomPt, tbWidth, simSunTextStyleId, textH);
+                        Point3d bomBottomLeft = new Point3d(innerX1 - titleW, titleTop, 0);
+                        AppendDetailedPartBomTable(
+                            tr, ms, p, billItems,
+                            bomBottomLeft, titleW, bomRowH, bomHeaderH,
+                            simSunTextStyleId, textH);
                     }
 
                     tr.Commit();
@@ -363,34 +407,37 @@ namespace SteelStructureSuite.Services.Drawing
             bool hasBom)
         {
             double textH = 3.5 * scale;
-            double margin = 10.0 * scale;
+            double dimGapStep = 3.2 * textH;
+            double margin = 9.0 * scale;
             double gap = 14.0 * scale;
-            double labelSpace = 9.5 * textH;
+            double dimPad = dimGapStep * 2.55;
+            double belowOrtho = dimGapStep * 2.15 + 4.2 * textH;
+            double colGap = Math.Max(gap, dimPad * 1.15);
 
-            int topCount = (hasFront ? 1 : 0) + (hasSide ? 1 : 0) + (hasIso ? 1 : 0);
-            double topW = (hasFront ? front.Width : 0.0) +
-                          (hasSide ? side.Width : 0.0) +
-                          (hasIso ? iso.Width : 0.0) +
-                          gap * Math.Max(0, topCount - 1);
-            if (hasIso) topW += 16.0 * textH; // 轴测图左右件号引线
-            double topH = Math.Max(
-                Math.Max(hasFront ? front.Height : 0.0, hasSide ? side.Height : 0.0),
-                hasIso ? iso.Height : 0.0);
-            if (hasIso) topH += 8.0 * textH; // 轴测图上方引线
-            if (hasFront || hasSide) topH += labelSpace;
-            else if (hasIso) topH += textH * 4.0;
+            double orthoRowW = (hasFront ? dimPad + front.Width : 0.0)
+                             + (hasFront && hasSide ? colGap : 0.0)
+                             + (hasSide ? dimPad + side.Width : 0.0);
+            double planRowW = hasPlan ? dimPad + plan.Width : 0.0;
+            double leftZoneW = Math.Max(orthoRowW, planRowW);
 
-            double bomW = hasBom ? 180.0 * scale : 0.0;
-            double bomH = hasBom ? (billCount + 3) * (textH * 2.1) : 0.0;
+            double leaderSideReserve = hasIso ? 11.5 * textH : 0.0;
+            double titleW = 180.0 * scale;
+            double rightZoneW = Math.Max(
+                hasIso ? iso.Width + leaderSideReserve * 2.0 : 0.0,
+                hasBom ? titleW : titleW);
+
+            double orthoH = Math.Max(hasFront ? front.Height : 0.0, hasSide ? side.Height : 0.0);
+            double leftZoneH = (orthoH > 0 ? orthoH + belowOrtho : 0.0)
+                             + (hasPlan ? plan.Height + belowOrtho : 0.0);
+
             double titleBlockH = 32.0 * scale;
+            double bomRowH = textH * 2.05;
+            double bomHeaderH = textH * 2.45;
+            double bomH = hasBom ? bomHeaderH + (billCount + 2) * bomRowH : 0.0;
+            double rightZoneH = titleBlockH + bomH + (hasIso ? iso.Height + 8.0 * textH : 0.0);
 
-            double bottomW = (hasPlan ? plan.Width : 0.0) + (hasBom ? gap + bomW : 0.0);
-            double bottomH = Math.Max(
-                hasPlan ? plan.Height + labelSpace : 0.0,
-                hasBom ? bomH + titleBlockH + margin : 0.0);
-
-            double requiredW = margin * 2.0 + Math.Max(topW, bottomW);
-            double requiredH = margin * 2.0 + topH + (topH > 0 && bottomH > 0 ? gap : 0.0) + bottomH;
+            double requiredW = margin * 2.0 + leftZoneW + (leftZoneW > 0 && rightZoneW > 0 ? gap : 0.0) + rightZoneW;
+            double requiredH = margin * 2.0 + Math.Max(leftZoneH, rightZoneH);
 
             double innerW = (paperW - 35.0) * scale;
             double innerH = (paperH - 20.0) * scale;
@@ -412,8 +459,8 @@ namespace SteelStructureSuite.Services.Drawing
 
             foreach (var part in parts)
             {
-                List<Point2d> hull = GetPartHull(part, proj);
-                foreach (Point2d pt in hull)
+                List<Point2d> pts = GetPartProjectedSamplePoints(part, proj);
+                foreach (Point2d pt in pts)
                 {
                     if (pt.X < bounds.MinX) bounds.MinX = pt.X;
                     if (pt.X > bounds.MaxX) bounds.MaxX = pt.X;
@@ -429,6 +476,20 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             return bounds;
+        }
+
+        private static List<Point2d> GetPartProjectedSamplePoints(
+            SteelStructureBuilder.SolidMemberPart part,
+            Func<Point3d, Point2d> proj)
+        {
+            try
+            {
+                return GetPartCornerPoints(part).ConvertAll(pt => proj(pt));
+            }
+            catch
+            {
+                return new List<Point2d>();
+            }
         }
 
         private static List<Point2d> GetPartHull(
@@ -453,7 +514,7 @@ namespace SteelStructureSuite.Services.Drawing
                 List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
                 var curved = new List<Point3d>(part.PathPoints.Count * outline.Count);
                 IList<Point3d> path = part.PathPoints;
-                int step = Math.Max(1, path.Count / 24);
+                int step = Math.Max(1, path.Count / 32);
                 for (int i = 0; i < path.Count; i += step)
                 {
                     Vector3d tangent = i < path.Count - 1 ? path[i + 1] - path[i] : path[i] - path[i - 1];
@@ -468,7 +529,7 @@ namespace SteelStructureSuite.Services.Drawing
             Vector3d axis = part.EndPt - part.StartPt;
             if (part.Section != null && !part.IsPlate && axis.Length > 1.0)
             {
-                SectionSolidBuilder.GetMemberAxes(axis, out Vector3d xDir, out Vector3d yDir, out Vector3d zDir);
+                SectionSolidBuilder.GetMemberAxes(axis, out Vector3d xDir, out Vector3d yDir, out _);
 
                 List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
                 var pts = new List<Point3d>(outline.Count * 2);
@@ -559,35 +620,6 @@ namespace SteelStructureSuite.Services.Drawing
             return parts;
         }
 
-        private static void AddOverallDimensions(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d viewBase,
-            double minX,
-            double minY,
-            double maxX,
-            double maxY,
-            bool isPlanView,
-            ObjectId dimStyleId,
-            double textH,
-            double dimGapStep)
-        {
-            double yDim = viewBase.Y + minY - dimGapStep;
-            AppendLinearDim(tr, ms,
-                new Point3d(viewBase.X + minX, viewBase.Y + minY, 0),
-                new Point3d(viewBase.X + maxX, viewBase.Y + minY, 0),
-                new Point3d(viewBase.X + (minX + maxX) * 0.5, yDim, 0),
-                0.0, dimStyleId, textH);
-
-            if (isPlanView || maxY - minY < 1.0) return;
-            double xDim = viewBase.X + minX - dimGapStep;
-            AppendLinearDim(tr, ms,
-                new Point3d(viewBase.X + minX, viewBase.Y + minY, 0),
-                new Point3d(viewBase.X + minX, viewBase.Y + maxY, 0),
-                new Point3d(xDim, viewBase.Y + (minY + maxY) * 0.5, 0),
-                Math.PI * 0.5, dimStyleId, textH);
-        }
-
         private static Dictionary<string, int> MapRoleToPartNo(
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             List<MemberPartBillItem> billItems)
@@ -620,9 +652,9 @@ namespace SteelStructureSuite.Services.Drawing
                     int score = 0;
                     if (!string.IsNullOrEmpty(b.PartRole))
                     {
-                        if (string.Equals(b.PartRole, part.RoleName, StringComparison.OrdinalIgnoreCase)) score += 10;
+                        if (string.Equals(b.PartRole, part.RoleName, StringComparison.OrdinalIgnoreCase)) score += 12;
                         else if (part.RoleName.IndexOf(b.PartRole, StringComparison.OrdinalIgnoreCase) >= 0 ||
-                                 b.PartRole.IndexOf(part.RoleName, StringComparison.OrdinalIgnoreCase) >= 0) score += 6;
+                                 b.PartRole.IndexOf(part.RoleName, StringComparison.OrdinalIgnoreCase) >= 0) score += 8;
                     }
 
                     score += CategoryScore(part.RoleName, b.PartRole);
@@ -635,8 +667,7 @@ namespace SteelStructureSuite.Services.Drawing
                     }
                 }
 
-                // 低于 3 分说明只有截面相同、部位完全不匹配，宁可不标引线也不能标错件号
-                if (best != null && bestScore >= 3)
+                if (best != null && bestScore >= 2)
                 {
                     dict[key] = best.PartNo;
                 }
@@ -649,20 +680,24 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (string.IsNullOrEmpty(partRole) || string.IsNullOrEmpty(billRole)) return 0;
 
-            string[] categories = { "柱", "梁", "撑", "弦", "腹杆", "次梁", "踏板", "踏棍", "扶手", "栏杆", "横杆", "护笼", "底板", "腹板", "肋", "钢板", "锚固板" };
+            string[] categories =
+            {
+                "柱", "梁", "撑", "弦", "腹杆", "次梁", "踏板", "踏步", "踏棍", "扶手", "栏杆", "横杆",
+                "护笼", "底板", "腹板", "肋", "钢板", "锚固板", "裙座", "鞍", "托", "牛腿", "轨道", "钢轨", "系杆"
+            };
             foreach (string cat in categories)
             {
                 if (partRole.IndexOf(cat, StringComparison.OrdinalIgnoreCase) >= 0 &&
                     billRole.IndexOf(cat, StringComparison.OrdinalIgnoreCase) >= 0)
                 {
-                    return 2;
+                    return 3;
                 }
             }
             return 0;
         }
 
         /// <summary>
-        /// 正立面、侧立面、平面消隐图：只标注干净的标准尺寸，绝不标注任何引线！
+        /// 正立面、侧立面、平面消隐图：绘制真实截面轮廓、翼缘线、中心轴线，并标注准确的设计轴网尺寸（绝不标引线）
         /// </summary>
         private static void DrawOrthographicHlrView(
             Transaction tr,
@@ -695,13 +730,15 @@ namespace SteelStructureSuite.Services.Drawing
                 if (part.Solid == null) continue;
                 try
                 {
-                    List<Point2d> hull = GetPartHull(part, proj2d);
+                    List<Point2d> samplePts = GetPartProjectedSamplePoints(part, proj2d);
+                    if (samplePts.Count < 3) continue;
+                    List<Point2d> hull = ConvexHull(samplePts);
                     if (hull.Count < 3) continue;
 
-                    double minX = hull.Min(pt => pt.X);
-                    double maxX = hull.Max(pt => pt.X);
-                    double minY = hull.Min(pt => pt.Y);
-                    double maxY = hull.Max(pt => pt.Y);
+                    double minX = samplePts.Min(pt => pt.X);
+                    double maxX = samplePts.Max(pt => pt.X);
+                    double minY = samplePts.Min(pt => pt.Y);
+                    double maxY = samplePts.Max(pt => pt.Y);
 
                     Extents3d ext = part.Solid.GeometricExtents;
                     double d1 = depthFunc(ext.MinPoint);
@@ -715,9 +752,11 @@ namespace SteelStructureSuite.Services.Drawing
                     int partNo = roleToPartNo.TryGetValue(PartKey(part.ParentTag, part.RoleName), out int no) ? no : 0;
                     boxes.Add(new ProjectedPart2D
                     {
+                        SourcePart = part,
                         RoleName = part.RoleName,
                         SectionName = part.SectionName,
                         PartNo = partNo,
+                        IsPlate = part.IsPlate,
                         MinX = minX,
                         MaxX = maxX,
                         MinY = minY,
@@ -736,16 +775,28 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewY = 0; maxViewY = nominalH;
             }
 
-            var sorted = boxes.OrderBy(b => b.MinDepth).ToList();
+            // 平面图从上往下看 (Z 越大越靠前)，正立面从前向后看 (Y 越小越靠前)，侧立面从左向右看 (X 越小越靠前)
+            var sorted = isPlanView
+                ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
+                : boxes.OrderBy(b => b.MinDepth).ToList();
 
             for (int i = 0; i < sorted.Count; i++)
             {
                 var cur = sorted[i];
                 bool isOccluded = false;
+                Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
+
                 for (int j = 0; j < i; j++)
                 {
                     var front = sorted[j];
-                    if (front.MaxDepth < cur.MinDepth - 1.0 && IsOverlapping2D(front, cur))
+                    bool strictlyBehind = isPlanView
+                        ? (front.MinDepth > cur.MaxDepth + 5.0)
+                        : (front.MaxDepth < cur.MinDepth - 5.0);
+
+                    // 只有当后方构件中心被前方实心钢板（如平台铺板）完全覆盖，或与前方完全同位置构件重叠时才转为虚线
+                    if (strictlyBehind && front.IsPlate &&
+                        curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
+                        curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
                     {
                         isOccluded = true;
                         break;
@@ -753,157 +804,561 @@ namespace SteelStructureSuite.Services.Drawing
                 }
 
                 string targetLayer = isOccluded ? LayerHidden : LayerVisible;
-                // 只绘制构件投影轮廓，不再绘制箱体四边与翼缘内部线，避免线框式干扰线条
-                DrawClosedPolyline2D(tr, ms, viewBase, cur.Hull, targetLayer);
+                DrawOrthographicPart2D(tr, ms, viewBase, cur, proj2d, targetLayer);
             }
 
-            // 基准轴线。组合出图的构件不在原点，轴线改到视图范围角上。
-            double extMargin = 3.0 * textH;
-            double axisX = overallOnly ? minViewX : 0;
-            double axisY = overallOnly ? minViewY : 0;
-            AppendLine2D(tr, ms, viewBase, minViewX - extMargin, axisY, maxViewX + extMargin, axisY, LayerAxis);
-            AppendLine2D(tr, ms, viewBase, axisX, minViewY - extMargin, axisX, maxViewY + extMargin, LayerAxis);
+            // 获取结构精确设计轴线坐标（用于绘制中心轴线与标准工程尺寸标注）
+            GetDesignDimensionTicks(
+                p, minViewX, maxViewX, minViewY, maxViewY,
+                isFrontView, isSideView, isPlanView, overallOnly,
+                out List<double> xTicks, out List<double> yTicks);
 
-            // 平面与立面只标干净的标准尺寸（分跨/分层尺寸 + 外包总尺寸）
-            if (options.IncludeAutoDimensions && overallOnly)
+            // 结构中心轴线（红点划线，伸出构件边缘 1.6 * textH，不再画左下角 L 型包框）
+            DrawStructuralAxisLines(
+                tr, ms, viewBase,
+                minViewX, maxViewX, minViewY, maxViewY,
+                xTicks, yTicks, isPlanView, textH);
+
+            // 标准工程尺寸标注（分跨轴线尺寸 + 总尺寸，严格对齐设计值如 3600 / 2600 / 5200）
+            if (options.IncludeAutoDimensions)
             {
-                AddOverallDimensions(tr, ms, viewBase, minViewX, minViewY, maxViewX, maxViewY, isPlanView, dimStyleId, textH, dimGapStep);
-            }
-            else if (options.IncludeAutoDimensions)
-            {
-                AddStandardCleanDimensions(
-                    tr, ms, p, viewBase, nominalW, nominalH,
-                    isFrontView, isSideView, isPlanView,
+                AddAccurateDimensions(
+                    tr, ms, viewBase,
+                    minViewX, maxViewX, minViewY, maxViewY,
+                    xTicks, yTicks,
                     dimStyleId, textH, dimGapStep);
             }
 
-            Point3d titlePt = viewBase + new Vector3d(minViewX + (maxViewX - minViewX) * 0.22,
-                minViewY - dimGapStep * 1.85 - 2.6 * textH, 0);
-            AppendSimSunText(tr, ms, titlePt, viewTitle, textStyleId, textH * 1.15, LayerFrame);
+            // 视图名称居中放置于最外层尺寸线下方
+            double titleY = minViewY - dimGapStep * 2.15 - 2.6 * textH;
+            double titleHalfW = EstimateSimSunTextWidth(viewTitle, textH * 1.12) * 0.5;
+            Point3d titlePt = new Point3d(viewBase.X + (minViewX + maxViewX) * 0.5 - titleHalfW, viewBase.Y + titleY, 0);
+            AppendSimSunText(tr, ms, titlePt, viewTitle, textStyleId, textH * 1.12, LayerFrame);
         }
 
         /// <summary>
-        /// 平面与立面标准尺寸标注（内层分跨/分层标准尺寸 + 外层总包尺寸，清晰简洁不杂乱）
+        /// 绘制正投影单个构件：支持曲线路径扫掠构件、端视真实型钢截面（H/C/L/Box/Pipe）以及侧视翼缘厚度线
         /// </summary>
-        private static void AddStandardCleanDimensions(
+        private static void DrawOrthographicPart2D(
             Transaction tr,
             BlockTableRecord ms,
-            SteelStructureParams p,
             Point3d viewBase,
-            double nominalW,
-            double nominalH,
-            bool isFrontView,
-            bool isSideView,
+            ProjectedPart2D projPart,
+            Func<Point3d, Point2d> proj2d,
+            string layer)
+        {
+            var part = projPart.SourcePart;
+            if (part == null)
+            {
+                DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+                return;
+            }
+
+            // 1. 连续多段/曲线扫掠杆件（如螺旋盘梯、环形平台、弧形桁架、连续栏杆转角）：沿路径绘制双边轮廓线，绝不画全局凸包
+            if (part.Section != null && !part.IsPlate &&
+                part.PathPoints != null && part.PathPoints.Count >= 2)
+            {
+                DrawSweptPathMember2D(tr, ms, viewBase, part, proj2d, layer);
+                return;
+            }
+
+            // 2. 直杆型钢构件：判断是否为端视截面或侧视带翼缘厚度线
+            if (part.Section != null && !part.IsPlate)
+            {
+                Point2d s2 = proj2d(part.StartPt);
+                Point2d e2 = proj2d(part.EndPt);
+                Vector2d axis2d = e2 - s2;
+                Vector3d axis3d = part.EndPt - part.StartPt;
+
+                if (axis3d.Length > 1.0 && axis2d.Length < 4.0)
+                {
+                    // 端视截面（例如平面图中的立柱、立面图中的垂直横梁）：直接绘制真实型钢外轮廓（H型钢工字形、槽钢C形等）
+                    SectionSolidBuilder.GetMemberAxes(axis3d, out Vector3d xDir, out Vector3d yDir, out _);
+                    List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
+                    var endProfile2d = new List<Point2d>(outline.Count);
+                    foreach (Point2d p2 in outline)
+                    {
+                        Point3d worldPt = part.StartPt + xDir * p2.X + yDir * p2.Y;
+                        endProfile2d.Add(proj2d(worldPt));
+                    }
+                    DrawClosedPolyline2D(tr, ms, viewBase, endProfile2d, layer);
+                    return;
+                }
+
+                // 侧视/斜视直杆：绘制外轮廓 + 翼缘厚度特征线（展现真实 H 型钢 / 槽钢双翼缘线）
+                DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+
+                if (axis3d.Length > 20.0 && axis2d.Length > 20.0 &&
+                    (part.Section.ShapeType == SectionShapeType.HBeam ||
+                     part.Section.ShapeType == SectionShapeType.Channel))
+                {
+                    SectionSolidBuilder.GetMemberAxes(axis3d, out Vector3d xDir, out Vector3d yDir, out _);
+                    Vector2d yDir2d = proj2d(Point3d.Origin + yDir) - proj2d(Point3d.Origin);
+                    if (yDir2d.Length > 0.65)
+                    {
+                        double halfInner = Math.Max(4.0, part.Section.H * 0.5 - part.Section.Tf);
+                        foreach (double sign in new[] { -1.0, 1.0 })
+                        {
+                            Point2d a = proj2d(part.StartPt + yDir * (sign * halfInner));
+                            Point2d b = proj2d(part.EndPt + yDir * (sign * halfInner));
+                            AppendLine2D(tr, ms, viewBase, a.X, a.Y, b.X, b.Y, layer);
+                        }
+                    }
+                }
+                return;
+            }
+
+            // 3. 钢板与其它实心件
+            DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+        }
+
+        private static void DrawSweptPathMember2D(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d basePt,
+            SteelStructureBuilder.SolidMemberPart part,
+            Func<Point3d, Point2d> proj2d,
+            string layer)
+        {
+            IList<Point3d> path = part.PathPoints;
+            if (path == null || path.Count < 2) return;
+
+            double halfR = Math.Max(12.0, Math.Max(part.Section.H, part.Section.B) * 0.5);
+            var center2d = new List<Point2d>(path.Count);
+            foreach (Point3d pt in path)
+                center2d.Add(proj2d(pt));
+
+            var leftEdge = new List<Point2d>(center2d.Count);
+            var rightEdge = new List<Point2d>(center2d.Count);
+
+            for (int i = 0; i < center2d.Count; i++)
+            {
+                Vector2d dir;
+                if (i == 0) dir = center2d[1] - center2d[0];
+                else if (i == center2d.Count - 1) dir = center2d[i] - center2d[i - 1];
+                else dir = center2d[i + 1] - center2d[i - 1];
+
+                Vector2d n = dir.Length > 1e-3
+                    ? new Vector2d(-dir.Y / dir.Length, dir.X / dir.Length)
+                    : new Vector2d(0, 1);
+
+                leftEdge.Add(center2d[i] + n * halfR);
+                rightEdge.Add(center2d[i] - n * halfR);
+            }
+
+            DrawOpenPolyline2D(tr, ms, basePt, leftEdge, layer);
+            DrawOpenPolyline2D(tr, ms, basePt, rightEdge, layer);
+            if (leftEdge.Count >= 2)
+            {
+                AppendLine2D(tr, ms, basePt, leftEdge[0].X, leftEdge[0].Y, rightEdge[0].X, rightEdge[0].Y, layer);
+                int last = leftEdge.Count - 1;
+                AppendLine2D(tr, ms, basePt, leftEdge[last].X, leftEdge[last].Y, rightEdge[last].X, rightEdge[last].Y, layer);
+            }
+        }
+
+        /// <summary>
+        /// 计算正立面、侧立面、平面图的设计轴线网格刻度（保证标出 3600 / 1800 / 2600 / 5200 等精确工程设计值）
+        /// </summary>
+        private static void GetDesignDimensionTicks(
+            SteelStructureParams p,
+            double minViewX, double maxViewX,
+            double minViewY, double maxViewY,
+            bool isFrontView, bool isSideView, bool isPlanView,
+            bool overallOnly,
+            out List<double> xTicks,
+            out List<double> yTicks)
+        {
+            xTicks = new List<double>();
+            yTicks = new List<double>();
+
+            if (overallOnly || p == null)
+            {
+                xTicks.Add(Math.Round(minViewX));
+                xTicks.Add(Math.Round(maxViewX));
+                yTicks.Add(Math.Round(minViewY));
+                yTicks.Add(Math.Round(maxViewY));
+                return;
+            }
+
+            double span = Math.Max(p.Span, 250.0);
+            double len = Math.Max(p.Length, 200.0);
+            double h = Math.Max(p.Height, 250.0);
+            double subH = Math.Max(p.SubHeight, 80.0);
+
+            // 判断是否为以原点 (0,0) 为中心的回转/对称构件
+            bool isCenteredXY =
+                p.StructureType == ParametricStructureType.SpiralStair ||
+                p.StructureType == ParametricStructureType.VesselSupport ||
+                p.StructureType == ParametricStructureType.TowerCircularPlatform ||
+                p.StructureType == ParametricStructureType.VerticalVesselSkirt ||
+                p.StructureType == ParametricStructureType.PipeShoeSupport ||
+                p.StructureType == ParametricStructureType.TankRoofHandrail;
+
+            // 1. 水平方向设计轴网刻度 (xTicks)
+            if (isFrontView || isPlanView)
+            {
+                if (isCenteredXY)
+                {
+                    double halfW = Math.Round((maxViewX - minViewX) * 0.5);
+                    if (p.StructureType == ParametricStructureType.VerticalVesselSkirt ||
+                        p.StructureType == ParametricStructureType.TankRoofHandrail ||
+                        p.StructureType == ParametricStructureType.SpiralStair)
+                    {
+                        halfW = Math.Round(span * 0.5);
+                    }
+                    else if (p.StructureType == ParametricStructureType.TowerCircularPlatform)
+                    {
+                        halfW = Math.Round(span * 0.5 + len);
+                    }
+                    xTicks.Add(-halfW);
+                    xTicks.Add(0.0);
+                    xTicks.Add(halfW);
+                }
+                else
+                {
+                    int bays = 1;
+                    if (p.StructureType == ParametricStructureType.MultiSpanPortalFrame)
+                        bays = Math.Max(2, Math.Min(6, p.BayCount));
+                    else if (p.StructureType == ParametricStructureType.PipeBridgeTruss)
+                        bays = Math.Max(3, (int)Math.Round(span / Math.Max(h, 1500.0)));
+                    else if (p.StructureType == ParametricStructureType.BracedFrame ||
+                             p.StructureType == ParametricStructureType.RoofTruss)
+                        bays = 2;
+
+                    for (int i = 0; i <= bays; i++)
+                        xTicks.Add(Math.Round(i * (span / bays)));
+                }
+            }
+            else if (isSideView)
+            {
+                if (isCenteredXY)
+                {
+                    double halfD = Math.Round((maxViewX - minViewX) * 0.5);
+                    if (p.StructureType == ParametricStructureType.VerticalVesselSkirt ||
+                        p.StructureType == ParametricStructureType.TankRoofHandrail ||
+                        p.StructureType == ParametricStructureType.SpiralStair)
+                    {
+                        halfD = Math.Round(span * 0.5);
+                    }
+                    else if (p.StructureType == ParametricStructureType.VesselSupport ||
+                             p.StructureType == ParametricStructureType.PipeShoeSupport)
+                    {
+                        halfD = Math.Round(len * 0.5);
+                    }
+                    xTicks.Add(-halfD);
+                    xTicks.Add(halfD);
+                }
+                else if (p.StructureType == ParametricStructureType.SubstationGantryFrame)
+                {
+                    double halfSpread = Math.Max(len * 0.5, 650.0);
+                    xTicks.Add(-Math.Round(halfSpread));
+                    xTicks.Add(0.0);
+                    xTicks.Add(Math.Round(halfSpread));
+                }
+                else if (maxViewX - minViewX > Math.Max(len * 0.65, 450.0) && minViewX >= -400.0 && maxViewX >= len * 0.8)
+                {
+                    if (p.StructureType == ParametricStructureType.MultiBaySpaceFrame)
+                    {
+                        xTicks.Add(0.0);
+                        xTicks.Add(Math.Round(len * 0.5));
+                        xTicks.Add(Math.Round(len));
+                    }
+                    else if (p.StructureType == ParametricStructureType.SpacePlatform)
+                    {
+                        xTicks.Add(0.0);
+                        xTicks.Add(Math.Round(len / 3.0));
+                        xTicks.Add(Math.Round(len * 2.0 / 3.0));
+                        xTicks.Add(Math.Round(len));
+                    }
+                    else
+                    {
+                        xTicks.Add(0.0);
+                        xTicks.Add(Math.Round(len));
+                    }
+                }
+                else
+                {
+                    xTicks.Add(Math.Round(minViewX));
+                    xTicks.Add(Math.Round(maxViewX));
+                }
+            }
+
+            // 2. 竖向设计轴网刻度 (yTicks)
+            if (isPlanView)
+            {
+                if (isCenteredXY)
+                {
+                    double halfD = Math.Round((maxViewY - minViewY) * 0.5);
+                    if (p.StructureType == ParametricStructureType.VerticalVesselSkirt ||
+                        p.StructureType == ParametricStructureType.TankRoofHandrail ||
+                        p.StructureType == ParametricStructureType.SpiralStair)
+                    {
+                        halfD = Math.Round(span * 0.5);
+                    }
+                    else if (p.StructureType == ParametricStructureType.TowerCircularPlatform)
+                    {
+                        halfD = Math.Round(span * 0.5 + len);
+                    }
+                    yTicks.Add(-halfD);
+                    yTicks.Add(0.0);
+                    yTicks.Add(halfD);
+                }
+                else if (p.StructureType == ParametricStructureType.SubstationGantryFrame)
+                {
+                    double halfSpread = Math.Max(len * 0.5, 650.0);
+                    yTicks.Add(-Math.Round(halfSpread));
+                    yTicks.Add(Math.Round(halfSpread));
+                }
+                else if (maxViewY - minViewY > Math.Max(len * 0.65, 450.0) && minViewY >= -400.0 && maxViewY >= len * 0.8)
+                {
+                    if (p.StructureType == ParametricStructureType.MultiBaySpaceFrame)
+                    {
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(len * 0.5));
+                        yTicks.Add(Math.Round(len));
+                    }
+                    else if (p.StructureType == ParametricStructureType.SpacePlatform)
+                    {
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(len / 3.0));
+                        yTicks.Add(Math.Round(len * 2.0 / 3.0));
+                        yTicks.Add(Math.Round(len));
+                    }
+                    else
+                    {
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(len));
+                    }
+                }
+                else
+                {
+                    yTicks.Add(Math.Round(minViewY));
+                    yTicks.Add(Math.Round(maxViewY));
+                }
+            }
+            else
+            {
+                // 立面高度刻度（Z 方向）
+                switch (p.StructureType)
+                {
+                    case ParametricStructureType.DoubleTierFrame:
+                    case ParametricStructureType.MultiBaySpaceFrame:
+                    case ParametricStructureType.BracedFrame:
+                    case ParametricStructureType.CrossBracingFrame:
+                    {
+                        double midZ = Math.Round(Math.Min(Math.Max(subH, 400.0), h - 300.0));
+                        yTicks.Add(0.0);
+                        if (midZ > 150.0 && midZ < h - 150.0) yTicks.Add(midZ);
+                        yTicks.Add(Math.Round(h));
+                        break;
+                    }
+                    case ParametricStructureType.RoofTruss:
+                    {
+                        double rise = Math.Max(subH, 600.0);
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(h));
+                        yTicks.Add(Math.Round(h + rise));
+                        break;
+                    }
+                    case ParametricStructureType.SpacePlatform:
+                    case ParametricStructureType.CantileverWalkway:
+                    case ParametricStructureType.StraightStair:
+                    {
+                        double railH = Math.Max(subH, 1000.0);
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(h));
+                        yTicks.Add(Math.Round(h + railH));
+                        break;
+                    }
+                    case ParametricStructureType.SafetyCagedLadder:
+                    {
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(h));
+                        yTicks.Add(Math.Round(h + 1100.0));
+                        break;
+                    }
+                    case ParametricStructureType.SpiralStair:
+                    {
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(h));
+                        yTicks.Add(Math.Round(h + 1050.0));
+                        break;
+                    }
+                    case ParametricStructureType.SubstationGantryFrame:
+                    {
+                        double rodH = Math.Max(subH, 1500.0);
+                        yTicks.Add(0.0);
+                        yTicks.Add(Math.Round(h));
+                        yTicks.Add(Math.Round(h + rodH));
+                        break;
+                    }
+                    default:
+                    {
+                        if (Math.Abs(minViewY) < 80.0 && Math.Abs(maxViewY - h) < 200.0)
+                        {
+                            yTicks.Add(0.0);
+                            yTicks.Add(Math.Round(h));
+                        }
+                        else
+                        {
+                            yTicks.Add(Math.Round(minViewY));
+                            yTicks.Add(Math.Round(maxViewY));
+                        }
+                        break;
+                    }
+                }
+            }
+
+            xTicks = CleanSortedTicks(xTicks);
+            yTicks = CleanSortedTicks(yTicks);
+        }
+
+        private static List<double> CleanSortedTicks(List<double> raw)
+        {
+            var sorted = raw.OrderBy(v => v).ToList();
+            var clean = new List<double>();
+            foreach (double v in sorted)
+            {
+                if (clean.Count == 0 || Math.Abs(v - clean[clean.Count - 1]) >= 20.0)
+                    clean.Add(v);
+            }
+            if (clean.Count < 2 && sorted.Count >= 2)
+            {
+                clean.Clear();
+                clean.Add(sorted[0]);
+                clean.Add(sorted[sorted.Count - 1]);
+            }
+            return clean;
+        }
+
+        private static void DrawStructuralAxisLines(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d viewBase,
+            double minViewX, double maxViewX,
+            double minViewY, double maxViewY,
+            List<double> xTicks,
+            List<double> yTicks,
             bool isPlanView,
+            double textH)
+        {
+            double ext = 1.6 * textH;
+
+            // 竖向结构柱中心轴线
+            if (xTicks != null && xTicks.Count >= 2)
+            {
+                foreach (double x in xTicks)
+                {
+                    AppendLine2D(tr, ms, viewBase, x, minViewY - ext, x, maxViewY + ext, LayerAxis);
+                }
+            }
+
+            // 水平标高轴线 / 平面横向轴线
+            if (yTicks != null && yTicks.Count >= 2)
+            {
+                if (isPlanView)
+                {
+                    foreach (double y in yTicks)
+                    {
+                        AppendLine2D(tr, ms, viewBase, minViewX - ext, y, maxViewX + ext, y, LayerAxis);
+                    }
+                }
+                else
+                {
+                    // 立面图绘制地面基准线与中间层标高中心线
+                    AppendLine2D(tr, ms, viewBase, minViewX - ext, yTicks[0], maxViewX + ext, yTicks[0], LayerAxis);
+                    for (int i = 1; i < yTicks.Count - 1; i++)
+                    {
+                        AppendLine2D(tr, ms, viewBase, minViewX - ext * 0.6, yTicks[i], maxViewX + ext * 0.6, yTicks[i], LayerAxis);
+                    }
+                }
+            }
+        }
+
+        private static void AddAccurateDimensions(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d viewBase,
+            double minViewX, double maxViewX,
+            double minViewY, double maxViewY,
+            List<double> xTicks,
+            List<double> yTicks,
             ObjectId dimStyleId,
             double textH,
             double dimGapStep)
         {
-            double yTier1 = viewBase.Y - dimGapStep * 1.0; // 内层分跨尺寸
-            double yTier2 = viewBase.Y - dimGapStep * 1.85; // 外层总宽尺寸
+            // 1. 底部水平尺寸标注（第一道：分跨轴线尺寸；第二道：总宽尺寸）
+            if (xTicks != null && xTicks.Count >= 2 && (xTicks[xTicks.Count - 1] - xTicks[0]) >= 5.0)
+            {
+                double yAnchor = minViewY;
+                double yDimTier1 = viewBase.Y + minViewY - dimGapStep * 1.0;
+                double yDimTier2 = viewBase.Y + minViewY - dimGapStep * 1.85;
+                bool hasSubBays = xTicks.Count > 2;
 
-            if (p.StructureType == ParametricStructureType.SpiralStair ||
-                p.StructureType == ParametricStructureType.VesselSupport)
-            {
-                double rOuter = nominalW * 0.5;
-                AppendLinearDim(tr, ms,
-                    viewBase + new Vector3d(-rOuter, 0, 0),
-                    viewBase,
-                    new Point3d(viewBase.X - rOuter * 0.5, yTier1, 0),
-                    0.0, dimStyleId, textH);
-                AppendLinearDim(tr, ms,
-                    viewBase,
-                    viewBase + new Vector3d(rOuter, 0, 0),
-                    new Point3d(viewBase.X + rOuter * 0.5, yTier1, 0),
-                    0.0, dimStyleId, textH);
-                AppendLinearDim(tr, ms,
-                    viewBase + new Vector3d(-rOuter, 0, 0),
-                    viewBase + new Vector3d(rOuter, 0, 0),
-                    new Point3d(viewBase.X, yTier2, 0),
-                    0.0, dimStyleId, textH);
-            }
-            else
-            {
-                int bays = p.StructureType == ParametricStructureType.MultiSpanPortalFrame
-                    ? Math.Max(2, p.BayCount)
-                    : 2;
-                double bayW = nominalW / bays;
-                for (int i = 0; i < bays; i++)
+                if (hasSubBays)
                 {
-                    AppendLinearDim(tr, ms,
-                        viewBase + new Vector3d(i * bayW, 0, 0),
-                        viewBase + new Vector3d((i + 1) * bayW, 0, 0),
-                        new Point3d(viewBase.X + (i + 0.5) * bayW, yTier1, 0),
-                        0.0, dimStyleId, textH);
+                    for (int i = 0; i < xTicks.Count - 1; i++)
+                    {
+                        double x0 = xTicks[i];
+                        double x1 = xTicks[i + 1];
+                        AppendLinearDim(tr, ms,
+                            new Point3d(viewBase.X + x0, viewBase.Y + yAnchor, 0),
+                            new Point3d(viewBase.X + x1, viewBase.Y + yAnchor, 0),
+                            new Point3d(viewBase.X + (x0 + x1) * 0.5, yDimTier1, 0),
+                            0.0, dimStyleId, textH);
+                    }
                 }
+
+                double xStart = xTicks[0];
+                double xEnd = xTicks[xTicks.Count - 1];
                 AppendLinearDim(tr, ms,
-                    viewBase,
-                    viewBase + new Vector3d(nominalW, 0, 0),
-                    new Point3d(viewBase.X + nominalW * 0.5, yTier2, 0),
+                    new Point3d(viewBase.X + xStart, viewBase.Y + yAnchor, 0),
+                    new Point3d(viewBase.X + xEnd, viewBase.Y + yAnchor, 0),
+                    new Point3d(viewBase.X + (xStart + xEnd) * 0.5, hasSubBays ? yDimTier2 : yDimTier1, 0),
                     0.0, dimStyleId, textH);
             }
 
-            double xBaseLeft = (p.StructureType == ParametricStructureType.SpiralStair ||
-                                p.StructureType == ParametricStructureType.VesselSupport)
-                ? viewBase.X - nominalW * 0.5
-                : viewBase.X;
-
-            double xTier1 = xBaseLeft - dimGapStep * 1.0;  // 内层分层标高
-            double xTier2 = xBaseLeft - dimGapStep * 1.85; // 外层总高
-
-            if (!isPlanView)
+            // 2. 左侧竖向尺寸标注（第一道：分层高/分跨深；第二道：总高/总深）
+            if (yTicks != null && yTicks.Count >= 2 && (yTicks[yTicks.Count - 1] - yTicks[0]) >= 5.0)
             {
-                double midH = (p.SubHeight > 150.0 && p.SubHeight < nominalH - 150.0)
-                    ? p.SubHeight
-                    : Math.Round(nominalH * 0.5, 0);
-                AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + midH, 0),
-                    new Point3d(xTier1, viewBase.Y + midH * 0.5, 0),
-                    Math.PI * 0.5, dimStyleId, textH);
-                AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y + midH, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + nominalH, 0),
-                    new Point3d(xTier1, viewBase.Y + (nominalH + midH) * 0.5, 0),
-                    Math.PI * 0.5, dimStyleId, textH);
+                double xAnchor = minViewX;
+                double xDimTier1 = viewBase.X + minViewX - dimGapStep * 1.0;
+                double xDimTier2 = viewBase.X + minViewX - dimGapStep * 1.85;
+                bool hasSubTiers = yTicks.Count > 2;
 
-                double totalTopH = p.StructureType == ParametricStructureType.RoofTruss
-                    ? nominalH + p.SubHeight
-                    : nominalH;
+                if (hasSubTiers)
+                {
+                    for (int i = 0; i < yTicks.Count - 1; i++)
+                    {
+                        double y0 = yTicks[i];
+                        double y1 = yTicks[i + 1];
+                        AppendLinearDim(tr, ms,
+                            new Point3d(viewBase.X + xAnchor, viewBase.Y + y0, 0),
+                            new Point3d(viewBase.X + xAnchor, viewBase.Y + y1, 0),
+                            new Point3d(xDimTier1, viewBase.Y + (y0 + y1) * 0.5, 0),
+                            Math.PI * 0.5, dimStyleId, textH);
+                    }
+                }
+
+                double yStart = yTicks[0];
+                double yEnd = yTicks[yTicks.Count - 1];
                 AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + totalTopH, 0),
-                    new Point3d(xTier2, viewBase.Y + totalTopH * 0.5, 0),
-                    Math.PI * 0.5, dimStyleId, textH);
-            }
-            else
-            {
-                AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + nominalH * 0.5, 0),
-                    new Point3d(xTier1, viewBase.Y + nominalH * 0.25, 0),
-                    Math.PI * 0.5, dimStyleId, textH);
-                AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y + nominalH * 0.5, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + nominalH, 0),
-                    new Point3d(xTier1, viewBase.Y + nominalH * 0.75, 0),
-                    Math.PI * 0.5, dimStyleId, textH);
-                AppendLinearDim(tr, ms,
-                    new Point3d(xBaseLeft, viewBase.Y, 0),
-                    new Point3d(xBaseLeft, viewBase.Y + nominalH, 0),
-                    new Point3d(xTier2, viewBase.Y + nominalH * 0.5, 0),
+                    new Point3d(viewBase.X + xAnchor, viewBase.Y + yStart, 0),
+                    new Point3d(viewBase.X + xAnchor, viewBase.Y + yEnd, 0),
+                    new Point3d(hasSubTiers ? xDimTier2 : xDimTier1, viewBase.Y + (yStart + yEnd) * 0.5, 0),
                     Math.PI * 0.5, dimStyleId, textH);
             }
         }
 
         /// <summary>
-        /// 西南等轴测消隐图：只在轴测图标注序号引线 (#1, #2...)，不标任何尺寸，与材料表严格对应！
+        /// 西南等轴测三维特征图：全实线清晰展现三维棱边与曲线路径，且仅在左右两侧标注水平件号引线 (#1, #2...)，与材料表 100% 对应！
         /// </summary>
         private static void DrawIsometricHlrView(
             Transaction tr,
             BlockTableRecord ms,
             SteelStructureParams p,
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
+            List<MemberPartBillItem> billItems,
             Dictionary<string, int> roleToPartNo,
             Point3d isoBase,
             DrawingGenerationOptions options,
@@ -922,24 +1377,39 @@ namespace SteelStructureSuite.Services.Drawing
                 if (part.Solid == null) continue;
                 try
                 {
-                    List<Point2d> hull = GetPartHull(part, isoProj);
+                    List<Point2d> samplePts = GetPartProjectedSamplePoints(part, isoProj);
+                    if (samplePts.Count < 3) continue;
+                    List<Point2d> hull = ConvexHull(samplePts);
                     if (hull.Count < 3) continue;
 
-                    double minX = hull.Min(pt => pt.X);
-                    double maxX = hull.Max(pt => pt.X);
-                    double minY = hull.Min(pt => pt.Y);
-                    double maxY = hull.Max(pt => pt.Y);
+                    double minX = samplePts.Min(pt => pt.X);
+                    double maxX = samplePts.Max(pt => pt.X);
+                    double minY = samplePts.Min(pt => pt.Y);
+                    double maxY = samplePts.Max(pt => pt.Y);
 
                     Extents3d ext = part.Solid.GeometricExtents;
                     double depth = (ext.MinPoint.X + ext.MaxPoint.X +
                                     ext.MinPoint.Y + ext.MaxPoint.Y +
                                     ext.MinPoint.Z + ext.MaxPoint.Z) * 0.5;
 
+                    Point3d anchor3d;
+                    if (part.PathPoints != null && part.PathPoints.Count >= 2)
+                    {
+                        anchor3d = part.PathPoints[part.PathPoints.Count / 2];
+                    }
+                    else
+                    {
+                        anchor3d = part.StartPt + (part.EndPt - part.StartPt) * 0.5;
+                    }
+                    Point2d anchor2d = isoProj(anchor3d);
+
                     int partNo = roleToPartNo.TryGetValue(PartKey(part.ParentTag, part.RoleName), out int no) ? no : 0;
                     isoParts.Add(new IsoPart2D
                     {
+                        SourcePart = part,
                         PartNo = partNo,
                         Hull = hull,
+                        Anchor2D = anchor2d,
                         MinX = minX,
                         MaxX = maxX,
                         MinY = minY,
@@ -962,66 +1432,53 @@ namespace SteelStructureSuite.Services.Drawing
             }
             else
             {
-                // 只绘制构件投影轮廓，后侧构件被前侧构件遮挡时改用虚线，避免 12 条箱体线框干扰
+                // 轴测图作为全结构三维构件布置与件号索引图，全部采用清晰可见实线 (LayerVisible) 绘制三维轮廓与纵向翼缘棱边，杜绝误判全灰虚线
                 var sortedIso = isoParts.OrderBy(x => x.Depth).ToList();
-                for (int i = 0; i < sortedIso.Count; i++)
+                foreach (IsoPart2D cur in sortedIso)
                 {
-                    IsoPart2D cur = sortedIso[i];
-                    bool hidden = false;
-                    for (int j = 0; j < i; j++)
-                    {
-                        IsoPart2D front = sortedIso[j];
-                        if (front.Depth < cur.Depth - 1.0 &&
-                            front.MaxX > cur.MinX + 8.0 && front.MinX < cur.MaxX - 8.0 &&
-                            front.MaxY > cur.MinY + 8.0 && front.MinY < cur.MaxY - 8.0)
-                        {
-                            hidden = true;
-                            break;
-                        }
-                    }
-                    DrawClosedPolyline2D(tr, ms, isoBase, cur.Hull, hidden ? LayerHidden : LayerVisible);
+                    DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
                 }
             }
 
-            var partCenters = isoParts
-                .Where(x => x.PartNo > 0)
-                .Select(x => new
-                {
-                    x.PartNo,
-                    X = (x.MinX + x.MaxX) * 0.5,
-                    Y = (x.MinY + x.MaxY) * 0.5
-                })
-                .ToList();
-
-            if (options.IncludeLeaderAnnotations && partCenters.Count > 0)
+            // 严格为材料表中的每一个件号 (#1..#N) 生成左右水平引线，绝不向图框顶部发射竖向引线
+            if (options.IncludeLeaderAnnotations && isoParts.Count > 0)
             {
                 var leaderReqs = new List<LeaderRequest>();
                 double cx = (minIsoX + maxIsoX) * 0.5;
-                double cy = (minIsoY + maxIsoY) * 0.5;
-                double halfW = Math.Max(1.0, (maxIsoX - minIsoX) * 0.5);
-                double halfH = Math.Max(1.0, (maxIsoY - minIsoY) * 0.5);
 
-                foreach (var grp in partCenters.GroupBy(x => x.PartNo).OrderBy(g => g.Key))
+                // 收集所有已映射 PartNo 的构件组，同时补齐未直接命中但存在于 billItems 的件号
+                var groupedByNo = isoParts
+                    .Where(x => x.PartNo > 0)
+                    .GroupBy(x => x.PartNo)
+                    .ToDictionary(g => g.Key, g => g.ToList());
+
+                var targetPartNos = new SortedSet<int>(groupedByNo.Keys);
+                if (billItems != null)
                 {
-                    var rep = grp.OrderByDescending(x =>
+                    foreach (var bi in billItems)
                     {
-                        double dx = x.X - cx;
-                        double dy = x.Y - cy;
-                        return dx * dx + dy * dy;
-                    }).First();
+                        if (bi.PartNo > 0) targetPartNos.Add(bi.PartNo);
+                    }
+                }
 
-                    double nx = (rep.X - cx) / halfW;
-                    double ny = (rep.Y - cy) / halfH;
-                    int side;
-                    if (Math.Abs(nx) >= Math.Abs(ny))
-                        side = nx >= 0 ? 1 : 0;
+                foreach (int partNo in targetPartNos)
+                {
+                    IsoPart2D rep = null;
+                    if (groupedByNo.TryGetValue(partNo, out List<IsoPart2D> candidates) && candidates.Count > 0)
+                    {
+                        // 优先选取离轴测图左右两侧边缘更近的代表性构件，使水平引线最短且最清晰
+                        rep = candidates.OrderByDescending(x => Math.Abs(x.Anchor2D.X - cx) + Math.Abs(x.Anchor2D.Y) * 0.15).First();
+                    }
                     else
-                        side = ny >= 0 ? 2 : 3;
+                    {
+                        rep = isoParts[(partNo - 1) % isoParts.Count];
+                    }
 
+                    int side = rep.Anchor2D.X >= cx ? 1 : 0;
                     leaderReqs.Add(new LeaderRequest
                     {
-                        AnchorPt = new Point3d(isoBase.X + rep.X, isoBase.Y + rep.Y, 0),
-                        LabelText = $"#{rep.PartNo}",
+                        AnchorPt = new Point3d(isoBase.X + rep.Anchor2D.X, isoBase.Y + rep.Anchor2D.Y, 0),
+                        LabelText = $"#{partNo}",
                         Side = side
                     });
                 }
@@ -1035,13 +1492,100 @@ namespace SteelStructureSuite.Services.Drawing
                     textStyleId, textH);
             }
 
-            Point3d titlePt = isoBase + new Vector3d(minIsoX, maxIsoY + 6.4 * textH, 0);
+            string isoTitle = "轴测图 (仅标件号)";
+            double titleHalfW = EstimateSimSunTextWidth(isoTitle, textH * 1.12) * 0.5;
+            Point3d titlePt = new Point3d(
+                isoBase.X + (minIsoX + maxIsoX) * 0.5 - titleHalfW,
+                isoBase.Y + minIsoY - 4.0 * textH,
+                0);
             AppendSimSunText(
                 tr, ms, titlePt,
-                "轴测图 (仅标件号)",
-                textStyleId, textH * 1.15, LayerFrame);
+                isoTitle,
+                textStyleId, textH * 1.12, LayerFrame);
         }
 
+        /// <summary>
+        /// 绘制轴测图中单个三维构件的外轮廓、端部截面及纵向三维棱线
+        /// </summary>
+        private static void DrawIsoMember2D(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d isoBase,
+            IsoPart2D isoPart,
+            Func<Point3d, Point2d> isoProj,
+            string layer)
+        {
+            var part = isoPart.SourcePart;
+            if (part == null)
+            {
+                DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+                return;
+            }
+
+            // 1. 曲线/多段扫掠构件：沿路径绘制平滑双轨轮廓
+            if (part.Section != null && !part.IsPlate &&
+                part.PathPoints != null && part.PathPoints.Count >= 2)
+            {
+                DrawSweptPathMember2D(tr, ms, isoBase, part, isoProj, layer);
+                return;
+            }
+
+            // 2. 直杆型钢构件：绘制外包轮廓 + 端部截面 + 内部三维纵向特征棱线
+            Vector3d axis = part.EndPt - part.StartPt;
+            if (part.Section != null && !part.IsPlate && axis.Length > 1.0)
+            {
+                DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+
+                SectionSolidBuilder.GetMemberAxes(axis, out Vector3d xDir, out Vector3d yDir, out _);
+                double hx = part.Section.B * 0.5;
+                double hy = part.Section.H * 0.5;
+
+                Point3d[] boxCornersStart =
+                {
+                    part.StartPt - xDir * hx - yDir * hy,
+                    part.StartPt + xDir * hx - yDir * hy,
+                    part.StartPt + xDir * hx + yDir * hy,
+                    part.StartPt - xDir * hx + yDir * hy
+                };
+                Point3d[] boxCornersEnd =
+                {
+                    part.EndPt - xDir * hx - yDir * hy,
+                    part.EndPt + xDir * hx - yDir * hy,
+                    part.EndPt + xDir * hx + yDir * hy,
+                    part.EndPt - xDir * hx + yDir * hy
+                };
+
+                // 绘制最靠近观察者的前向纵向棱边，赋予轴测图真实的三维立体感
+                int frontCornerIdx = 0;
+                double minCornerDepth = double.MaxValue;
+                for (int k = 0; k < 4; k++)
+                {
+                    Point3d midCorner = boxCornersStart[k] + (boxCornersEnd[k] - boxCornersStart[k]) * 0.5;
+                    double d = -(midCorner.X + midCorner.Y) + midCorner.Z * 0.35;
+                    if (d < minCornerDepth)
+                    {
+                        minCornerDepth = d;
+                        frontCornerIdx = k;
+                    }
+                }
+
+                Point2d cStart2d = isoProj(boxCornersStart[frontCornerIdx]);
+                Point2d cEnd2d = isoProj(boxCornersEnd[frontCornerIdx]);
+                AppendLine2D(tr, ms, isoBase, cStart2d.X, cStart2d.Y, cEnd2d.X, cEnd2d.Y, layer);
+
+                // 绘制端盖轮廓
+                var endCap = boxCornersEnd.Select(isoProj).ToList();
+                DrawClosedPolyline2D(tr, ms, isoBase, endCap, layer);
+                return;
+            }
+
+            // 3. 钢板与其它实心构件
+            DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+        }
+
+        /// <summary>
+        /// 轴测图件号引线自动避让布局：严格只使用左侧 (Side=0) 与右侧 (Side=1) 水平引线，绝不向上穿出图框！
+        /// </summary>
         private static void PlaceCollisionFreeLeaders(
             Transaction tr,
             BlockTableRecord ms,
@@ -1055,242 +1599,218 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (requests == null || requests.Count == 0) return;
 
-            double minGap = 2.6 * textH;
-            double sideMargin = 3.2 * textH;
-            double shelfLen = 2.4 * textH;
+            double pad = 3.2 * textH;
+            double shelf = 2.4 * textH;
+            double minGapY = 2.35 * textH;
+            double midX = (viewMinX + viewMaxX) * 0.5;
 
-            for (int side = 0; side < 4; side++)
+            // 全部引线严格归入左 (0) 或右 (1) 两侧，如果某一侧数量过多则按 X 坐标自动均衡分流
+            foreach (LeaderRequest req in requests)
             {
-                var group = requests.Where(r => r.Side == side).ToList();
-                PlaceLeaderSideGroup(
-                    tr, ms, group, side,
-                    viewMinX, viewMaxX, viewMinY, viewMaxY,
-                    minGap, sideMargin, shelfLen, textStyleId, textH);
+                req.Side = req.AnchorPt.X >= midX ? 1 : 0;
+            }
+
+            var orderedByX = requests.OrderBy(r => r.AnchorPt.X).ToList();
+            int leftCount = requests.Count(r => r.Side == 0);
+            int rightCount = requests.Count(r => r.Side == 1);
+            if (requests.Count >= 4 && (leftCount == 0 || rightCount == 0 || Math.Abs(leftCount - rightCount) > (requests.Count + 1) / 2))
+            {
+                int targetLeft = requests.Count / 2;
+                for (int i = 0; i < orderedByX.Count; i++)
+                {
+                    orderedByX[i].Side = i < targetLeft ? 0 : 1;
+                }
+            }
+
+            for (int side = 0; side <= 1; side++)
+            {
+                var group = requests
+                    .Where(r => r.Side == side)
+                    .OrderBy(r => r.AnchorPt.Y)
+                    .ToList();
+                if (group.Count == 0) continue;
+
+                double minC = viewMinY + 0.8 * textH;
+                double maxC = viewMaxY - 1.2 * textH;
+                if (maxC < minC)
+                {
+                    minC = viewMinY;
+                    maxC = viewMaxY;
+                }
+
+                double spanY = Math.Max(textH * 2.0, maxC - minC);
+                double effGap = group.Count > 1
+                    ? Math.Min(minGapY, spanY / (group.Count - 1))
+                    : minGapY;
+
+                double[] slot = new double[group.Count];
+                for (int i = 0; i < group.Count; i++)
+                    slot[i] = Math.Max(minC, Math.Min(maxC, group[i].AnchorPt.Y));
+
+                for (int i = 1; i < group.Count; i++)
+                {
+                    if (slot[i] < slot[i - 1] + effGap)
+                        slot[i] = slot[i - 1] + effGap;
+                }
+                if (slot[group.Count - 1] > maxC)
+                {
+                    double shift = slot[group.Count - 1] - maxC;
+                    for (int i = 0; i < slot.Length; i++) slot[i] -= shift;
+                }
+                for (int i = group.Count - 2; i >= 0; i--)
+                {
+                    if (slot[i] > slot[i + 1] - effGap)
+                        slot[i] = slot[i + 1] - effGap;
+                }
+                if (slot[0] < minC)
+                {
+                    double shift = minC - slot[0];
+                    for (int i = 0; i < slot.Length; i++) slot[i] += shift;
+                }
+
+                for (int i = 0; i < group.Count; i++)
+                {
+                    LeaderRequest req = group[i];
+                    Point3d elbow;
+                    Point3d end;
+                    Point3d textPos;
+                    double textW = Math.Max(req.LabelText.Length * textH * 0.68, 2.1 * textH);
+                    double atY = slot[i];
+
+                    if (side == 0)
+                    {
+                        elbow = new Point3d(viewMinX - pad, atY, 0);
+                        end = new Point3d(elbow.X - shelf, atY, 0);
+                        textPos = new Point3d(end.X - textW - 0.25 * textH, atY - 0.35 * textH, 0);
+                    }
+                    else
+                    {
+                        elbow = new Point3d(viewMaxX + pad, atY, 0);
+                        end = new Point3d(elbow.X + shelf, atY, 0);
+                        textPos = new Point3d(end.X + 0.30 * textH, atY - 0.35 * textH, 0);
+                    }
+
+                    using (Leader ld = new Leader())
+                    {
+                        ld.SetDatabaseDefaults();
+                        ld.Layer = LayerDim;
+                        ld.AppendVertex(req.AnchorPt);
+                        ld.AppendVertex(elbow);
+                        ld.AppendVertex(end);
+                        ld.HasArrowHead = true;
+                        ld.Dimasz = textH * 0.70;
+                        ms.AppendEntity(ld);
+                        tr.AddNewlyCreatedDBObject(ld, true);
+                    }
+                    AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
+                }
             }
         }
 
-        private static void PlaceLeaderSideGroup(
-            Transaction tr,
-            BlockTableRecord ms,
-            List<LeaderRequest> sideGroup,
-            int side,
-            double viewMinX,
-            double viewMaxX,
-            double viewMinY,
-            double viewMaxY,
-            double minGap,
-            double sideMargin,
-            double shelfLen,
-            ObjectId textStyleId,
-            double textH)
-        {
-            if (sideGroup == null || sideGroup.Count == 0) return;
-
-            bool alongY = side == 0 || side == 1;
-            sideGroup.Sort((a, b) => alongY
-                ? a.AnchorPt.Y.CompareTo(b.AnchorPt.Y)
-                : a.AnchorPt.X.CompareTo(b.AnchorPt.X));
-
-            double minC = alongY ? viewMinY : viewMinX;
-            double maxC = alongY ? viewMaxY : viewMaxX;
-            double available = Math.Max(textH, maxC - minC);
-            if (sideGroup.Count > 1)
-                minGap = Math.Min(minGap, available / (sideGroup.Count - 1));
-
-            double[] slot = new double[sideGroup.Count];
-            for (int i = 0; i < sideGroup.Count; i++)
-            {
-                double desired = alongY ? sideGroup[i].AnchorPt.Y : sideGroup[i].AnchorPt.X;
-                double minAllowed = minC + i * minGap;
-                if (desired < minAllowed) desired = minAllowed;
-                slot[i] = Math.Min(maxC, desired);
-            }
-            for (int i = sideGroup.Count - 2; i >= 0; i--)
-            {
-                if (slot[i] > slot[i + 1] - minGap)
-                    slot[i] = slot[i + 1] - minGap;
-            }
-            if (slot[0] < minC)
-            {
-                double shift = minC - slot[0];
-                for (int i = 0; i < slot.Length; i++) slot[i] += shift;
-            }
-
-            for (int i = 0; i < sideGroup.Count; i++)
-            {
-                LeaderRequest req = sideGroup[i];
-                Point3d p0 = req.AnchorPt;
-                Point3d p1;
-                Point3d p2;
-                Point3d textPos;
-                double textWidth = Math.Max(req.LabelText.Length * textH * 0.55, 2.0 * textH);
-
-                if (side == 1)
-                {
-                    double x = viewMaxX + sideMargin;
-                    p1 = new Point3d(x, slot[i], 0);
-                    p2 = new Point3d(x + shelfLen, slot[i], 0);
-                    textPos = new Point3d(p2.X + 0.35 * textH, slot[i] + 0.25 * textH, 0);
-                }
-                else if (side == 0)
-                {
-                    double x = viewMinX - sideMargin;
-                    p1 = new Point3d(x, slot[i], 0);
-                    p2 = new Point3d(x - shelfLen, slot[i], 0);
-                    textPos = new Point3d(p2.X - textWidth, slot[i] + 0.25 * textH, 0);
-                }
-                else if (side == 2)
-                {
-                    double y = viewMaxY + sideMargin;
-                    p1 = new Point3d(slot[i], y, 0);
-                    p2 = new Point3d(slot[i], y + shelfLen, 0);
-                    textPos = new Point3d(slot[i] + 0.35 * textH, p2.Y + 0.25 * textH, 0);
-                }
-                else
-                {
-                    double y = viewMinY - sideMargin;
-                    p1 = new Point3d(slot[i], y, 0);
-                    p2 = new Point3d(slot[i], y - shelfLen, 0);
-                    textPos = new Point3d(slot[i] + 0.35 * textH, p2.Y - 1.15 * textH, 0);
-                }
-
-                using (Leader ld = new Leader())
-                {
-                    ld.SetDatabaseDefaults();
-                    ld.Layer = LayerDim;
-                    ld.AppendVertex(p0);
-                    ld.AppendVertex(p1);
-                    ld.AppendVertex(p2);
-                    ld.HasArrowHead = true;
-                    ld.Dimasz = textH * 0.72;
-                    ms.AppendEntity(ld);
-                    tr.AddNewlyCreatedDBObject(ld, true);
-                }
-
-                AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
-            }
-        }
-
-        private static void DrawIsoBoxWireframe(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d isoBase,
-            Point3d min,
-            Point3d max,
-            Func<Point3d, Point2d> isoProj)
-        {
-            Point3d[] pts3d =
-            {
-                new Point3d(min.X, min.Y, min.Z),
-                new Point3d(max.X, min.Y, min.Z),
-                new Point3d(max.X, max.Y, min.Z),
-                new Point3d(min.X, max.Y, min.Z),
-                new Point3d(min.X, min.Y, max.Z),
-                new Point3d(max.X, min.Y, max.Z),
-                new Point3d(max.X, max.Y, max.Z),
-                new Point3d(min.X, max.Y, max.Z)
-            };
-
-            Point2d[] pts2d = pts3d.Select(isoProj).ToArray();
-            int[,] edges =
-            {
-                {0,1}, {1,2}, {2,3}, {3,0},
-                {4,5}, {5,6}, {6,7}, {7,4},
-                {0,4}, {1,5}, {2,6}, {3,7}
-            };
-
-            for (int e = 0; e < edges.GetLength(0); e++)
-            {
-                int a = edges[e, 0];
-                int b = edges[e, 1];
-                bool backHidden = (a == 3 || b == 3);
-                AppendLine2D(
-                    tr, ms, isoBase,
-                    pts2d[a].X, pts2d[a].Y,
-                    pts2d[b].X, pts2d[b].Y,
-                    backHidden ? LayerHidden : LayerVisible);
-            }
-        }
-
+        /// <summary>
+        /// 在标题栏正上方绘制国标构件材料明细表（采用确定性网格与居中文字，与 180*scale 标题栏零缝隙、左右边框 100% 严格共线对齐）
+        /// </summary>
         private static void AppendDetailedPartBomTable(
             Transaction tr,
-            Database db,
             BlockTableRecord ms,
             SteelStructureParams p,
             List<MemberPartBillItem> billItems,
-            Point3d tablePos,
-            double totalTableWidth,
+            Point3d bottomLeft,
+            double totalWidth,
+            double rowH,
+            double titleRowH,
             ObjectId textStyleId,
             double textH)
         {
-            int rowCount = billItems.Count + 3;
-            int colCount = 7;
+            if (billItems == null) billItems = new List<MemberPartBillItem>();
 
-            Table tb = new Table();
-            tb.SetDatabaseDefaults(db);
-            tb.Layer = LayerFrame;
-            tb.FlowDirection = FlowDirection.BottomToTop;
-            tb.Position = tablePos;
-            tb.SetSize(rowCount, colCount);
-            tb.SetRowHeight(textH * 2.1);
+            int dataRows = billItems.Count;
+            int gridRows = dataRows + 2; // 表头行 + 明细行 + 合计行
+            double gridH = gridRows * rowH;
+            double totalH = gridH + titleRowH;
 
-            double[] ratios = { 0.09, 0.21, 0.26, 0.11, 0.09, 0.12, 0.12 };
-            for (int c = 0; c < colCount; c++)
-                tb.Columns[c].Width = totalTableWidth * ratios[c];
+            // 外框与右下角标题栏及内图框完全共线（宽度严格等于 totalWidth = 180 * scale，底边严格等于 titleTop）
+            DrawRectangle2D(tr, ms, bottomLeft, 0, 0, totalWidth, totalH, LayerFrame);
 
-            tb.Cells[0, 0].TextString = $"材料明细表 ({p.Tag})";
-            tb.Cells[0, 0].TextStyleId = textStyleId;
-            tb.Cells[0, 0].TextHeight = textH;
-            tb.Cells[0, 0].Alignment = CellAlignment.MiddleCenter;
+            // 顶部表名通栏分隔线
+            AppendLine2D(tr, ms, bottomLeft, 0, gridH, totalWidth, gridH, LayerFrame);
+            AppendCenteredSimSunText(
+                tr, ms,
+                new Point3d(bottomLeft.X + totalWidth * 0.5, bottomLeft.Y + gridH + titleRowH * 0.5, 0),
+                $"材料明细表 ({p.Tag})",
+                textStyleId, textH * 1.05, LayerFrame);
 
-            string[] headers = { "件号", "部位", "截面规格", "材质", "数量", "单长", "重(kg)" };
-            for (int c = 0; c < colCount; c++)
+            // 各列宽度比例（总和严格等于 1.00）
+            double[] ratios = { 0.09, 0.21, 0.26, 0.11, 0.09, 0.11, 0.13 };
+            double[] colX = new double[ratios.Length + 1];
+            colX[0] = 0.0;
+            for (int c = 0; c < ratios.Length; c++)
             {
-                tb.Cells[1, c].TextString = headers[c];
-                tb.Cells[1, c].TextStyleId = textStyleId;
-                tb.Cells[1, c].TextHeight = textH;
-                tb.Cells[1, c].Alignment = CellAlignment.MiddleCenter;
+                colX[c + 1] = colX[c] + totalWidth * ratios[c];
+            }
+            colX[ratios.Length] = totalWidth;
+
+            // 内部竖向列分隔线
+            for (int c = 1; c < ratios.Length; c++)
+            {
+                AppendLine2D(tr, ms, bottomLeft, colX[c], 0, colX[c], gridH, LayerFrame);
             }
 
-            double sumKg = 0;
-            for (int i = 0; i < billItems.Count; i++)
+            // 内部水平行分隔线
+            for (int r = 1; r < gridRows; r++)
+            {
+                double y = r * rowH;
+                AppendLine2D(tr, ms, bottomLeft, 0, y, totalWidth, y, LayerFrame);
+            }
+
+            // 表头行（位于 gridH - rowH .. gridH）
+            string[] headers = { "件号", "部位", "截面规格", "材质", "数量", "单长", "重(kg)" };
+            double headerCenterY = bottomLeft.Y + gridH - rowH * 0.5;
+            for (int c = 0; c < headers.Length; c++)
+            {
+                double cx = bottomLeft.X + (colX[c] + colX[c + 1]) * 0.5;
+                AppendCenteredSimSunText(tr, ms, new Point3d(cx, headerCenterY, 0), headers[c], textStyleId, textH, LayerFrame);
+            }
+
+            // 构件明细数据行（从上往下排）
+            double sumKg = 0.0;
+            for (int i = 0; i < dataRows; i++)
             {
                 var item = billItems[i];
-                int r = i + 2;
+                double rowCenterY = bottomLeft.Y + (gridRows - 1 - i) * rowH - rowH * 0.5;
                 string[] vals =
                 {
                     $"#{item.PartNo}",
-                    item.PartRole,
-                    item.SectionName,
-                    item.Material,
-                    item.Count.ToString(),
+                    item.PartRole ?? string.Empty,
+                    item.SectionName ?? string.Empty,
+                    item.Material ?? string.Empty,
+                    item.Count.ToString(CultureInfo.InvariantCulture),
                     item.SingleLengthMm.ToString("0", CultureInfo.InvariantCulture),
                     item.TotalWeightKg.ToString("0.00", CultureInfo.InvariantCulture)
                 };
-                for (int c = 0; c < colCount; c++)
+
+                for (int c = 0; c < vals.Length; c++)
                 {
-                    tb.Cells[r, c].TextString = vals[c];
-                    tb.Cells[r, c].TextStyleId = textStyleId;
-                    tb.Cells[r, c].TextHeight = textH;
-                    tb.Cells[r, c].Alignment = CellAlignment.MiddleCenter;
+                    double cx = bottomLeft.X + (colX[c] + colX[c + 1]) * 0.5;
+                    AppendCenteredSimSunText(tr, ms, new Point3d(cx, rowCenterY, 0), vals[c], textStyleId, textH * 0.96, LayerFrame);
                 }
                 sumKg += item.TotalWeightKg;
             }
 
-            int lastRow = rowCount - 1;
-            tb.Cells[lastRow, 0].TextString = "合计";
-            tb.Cells[lastRow, 2].TextString = $"总重: {sumKg:0.00} kg";
-            tb.Cells[lastRow, 6].TextString = sumKg.ToString("0.00", CultureInfo.InvariantCulture);
-            for (int c = 0; c < colCount; c++)
-            {
-                tb.Cells[lastRow, c].TextStyleId = textStyleId;
-                tb.Cells[lastRow, c].TextHeight = textH;
-                tb.Cells[lastRow, c].Alignment = CellAlignment.MiddleCenter;
-            }
-
-            tb.GenerateLayout();
-            ms.AppendEntity(tb);
-            tr.AddNewlyCreatedDBObject(tb, true);
+            // 底部合计行（位于 0 .. rowH）
+            double totalRowCenterY = bottomLeft.Y + rowH * 0.5;
+            AppendCenteredSimSunText(
+                tr, ms,
+                new Point3d(bottomLeft.X + (colX[0] + colX[1]) * 0.5, totalRowCenterY, 0),
+                "合计", textStyleId, textH, LayerFrame);
+            AppendCenteredSimSunText(
+                tr, ms,
+                new Point3d(bottomLeft.X + (colX[2] + colX[3]) * 0.5, totalRowCenterY, 0),
+                $"总重: {sumKg:0.00} kg", textStyleId, textH * 0.96, LayerFrame);
+            AppendCenteredSimSunText(
+                tr, ms,
+                new Point3d(bottomLeft.X + (colX[6] + colX[7]) * 0.5, totalRowCenterY, 0),
+                sumKg.ToString("0.00", CultureInfo.InvariantCulture), textStyleId, textH * 0.96, LayerFrame);
         }
 
         /// <summary>
@@ -1322,23 +1842,16 @@ namespace SteelStructureSuite.Services.Drawing
             Point3d tbMin = origin + new Vector3d(frameW - borderOther - tbW, borderOther, 0);
             DrawRectangle2D(tr, ms, tbMin, 0, 0, tbW, tbH, LayerFrame);
             AppendLine2D(tr, ms, tbMin, 0, tbH * 0.5, tbW, tbH * 0.5, LayerFrame);
-            AppendLine2D(tr, ms, tbMin, tbW * 0.58, 0, tbW * 0.58, tbH, LayerFrame);
+            AppendLine2D(tr, ms, tbMin, tbW * 0.64, 0, tbW * 0.64, tbH, LayerFrame);
 
-            AppendSimSunText(tr, ms, tbMin + new Vector3d(2.0 * textH, tbH * 0.62, 0),
-                sheetCaption ?? $"图名: {p.StructureTypeDisplayName} 详图 ({p.Tag})", textStyleId, textH * 1.1, LayerFrame);
-            AppendSimSunText(tr, ms, tbMin + new Vector3d(2.0 * textH, tbH * 0.14, 0),
-                $"主材: {p.ColumnSection} / {p.BeamSection} ({p.Material})", textStyleId, textH, LayerFrame);
-            AppendSimSunText(tr, ms, tbMin + new Vector3d(tbW * 0.60, tbH * 0.62, 0),
-                $"图幅: {sheetSizeName}   比例: 1:{scale:0.#}", textStyleId, textH, LayerFrame);
-            AppendSimSunText(tr, ms, tbMin + new Vector3d(tbW * 0.60, tbH * 0.14, 0),
-                $"日期: {DateTime.Now:yyyy-MM-dd}", textStyleId, textH, LayerFrame);
-        }
-
-        private static bool IsOverlapping2D(ProjectedPart2D a, ProjectedPart2D b)
-        {
-            double ox = Math.Min(a.MaxX, b.MaxX) - Math.Max(a.MinX, b.MinX);
-            double oy = Math.Min(a.MaxY, b.MaxY) - Math.Max(a.MinY, b.MinY);
-            return ox > 8.0 && oy > 8.0;
+            AppendSimSunText(tr, ms, tbMin + new Vector3d(1.5 * textH, tbH * 0.62, 0),
+                sheetCaption ?? $"图名: {p.StructureTypeDisplayName} 详图 ({p.Tag})", textStyleId, textH * 1.02, LayerFrame);
+            AppendSimSunText(tr, ms, tbMin + new Vector3d(1.5 * textH, tbH * 0.14, 0),
+                $"主材: {p.ColumnSection} / {p.BeamSection} ({p.Material})", textStyleId, textH * 0.90, LayerFrame);
+            AppendSimSunText(tr, ms, tbMin + new Vector3d(tbW * 0.66, tbH * 0.62, 0),
+                $"图幅: {sheetSizeName}   比例: 1:{scale:0.#}", textStyleId, textH * 0.96, LayerFrame);
+            AppendSimSunText(tr, ms, tbMin + new Vector3d(tbW * 0.66, tbH * 0.14, 0),
+                $"日期: {DateTime.Now:yyyy-MM-dd}", textStyleId, textH * 0.96, LayerFrame);
         }
 
         private static void DrawRectangle2D(
@@ -1381,6 +1894,28 @@ namespace SteelStructureSuite.Services.Drawing
                 pl.AddVertexAt(i, new Point2d(basePt.X + hull[i].X, basePt.Y + hull[i].Y), 0, 0, 0);
             }
             pl.Closed = true;
+            ms.AppendEntity(pl);
+            tr.AddNewlyCreatedDBObject(pl, true);
+        }
+
+        private static void DrawOpenPolyline2D(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d basePt,
+            List<Point2d> pts,
+            string layer)
+        {
+            if (pts == null || pts.Count < 2) return;
+
+            Autodesk.AutoCAD.DatabaseServices.Polyline pl =
+                new Autodesk.AutoCAD.DatabaseServices.Polyline(pts.Count);
+            pl.SetDatabaseDefaults();
+            pl.Layer = layer;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                pl.AddVertexAt(i, new Point2d(basePt.X + pts[i].X, basePt.Y + pts[i].Y), 0, 0, 0);
+            }
+            pl.Closed = false;
             ms.AppendEntity(pl);
             tr.AddNewlyCreatedDBObject(pl, true);
         }
@@ -1449,9 +1984,35 @@ namespace SteelStructureSuite.Services.Drawing
             txt.Position = pos;
             txt.Height = height;
             txt.WidthFactor = 0.8;
-            txt.TextString = content;
+            txt.TextString = content ?? string.Empty;
             ms.AppendEntity(txt);
             tr.AddNewlyCreatedDBObject(txt, true);
+        }
+
+        private static double EstimateSimSunTextWidth(string content, double height)
+        {
+            if (string.IsNullOrEmpty(content)) return 0.0;
+            double width = 0.0;
+            foreach (char c in content)
+            {
+                width += (c > 127 ? 0.80 : 0.50) * height;
+            }
+            return width;
+        }
+
+        private static void AppendCenteredSimSunText(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d centerPt,
+            string content,
+            ObjectId textStyleId,
+            double height,
+            string layer)
+        {
+            string s = content ?? string.Empty;
+            double w = EstimateSimSunTextWidth(s, height);
+            Point3d pos = new Point3d(centerPt.X - w * 0.5, centerPt.Y - height * 0.38, 0);
+            AppendSimSunText(tr, ms, pos, s, textStyleId, height, layer);
         }
 
         public static ObjectId EnsureSimSunTextStyle(Database db)

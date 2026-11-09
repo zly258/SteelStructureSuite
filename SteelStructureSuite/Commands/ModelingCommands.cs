@@ -142,6 +142,31 @@ namespace SteelStructureSuite.Commands
         [CommandMethod("SS_SADDLE", CommandFlags.Modal)]
         public void CreateVesselSupport() => CreateStructureInteractive(ParametricStructureType.VesselSupport);
 
+        // ==================== 化工、电力、冶金行业标准组件命令 ====================
+        [CommandMethod("SS_TOWER_PLAT", CommandFlags.Modal)]
+        public void CreateTowerCircularPlatform() => CreateStructureInteractive(ParametricStructureType.TowerCircularPlatform);
+
+        [CommandMethod("SS_SKIRT", CommandFlags.Modal)]
+        public void CreateVerticalVesselSkirt() => CreateStructureInteractive(ParametricStructureType.VerticalVesselSkirt);
+
+        [CommandMethod("SS_PIPESHOE", CommandFlags.Modal)]
+        public void CreatePipeShoeSupport() => CreateStructureInteractive(ParametricStructureType.PipeShoeSupport);
+
+        [CommandMethod("SS_TANK_RAIL", CommandFlags.Modal)]
+        public void CreateTankRoofHandrail() => CreateStructureInteractive(ParametricStructureType.TankRoofHandrail);
+
+        [CommandMethod("SS_GANTRY", CommandFlags.Modal)]
+        public void CreateSubstationGantryFrame() => CreateStructureInteractive(ParametricStructureType.SubstationGantryFrame);
+
+        [CommandMethod("SS_CABLE_RACK", CommandFlags.Modal)]
+        public void CreateCableTrenchSupport() => CreateStructureInteractive(ParametricStructureType.CableTrenchSupport);
+
+        [CommandMethod("SS_CRANE_BEAM", CommandFlags.Modal)]
+        public void CreateCraneRunwayGirder() => CreateStructureInteractive(ParametricStructureType.CraneRunwayGirder);
+
+        [CommandMethod("SS_XBRACE", CommandFlags.Modal)]
+        public void CreateCrossBracingFrame() => CreateStructureInteractive(ParametricStructureType.CrossBracingFrame);
+
         [CommandMethod("SS_LINEAR_CHAIN", CommandFlags.Modal)]
         public void DrawContinuousLinearChain()
         {
@@ -478,6 +503,38 @@ namespace SteelStructureSuite.Commands
                 case ParametricStructureType.VesselSupport:
                     p.Span = 2200; p.Length = 450; p.Height = 1350; p.SubHeight = 120;
                     p.ColumnSection = "HW200x200x8x12"; p.BeamSection = "C20a"; p.BraceSection = "L100x100x8";
+                    break;
+                case ParametricStructureType.TowerCircularPlatform:
+                    p.Span = 2400; p.Length = 1050; p.Height = 950; p.SubHeight = 210;
+                    p.ColumnSection = "C20a"; p.BeamSection = "C16a"; p.BraceSection = "L75x75x6";
+                    break;
+                case ParametricStructureType.VerticalVesselSkirt:
+                    p.Span = 2200; p.Length = 300; p.Height = 3600; p.SubHeight = 550; p.BayCount = 12;
+                    p.ColumnSection = "HW200x200x8x12"; p.BeamSection = "C20a"; p.BraceSection = "L75x75x6";
+                    break;
+                case ParametricStructureType.PipeShoeSupport:
+                    p.Span = 630; p.Length = 500; p.Height = 480; p.SubHeight = 420;
+                    p.ColumnSection = "HW200x200x8x12"; p.BeamSection = "C16a"; p.BraceSection = "L75x75x6";
+                    break;
+                case ParametricStructureType.TankRoofHandrail:
+                    p.Span = 4800; p.Length = 120; p.Height = 1050; p.SubHeight = 270;
+                    p.ColumnSection = "P48x3.5"; p.BeamSection = "P42x3.5"; p.BraceSection = "P32x3.2";
+                    break;
+                case ParametricStructureType.SubstationGantryFrame:
+                    p.Span = 9000; p.Length = 2200; p.Height = 11000; p.SubHeight = 2500;
+                    p.ColumnSection = "P219x8"; p.BeamSection = "L100x100x8"; p.BraceSection = "L63x63x6";
+                    break;
+                case ParametricStructureType.CableTrenchSupport:
+                    p.Span = 4500; p.Length = 500; p.Height = 1500; p.SubHeight = 300; p.BayCount = 4;
+                    p.ColumnSection = "C10"; p.BeamSection = "L50x50x5"; p.BraceSection = "L50x50x5";
+                    break;
+                case ParametricStructureType.CraneRunwayGirder:
+                    p.Span = 6000; p.Length = 650; p.Height = 800; p.SubHeight = 1000;
+                    p.ColumnSection = "HW300x300x10x15"; p.BeamSection = "C20a"; p.BraceSection = "L75x75x6";
+                    break;
+                case ParametricStructureType.CrossBracingFrame:
+                    p.Span = 6000; p.Length = 250; p.Height = 7200; p.SubHeight = 4800;
+                    p.ColumnSection = "HW250x250x9x14"; p.BeamSection = "F150x150x8"; p.BraceSection = "L100x100x8";
                     break;
             }
 

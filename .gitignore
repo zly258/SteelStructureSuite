@@ -129,3 +129,7 @@ $RECYCLE.BIN/
 *.swp
 *~
 .zcode/
+
+# 本地构建校验产物
+_buildcheck/
+

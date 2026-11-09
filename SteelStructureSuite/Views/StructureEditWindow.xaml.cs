@@ -21,6 +21,7 @@ namespace SteelStructureSuite.Views
 
         private bool _isInitializing = true;
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
+        private List<StructurePresetItem> _currentPresets = new List<StructurePresetItem>();
 
         private static readonly string[] ShapeFilterNames =
         {
@@ -67,15 +68,10 @@ namespace SteelStructureSuite.Views
             }
 
             TxtTag.Text = Data.Tag;
-            foreach (string m in new[] { "Q235B", "Q355B", "Q355D", "Q420B", "S30408" })
+            foreach (string m in new[] { "Q235B", "Q355B", "Q355D", "Q420B", "S30408", "15CrMoR" })
                 CmbMaterial.Items.Add(m);
             CmbMaterial.SelectedItem = Data.Material ?? "Q355B";
             if (CmbMaterial.SelectedIndex < 0) CmbMaterial.SelectedIndex = 1;
-
-            TxtSpan.Text = Data.Span.ToString("0.#", CultureInfo.InvariantCulture);
-            TxtLength.Text = Data.Length.ToString("0.#", CultureInfo.InvariantCulture);
-            TxtHeight.Text = Data.Height.ToString("0.#", CultureInfo.InvariantCulture);
-            TxtSubHeight.Text = Data.SubHeight.ToString("0.#", CultureInfo.InvariantCulture);
 
             foreach (string f in ShapeFilterNames)
             {
@@ -87,9 +83,8 @@ namespace SteelStructureSuite.Views
             CmbBeamTypeFilter.SelectedIndex = 0;
             CmbBraceTypeFilter.SelectedIndex = 0;
 
-            PopulateSectionCombo(CmbColSec, 0, Data.ColumnSection);
-            PopulateSectionCombo(CmbBeamSec, 0, Data.BeamSection);
-            PopulateSectionCombo(CmbBraceSec, 0, Data.BraceSection);
+            SyncControlsFromData();
+            ReloadPresetsForCurrentType();
 
             if (isEditMode)
             {
@@ -106,6 +101,55 @@ namespace SteelStructureSuite.Views
 
             _isInitializing = false;
             UpdatePerComponentFieldVisibilityAndLabels();
+            RefreshLivePreview();
+        }
+
+        private void SyncControlsFromData()
+        {
+            TxtSpan.Text = Data.Span.ToString("0.#", CultureInfo.InvariantCulture);
+            TxtLength.Text = Data.Length.ToString("0.#", CultureInfo.InvariantCulture);
+            TxtHeight.Text = Data.Height.ToString("0.#", CultureInfo.InvariantCulture);
+            TxtSubHeight.Text = Data.SubHeight.ToString("0.#", CultureInfo.InvariantCulture);
+            TxtBayCount.Text = Data.BayCount.ToString(CultureInfo.InvariantCulture);
+            TxtRotationDeg.Text = Data.RotationDeg.ToString("0.#", CultureInfo.InvariantCulture);
+            TxtEndOffsetZ.Text = Data.EndPointOffsetZ.ToString("0.#", CultureInfo.InvariantCulture);
+
+            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedIndex, Data.ColumnSection);
+            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedIndex, Data.BeamSection);
+            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedIndex, Data.BraceSection);
+        }
+
+        private void ReloadPresetsForCurrentType()
+        {
+            _currentPresets = SteelStructureParams.GetPresetsForType(Data.StructureType);
+            CmbPreset.Items.Clear();
+            CmbPreset.Items.Add("-- 选择工程标准预设快速填充 --");
+            foreach (var pr in _currentPresets)
+            {
+                CmbPreset.Items.Add(pr.Name);
+            }
+            CmbPreset.SelectedIndex = 0;
+        }
+
+        private void OnPresetSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isInitializing) return;
+            int idx = CmbPreset.SelectedIndex - 1;
+            if (idx < 0 || idx >= _currentPresets.Count) return;
+
+            var pr = _currentPresets[idx];
+            _isInitializing = true;
+            Data.Span = pr.Span;
+            Data.Length = pr.Length;
+            Data.Height = pr.Height;
+            Data.SubHeight = pr.SubHeight;
+            if (pr.BayCount > 0) Data.BayCount = pr.BayCount;
+            if (!string.IsNullOrEmpty(pr.ColSec)) Data.ColumnSection = pr.ColSec;
+            if (!string.IsNullOrEmpty(pr.BeamSec)) Data.BeamSection = pr.BeamSec;
+            if (!string.IsNullOrEmpty(pr.BraceSec)) Data.BraceSection = pr.BraceSec;
+            SyncControlsFromData();
+            _isInitializing = false;
+
             RefreshLivePreview();
         }
 
@@ -131,15 +175,11 @@ namespace SteelStructureSuite.Views
             }
 
             BtnSinglePt.Content = "单点放置";
-            BtnSinglePt.ToolTip = "按对话框里的尺寸，只拾取一个插入点。";
             bool canLinear = Data.SupportsTwoPointDraw;
             BtnLinearTwoPt.Visibility = canLinear ? Visibility.Visible : Visibility.Collapsed;
             BtnLinearTwoPt.Content = Data.TwoPointButtonText;
             BtnLinearTwoPt.IsDefault = canLinear && Data.PrefersLinearTwoPointDraw;
             BtnSinglePt.IsDefault = !BtnLinearTwoPt.IsDefault;
-            BtnLinearTwoPt.ToolTip = Data.PrefersLinearTwoPointDraw
-                ? "拾取起点和终点，长度和方向跟着鼠标走。"
-                : "拾取两点，只改跨度和方向，柱高、进深等仍用对话框中的数值。";
             BtnSinglePt.FontWeight = BtnSinglePt.IsDefault ? FontWeights.Bold : FontWeights.Normal;
             BtnLinearTwoPt.FontWeight = BtnLinearTwoPt.IsDefault ? FontWeights.Bold : FontWeights.Normal;
         }
@@ -226,6 +266,9 @@ namespace SteelStructureSuite.Views
                     ? $"连续绘制 - {Data.StructureTypeDisplayName}"
                     : Data.StructureTypeDisplayName;
             }
+            _isInitializing = true;
+            ReloadPresetsForCurrentType();
+            _isInitializing = false;
             UpdatePerComponentFieldVisibilityAndLabels();
             UpdatePlacementButtons();
             RefreshLivePreview();
@@ -245,6 +288,8 @@ namespace SteelStructureSuite.Views
             SetRowVisible(LblLength, TxtLength, true);
             SetRowVisible(LblHeight, TxtHeight, true);
             SetRowVisible(LblSubHeight, TxtSubHeight, true);
+            SetRowVisible(LblBayCount, TxtBayCount, false);
+            SetRowVisible(LblEndDz, TxtEndOffsetZ, false);
             SetSectionRowVisible(LblColSec, CmbColTypeFilter, CmbColSec, true);
             SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, true);
             SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, true);
@@ -264,8 +309,10 @@ namespace SteelStructureSuite.Views
                 case ParametricStructureType.MultiSpanPortalFrame:
                     LblSpan.Text = "总跨度 B (mm):";
                     LblHeight.Text = "柱高 H (mm):";
+                    LblBayCount.Text = "跨数 N (2~6):";
                     SetRowVisible(LblLength, TxtLength, false);
                     SetRowVisible(LblSubHeight, TxtSubHeight, false);
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
                     LblColSec.Text = "立柱截面:";
                     LblBeamSec.Text = "主梁截面:";
                     LblBraceSec.Text = "隅撑截面:";
@@ -392,10 +439,11 @@ namespace SteelStructureSuite.Views
                     break;
 
                 case ParametricStructureType.LinearSteelMember:
-                    LblSpan.Text = "杆件长度 L:";
+                    LblSpan.Text = "水平长度 L:";
                     SetRowVisible(LblLength, TxtLength, false);
                     SetRowVisible(LblHeight, TxtHeight, false);
                     SetRowVisible(LblSubHeight, TxtSubHeight, false);
+                    SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
                     LblColSec.Text = "型钢截面:";
                     SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
                     SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
@@ -406,6 +454,7 @@ namespace SteelStructureSuite.Views
                     LblSubHeight.Text = "扫掠角 (°):";
                     SetRowVisible(LblLength, TxtLength, false);
                     SetRowVisible(LblHeight, TxtHeight, false);
+                    SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
                     LblColSec.Text = "型钢截面:";
                     SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
                     SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
@@ -414,8 +463,9 @@ namespace SteelStructureSuite.Views
                 case ParametricStructureType.SpiralSteelMember:
                     LblSpan.Text = "轴线水平长 L:";
                     LblLength.Text = "螺旋半径 R:";
-                    LblSubHeight.Text = "圈数 n:";
+                    LblSubHeight.Text = "螺旋圈数 n:";
                     SetRowVisible(LblHeight, TxtHeight, false);
+                    SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
                     LblColSec.Text = "型钢截面:";
                     SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
                     SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
@@ -430,6 +480,90 @@ namespace SteelStructureSuite.Views
                     LblBeamSec.Text = "弧面板截面:";
                     SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
                     break;
+
+                case ParametricStructureType.TowerCircularPlatform:
+                    LblSpan.Text = "塔体外径 DN:";
+                    LblLength.Text = "平台环宽 W:";
+                    LblHeight.Text = "牛腿高差 H:";
+                    LblSubHeight.Text = "平台包角 (°):";
+                    LblColSec.Text = "牛腿主梁:";
+                    LblBeamSec.Text = "内外环梁:";
+                    LblBraceSec.Text = "牛腿斜撑:";
+                    break;
+
+                case ParametricStructureType.VerticalVesselSkirt:
+                    LblSpan.Text = "裙座外径 DN:";
+                    LblLength.Text = "底环板宽 B:";
+                    LblHeight.Text = "裙座总高 H:";
+                    LblSubHeight.Text = "引出孔径 d:";
+                    LblBayCount.Text = "座圈筋板数:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "筒壁参考:";
+                    SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
+                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    break;
+
+                case ParametricStructureType.PipeShoeSupport:
+                    LblSpan.Text = "管道外径 DN:";
+                    LblLength.Text = "管托长度 L:";
+                    LblHeight.Text = "管中心高 H:";
+                    LblSubHeight.Text = "底板宽度 B:";
+                    LblColSec.Text = "底板/腹板:";
+                    LblBeamSec.Text = "弧形鞍板:";
+                    LblBraceSec.Text = "双螺栓管卡:";
+                    break;
+
+                case ParametricStructureType.TankRoofHandrail:
+                    LblSpan.Text = "储罐直径 D:";
+                    LblHeight.Text = "栏杆高度 H:";
+                    LblSubHeight.Text = "环绕包角 (°):";
+                    SetRowVisible(LblLength, TxtLength, false);
+                    LblColSec.Text = "栏杆立柱:";
+                    LblBeamSec.Text = "环形扶手管:";
+                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    break;
+
+                case ParametricStructureType.SubstationGantryFrame:
+                    LblSpan.Text = "构架跨度 B:";
+                    LblLength.Text = "A字柱根开 L:";
+                    LblHeight.Text = "横梁标高 H:";
+                    LblSubHeight.Text = "避雷针高 h1:";
+                    LblColSec.Text = "A字柱主材:";
+                    LblBeamSec.Text = "格构梁弦杆:";
+                    LblBraceSec.Text = "格构腹杆:";
+                    break;
+
+                case ParametricStructureType.CableTrenchSupport:
+                    LblSpan.Text = "电缆沟总长 L:";
+                    LblLength.Text = "托臂挑宽 W:";
+                    LblHeight.Text = "立柱总高 H:";
+                    LblSubHeight.Text = "层间净距 s:";
+                    LblBayCount.Text = "托臂层数 (2~6):";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "预埋槽钢柱:";
+                    LblBeamSec.Text = "角钢托臂:";
+                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    break;
+
+                case ParametricStructureType.CraneRunwayGirder:
+                    LblSpan.Text = "吊车梁跨度 L:";
+                    LblLength.Text = "制动板宽 B:";
+                    LblHeight.Text = "吊车梁高 H:";
+                    LblSubHeight.Text = "加劲肋间距 s:";
+                    LblColSec.Text = "主梁参考:";
+                    LblBeamSec.Text = "制动边梁:";
+                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    break;
+
+                case ParametricStructureType.CrossBracingFrame:
+                    LblSpan.Text = "厂房柱距 L:";
+                    LblHeight.Text = "厂房柱高 H:";
+                    LblSubHeight.Text = "牛腿标高 h1:";
+                    SetRowVisible(LblLength, TxtLength, false);
+                    LblColSec.Text = "厂房主柱:";
+                    LblBeamSec.Text = "刚性系杆:";
+                    LblBraceSec.Text = "交叉斜撑:";
+                    break;
             }
         }
 
@@ -442,23 +576,34 @@ namespace SteelStructureSuite.Views
         private bool TryReadFormToData(out string errorMsg)
         {
             errorMsg = null;
-            if (!double.TryParse(TxtSpan.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double span) || span < 100)
+            if (!double.TryParse(TxtSpan.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double span) || span < 80)
             {
-                errorMsg = "主尺寸必须大于 100 mm。";
+                errorMsg = "主尺寸必须大于 80 mm。";
                 return false;
             }
-            if (!double.TryParse(TxtLength.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double len) || len < 50)
+            if (!double.TryParse(TxtLength.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double len) || len < 30)
             {
-                len = Data.Length > 50 ? Data.Length : 1000;
+                len = Data.Length > 30 ? Data.Length : 1000;
             }
-            if (!double.TryParse(TxtHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double h) || h < 100)
+            if (!double.TryParse(TxtHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double h) || h < 80)
             {
-                h = Data.Height > 100 ? Data.Height : 1000;
+                h = Data.Height > 80 ? Data.Height : 1000;
             }
-            double minSub = Data.StructureType == ParametricStructureType.SpiralSteelMember ? 0.25 : 10.0;
-            if (!double.TryParse(TxtSubHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double subH) || subH < minSub)
+            if (!double.TryParse(TxtSubHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double subH) || subH < 1)
             {
-                subH = Data.SubHeight >= minSub ? Data.SubHeight : (minSub < 1.0 ? 3.0 : 500.0);
+                subH = Data.SubHeight > 1 ? Data.SubHeight : 500;
+            }
+            if (int.TryParse(TxtBayCount.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int bays) && bays >= 1 && bays <= 36)
+            {
+                Data.BayCount = bays;
+            }
+            if (double.TryParse(TxtRotationDeg.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double rotDeg))
+            {
+                Data.RotationDeg = rotDeg;
+            }
+            if (double.TryParse(TxtEndOffsetZ.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double dz))
+            {
+                Data.EndPointOffsetZ = dz;
             }
 
             Data.Tag = string.IsNullOrWhiteSpace(TxtTag.Text) ? "ST-101" : TxtTag.Text.Trim();

@@ -310,6 +310,108 @@ namespace SteelStructureSuite.Views.Controls
                     DrawHorizDim(x0 + 20, x1 - 20, yBot + 18, $"容器外径 DN = {p.Span:0}");
                     DrawVertDim(x0 - 10, yBot, midY, $"H = {p.Height:0}");
                     break;
+
+                case ParametricStructureType.TowerCircularPlatform:
+                {
+                    double cx = midX, cy = midY + 6;
+                    double rIn = 26, rOut = 54;
+                    DrawEllipse(cx - rIn, cy - rIn, rIn * 2, rIn * 2, SteelMemberBrush, 2.2);
+                    DrawEllipse(cx - rOut, cy - rOut, rOut * 2, rOut * 2, SteelSubBrush, 1.8);
+                    for (int i = 0; i < 6; i++)
+                    {
+                        double a = i * Math.PI / 3.0;
+                        DrawLine(cx + rIn * Math.Cos(a), cy + rIn * Math.Sin(a),
+                                 cx + rOut * Math.Cos(a), cy + rOut * Math.Sin(a), SteelMemberBrush, 2.0);
+                    }
+                    DrawHorizDim(x0 + 10, x1 - 10, yBot + 18, $"塔径 DN={p.Span:0} 环宽 W={p.Length:0} ({p.SubHeight:0}°)");
+                    break;
+                }
+
+                case ParametricStructureType.VerticalVesselSkirt:
+                    DrawRect(midX - 42, yTop + 6, 84, yBot - yTop - 6, SteelMemberBrush, 2.8);
+                    DrawLine(midX - 58, yBot, midX + 58, yBot, SteelMemberBrush, 3.6);
+                    DrawEllipse(midX - 14, midY - 10, 28, 28, SteelSubBrush, 1.8);
+                    DrawHorizDim(midX - 58, midX + 58, yBot + 18, $"裙座 DN={p.Span:0} (底环宽 {p.Length:0})");
+                    DrawVertDim(midX - 75, yBot, yTop + 6, $"H = {p.Height:0}");
+                    break;
+
+                case ParametricStructureType.PipeShoeSupport:
+                    DrawLine(x0 + 25, yBot, x1 - 25, yBot, SteelMemberBrush, 3.2);
+                    DrawLine(midX, yBot, midX, midY + 8, SteelMemberBrush, 3.0);
+                    DrawLine(midX - 28, yBot, midX - 18, midY + 12, SteelSubBrush, 1.8);
+                    DrawLine(midX + 28, yBot, midX + 18, midY + 12, SteelSubBrush, 1.8);
+                    DrawEllipse(midX - 24, yTop + 10, 48, 48, SteelSubBrush, 2.2);
+                    DrawHorizDim(x0 + 25, x1 - 25, yBot + 18, $"管径 DN={p.Span:0} 托长 L={p.Length:0}");
+                    DrawVertDim(x0, yBot, midY, $"H = {p.Height:0}");
+                    break;
+
+                case ParametricStructureType.TankRoofHandrail:
+                {
+                    double cx = midX, cy = midY + 4;
+                    double r = 46;
+                    DrawEllipse(cx - r, cy - r, r * 2, r * 2, SteelMemberBrush, 2.4);
+                    DrawEllipse(cx - r * 0.85, cy - r * 0.85, r * 1.7, r * 1.7, SteelSubBrush, 1.4);
+                    DrawHorizDim(x0 + 15, x1 - 15, yBot + 18, $"罐顶直径 D={p.Span:0} 栏高 H={p.Height:0} ({p.SubHeight:0}°)");
+                    break;
+                }
+
+                case ParametricStructureType.SubstationGantryFrame:
+                    DrawLine(x0, yBot, x0 + 18, yTop + 18, SteelMemberBrush, 2.8);
+                    DrawLine(x0 + 36, yBot, x0 + 18, yTop + 18, SteelMemberBrush, 2.8);
+                    DrawLine(x1 - 36, yBot, x1 - 18, yTop + 18, SteelMemberBrush, 2.8);
+                    DrawLine(x1, yBot, x1 - 18, yTop + 18, SteelMemberBrush, 2.8);
+                    DrawRect(x0 + 18, yTop + 18, x1 - x0 - 36, 16, SteelSubBrush, 2.0);
+                    DrawLine(x0 + 18, yTop + 18, x0 + 18, yTop - 4, SteelSubBrush, 1.8);
+                    DrawLine(x1 - 18, yTop + 18, x1 - 18, yTop - 4, SteelSubBrush, 1.8);
+                    DrawHorizDim(x0, x1, yBot + 18, $"构架跨度 B = {p.Span:0}");
+                    DrawVertDim(x0 - 20, yBot, yTop + 18, $"H = {p.Height:0}");
+                    break;
+
+                case ParametricStructureType.CableTrenchSupport:
+                {
+                    int cols = 3;
+                    int tiers = Math.Max(2, Math.Min(5, p.BayCount));
+                    for (int c = 0; c < cols; c++)
+                    {
+                        double cx = x0 + (x1 - x0) * c / (cols - 1.0);
+                        DrawLine(cx, yBot, cx, yTop + 8, SteelMemberBrush, 2.8);
+                        for (int t = 1; t <= tiers; t++)
+                        {
+                            double ty = yTop + 8 + (yBot - yTop - 20) * t / (tiers + 0.5);
+                            DrawLine(cx, ty, cx + 28, ty, SteelSubBrush, 2.0);
+                        }
+                    }
+                    DrawLine(x0, yBot - 6, x1, yBot - 6, SteelMemberBrush, 2.0);
+                    DrawHorizDim(x0, x1, yBot + 18, $"总长 L={p.Span:0} 挑臂 W={p.Length:0} ({tiers}层)");
+                    DrawVertDim(x0 - 22, yBot, yTop + 8, $"H = {p.Height:0}");
+                    break;
+                }
+
+                case ParametricStructureType.CraneRunwayGirder:
+                    DrawRect(x0, midY - 18, x1 - x0, 36, SteelMemberBrush, 2.8);
+                    DrawLine(x0 - 6, midY - 18, x1 + 6, midY - 18, SteelMemberBrush, 3.6);
+                    DrawLine(x0 - 6, midY + 18, x1 + 6, midY + 18, SteelMemberBrush, 3.6);
+                    for (int i = 0; i <= 5; i++)
+                    {
+                        double rx = x0 + (x1 - x0) * i / 5.0;
+                        DrawLine(rx, midY - 18, rx, midY + 18, SteelSubBrush, 1.6);
+                    }
+                    DrawHorizDim(x0, x1, yBot + 18, $"吊车梁跨度 L = {p.Span:0} (制动宽 {p.Length:0})");
+                    DrawVertDim(x0 - 22, midY + 18, midY - 18, $"梁高 {p.Height:0}");
+                    break;
+
+                case ParametricStructureType.CrossBracingFrame:
+                    DrawLine(x0, yBot, x0, yTop, SteelMemberBrush, 3.2);
+                    DrawLine(x1, yBot, x1, yTop, SteelMemberBrush, 3.2);
+                    DrawLine(x0, yTop, x1, yTop, SteelMemberBrush, 2.4);
+                    DrawLine(x0, midY - 6, x1, midY - 6, SteelMemberBrush, 2.4);
+                    DrawLine(x0, yBot, x1, midY - 6, SteelSubBrush, 1.8);
+                    DrawLine(x1, yBot, x0, midY - 6, SteelSubBrush, 1.8);
+                    DrawLine(x0, midY - 6, x1, yTop, SteelSubBrush, 1.6);
+                    DrawLine(x1, midY - 6, x0, yTop, SteelSubBrush, 1.6);
+                    DrawHorizDim(x0, x1, yBot + 18, $"柱距 L = {p.Span:0}");
+                    DrawVertDim(x0 - 22, yBot, yTop, $"H = {p.Height:0}");
+                    break;
             }
 
             if (multiView)

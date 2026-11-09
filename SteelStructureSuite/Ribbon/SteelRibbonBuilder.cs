@@ -32,7 +32,7 @@ namespace SteelStructureSuite.Ribbon
             mgrPanel.Items.Add(CreateLargeButton(
                 "模型管理",
                 "SS_MANAGER ",
-                "打开全图钢结构树状模型管理器（左树右表，支持视角定位、高亮、编辑与删除）",
+                "打开全图钢结构树状模型管理器（按行业大类与构件类型分组，支持视角定位、高亮、编辑与删除）",
                 Color.FromRgb(16, 124, 65), "M"));
             mgrPanel.Items.Add(CreateLargeButton(
                 "截面管理",
@@ -40,8 +40,8 @@ namespace SteelStructureSuite.Ribbon
                 "按 H型钢、槽钢、角钢、方矩管、圆钢管 5 个分表管理截面，支持 Excel 多表导入导出",
                 Color.FromRgb(0, 103, 192), "H"));
 
-            // Panel 2: 框架
-            RibbonPanelSource framePanel = CreatePanel(tab, "框架");
+            // Panel 2: 厂房框架
+            RibbonPanelSource framePanel = CreatePanel(tab, "厂房框架");
             RibbonRowPanel fCol1 = new RibbonRowPanel();
             fCol1.Items.Add(CreateSmallButton("单跨门架", "SS_PORTAL ", "单跨门式刚架", Color.FromRgb(0, 103, 192)));
             fCol1.Items.Add(CreateRowBreak());
@@ -54,54 +54,78 @@ namespace SteelStructureSuite.Ribbon
             fCol2.Items.Add(CreateSmallButton("双层管廊", "SS_DOUBLE ", "双层管廊支架", Color.FromRgb(0, 103, 192)));
             fCol2.Items.Add(CreateRowBreak());
             fCol2.Items.Add(CreateSmallButton("装置框架", "SS_SPACEFRAME ", "多层空间装置钢框架", Color.FromRgb(0, 103, 192)));
+            fCol2.Items.Add(CreateRowBreak());
+            fCol2.Items.Add(CreateSmallButton("屋面桁架", "SS_TRUSS ", "双坡屋面钢桁架", Color.FromRgb(0, 103, 192)));
             framePanel.Items.Add(fCol2);
 
-            // Panel 3: 平台桁架
-            RibbonPanelSource platformPanel = CreatePanel(tab, "平台桁架");
+            // Panel 3: 平台梯道
+            RibbonPanelSource platformStairPanel = CreatePanel(tab, "平台梯道");
+            platformStairPanel.Items.Add(CreateLargeButton(
+                "连续绘制",
+                "SS_LINEAR_CHAIN ",
+                "连续多段线性动态绘制安全栏杆、走道、电缆支架或钢梁",
+                Color.FromRgb(196, 89, 17), "L"));
+
             RibbonRowPanel pCol1 = new RibbonRowPanel();
             pCol1.Items.Add(CreateSmallButton("四柱平台", "SS_PLATFORM ", "四柱空间检修钢平台", Color.FromRgb(16, 124, 65)));
             pCol1.Items.Add(CreateRowBreak());
             pCol1.Items.Add(CreateSmallButton("悬臂托架", "SS_BRACKET ", "悬臂三角托架", Color.FromRgb(16, 124, 65)));
             pCol1.Items.Add(CreateRowBreak());
-            pCol1.Items.Add(CreateSmallButton("悬挑走道", "SS_WALKWAY ", "悬挑走道平台，支持两点绘制", Color.FromRgb(16, 124, 65)));
-            platformPanel.Items.Add(pCol1);
+            pCol1.Items.Add(CreateSmallButton("悬挑走道", "SS_WALKWAY ", "悬挑走道平台（支持两点绘制）", Color.FromRgb(16, 124, 65)));
+            platformStairPanel.Items.Add(pCol1);
 
             RibbonRowPanel pCol2 = new RibbonRowPanel();
-            pCol2.Items.Add(CreateSmallButton("屋面桁架", "SS_TRUSS ", "双坡屋面钢桁架", Color.FromRgb(16, 124, 65)));
+            pCol2.Items.Add(CreateSmallButton("管廊桁桥", "SS_PIPEBRIDGE ", "空间管廊桁架桥（支持两点绘制）", Color.FromRgb(16, 124, 65)));
             pCol2.Items.Add(CreateRowBreak());
-            pCol2.Items.Add(CreateSmallButton("管廊桁桥", "SS_PIPEBRIDGE ", "空间管廊桁架桥，支持两点绘制", Color.FromRgb(16, 124, 65)));
+            pCol2.Items.Add(CreateSmallButton("直跑斜梯", "SS_STAIR_STRAIGHT ", "直跑钢斜梯（支持两点绘制）", Color.FromRgb(196, 89, 17)));
             pCol2.Items.Add(CreateRowBreak());
-            pCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "容器鞍式钢支座", Color.FromRgb(16, 124, 65)));
-            platformPanel.Items.Add(pCol2);
+            pCol2.Items.Add(CreateSmallButton("护笼直梯", "SS_LADDER ", "GB 4053.1 带安全护笼钢直梯", Color.FromRgb(196, 89, 17)));
+            platformStairPanel.Items.Add(pCol2);
 
-            // Panel 4: 梯道栏杆
-            RibbonPanelSource stairLinearPanel = CreatePanel(tab, "梯道栏杆");
-            stairLinearPanel.Items.Add(CreateLargeButton(
-                "连续绘制",
-                "SS_LINEAR_CHAIN ",
-                "连续多段绘制安全栏杆、走道或钢梁",
-                Color.FromRgb(196, 89, 17), "L"));
+            RibbonRowPanel pCol3 = new RibbonRowPanel();
+            pCol3.Items.Add(CreateSmallButton("螺旋盘梯", "SS_STAIR ", "储罐连续螺旋盘梯", Color.FromRgb(196, 89, 17)));
+            pCol3.Items.Add(CreateRowBreak());
+            pCol3.Items.Add(CreateSmallButton("安全栏杆", "SS_HANDRAIL ", "GB 4053.3 平台安全栏杆（支持两点绘制）", Color.FromRgb(196, 89, 17)));
+            platformStairPanel.Items.Add(pCol3);
 
-            RibbonRowPanel sCol1 = new RibbonRowPanel();
-            sCol1.Items.Add(CreateSmallButton("直跑斜梯", "SS_STAIR_STRAIGHT ", "直跑钢斜梯，支持两点绘制", Color.FromRgb(196, 89, 17)));
-            sCol1.Items.Add(CreateRowBreak());
-            sCol1.Items.Add(CreateSmallButton("护笼直梯", "SS_LADDER ", "带安全护笼钢直梯", Color.FromRgb(196, 89, 17)));
-            sCol1.Items.Add(CreateRowBreak());
-            sCol1.Items.Add(CreateSmallButton("螺旋盘梯", "SS_STAIR ", "储罐连续螺旋盘梯", Color.FromRgb(196, 89, 17)));
-            stairLinearPanel.Items.Add(sCol1);
+            // Panel 4: 化工设备 (HG/T, NB/T, SH/T)
+            RibbonPanelSource chemPanel = CreatePanel(tab, "化工设备");
+            RibbonRowPanel cCol1 = new RibbonRowPanel();
+            cCol1.Items.Add(CreateSmallButton("塔器平台", "SS_TOWER_PLAT ", "HG/T 21574 塔器环形检修平台（带扇形牛腿与外环护栏）", Color.FromRgb(180, 70, 20)));
+            cCol1.Items.Add(CreateRowBreak());
+            cCol1.Items.Add(CreateSmallButton("塔器裙座", "SS_SKIRT ", "NB/T 47041 立式塔器/容器钢裙座（含地脚螺栓座圈与检查孔）", Color.FromRgb(180, 70, 20)));
+            cCol1.Items.Add(CreateRowBreak());
+            cCol1.Items.Add(CreateSmallButton("管道管托", "SS_PIPESHOE ", "HG/T 21629 化工管道加劲管托/支座（含双管卡与加劲肋）", Color.FromRgb(180, 70, 20)));
+            chemPanel.Items.Add(cCol1);
 
-            RibbonRowPanel sCol2 = new RibbonRowPanel();
-            sCol2.Items.Add(CreateSmallButton("安全栏杆", "SS_HANDRAIL ", "平台连续安全栏杆，支持两点绘制", Color.FromRgb(196, 89, 17)));
-            stairLinearPanel.Items.Add(sCol2);
+            RibbonRowPanel cCol2 = new RibbonRowPanel();
+            cCol2.Items.Add(CreateSmallButton("罐顶栏杆", "SS_TANK_RAIL ", "SH/T 3070 储罐拱顶环形安全栏杆", Color.FromRgb(180, 70, 20)));
+            cCol2.Items.Add(CreateRowBreak());
+            cCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "NB/T 47042 卧式容器鞍式钢支座", Color.FromRgb(180, 70, 20)));
+            chemPanel.Items.Add(cCol2);
 
-            // Panel 5: 单根型钢
+            // Panel 5: 电力冶金 (DL/T, 16G519, 19G518)
+            RibbonPanelSource powerMetaPanel = CreatePanel(tab, "电力冶金");
+            RibbonRowPanel pmCol1 = new RibbonRowPanel();
+            pmCol1.Items.Add(CreateSmallButton("变电构架", "SS_GANTRY ", "DL/T 5218 变电站 A 字型钢管龙门构架与格构横梁", Color.FromRgb(110, 86, 207)));
+            pmCol1.Items.Add(CreateRowBreak());
+            pmCol1.Items.Add(CreateSmallButton("电缆支架", "SS_CABLE_RACK ", "DL/T 5221 电力电缆沟/隧道多层角钢支架（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            powerMetaPanel.Items.Add(pmCol1);
+
+            RibbonRowPanel pmCol2 = new RibbonRowPanel();
+            pmCol2.Items.Add(CreateSmallButton("重吊车梁", "SS_CRANE_BEAM ", "16G519 冶金厂房重型焊接吊车梁、制动板与重轨（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            pmCol2.Items.Add(CreateRowBreak());
+            pmCol2.Items.Add(CreateSmallButton("柱间支撑", "SS_XBRACE ", "19G518 冶金厂房上下柱双片十字交叉支撑（支持两点绘制）", Color.FromRgb(110, 86, 207)));
+            powerMetaPanel.Items.Add(pmCol2);
+
+            // Panel 6: 单根型钢与参数编辑
             RibbonPanelSource memberPanel = CreatePanel(tab, "单根型钢");
             RibbonRowPanel mCol = new RibbonRowPanel();
             mCol.Items.Add(CreateSmallButton("直线型钢", "SS_MEMBER ", "两点绘制直线型钢梁、柱或斜撑", Color.FromRgb(0, 120, 212)));
             mCol.Items.Add(CreateRowBreak());
-            mCol.Items.Add(CreateSmallButton("弧形型钢", "SS_ARC ", "两点绘制圆弧扫略型钢：第一点为圆心，第二点定半径和起始方向", Color.FromRgb(0, 120, 212)));
+            mCol.Items.Add(CreateSmallButton("弧形型钢", "SS_ARC ", "两点绘制圆弧扫掠型钢", Color.FromRgb(0, 120, 212)));
             mCol.Items.Add(CreateRowBreak());
-            mCol.Items.Add(CreateSmallButton("螺旋型钢", "SS_SPIRAL ", "两点绘制螺旋扫略型钢：第一点到第二点为轴线", Color.FromRgb(0, 120, 212)));
+            mCol.Items.Add(CreateSmallButton("螺旋型钢", "SS_SPIRAL ", "两点绘制螺旋扫掠型钢", Color.FromRgb(0, 120, 212)));
             memberPanel.Items.Add(mCol);
             memberPanel.Items.Add(CreateLargeButton(
                 "编辑参数",
@@ -109,7 +133,7 @@ namespace SteelStructureSuite.Ribbon
                 "选中已有三维钢结构修改参数",
                 Color.FromRgb(138, 43, 226), "E"));
 
-            // Panel 4: 定位复写
+            // Panel 7: 定位复写与统计出图
             RibbonPanelSource locatePanel = CreatePanel(tab, "定位复写");
             RibbonRowPanel alignCol = new RibbonRowPanel();
             alignCol.Items.Add(CreateSmallButton("三维对齐", "SS_ALIGN ", "多构件按 X/Y/Z 或中心对齐", Color.FromRgb(0, 120, 212)));
@@ -125,7 +149,6 @@ namespace SteelStructureSuite.Ribbon
             overruleCol.Items.Add(CreateSmallButton("关闭复写", "SS_OVERRULE_OFF ", "关闭参数化夹点复写 (SS_OVERRULE_OFF)", Color.FromRgb(180, 50, 50)));
             locatePanel.Items.Add(overruleCol);
 
-            // Panel 5: 统计出图
             RibbonPanelSource outPanel = CreatePanel(tab, "统计出图");
             outPanel.Items.Add(CreateLargeButton(
                 "材料统计",
