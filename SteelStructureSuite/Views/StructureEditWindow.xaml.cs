@@ -741,15 +741,7 @@ namespace SteelStructureSuite.Views
             double sumM2 = items.Sum(x => x.TotalSurfaceAreaM2);
             TxtLiveWeightSummary.Text =
                 $"总重: {sumKg:0.00} kg  |  刷漆面积: {sumM2:0.00} m²  |  零件种数: {items.Count}";
-            RadBom.Content = $"材料清单 ({sumKg:0.#}kg)";
-        }
-
-        private void OnViewModeChanged(object sender, RoutedEventArgs e)
-        {
-            if (ParamsPanel == null || BomPanel == null) return;
-            bool showBom = RadBom != null && RadBom.IsChecked == true;
-            ParamsPanel.Visibility = showBom ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
-            BomPanel.Visibility = showBom ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
+            TbiBom.Header = $"材料清单 ({sumKg:0.#}kg)";
         }
 
         private void OnSinglePointConfirmClick(object sender, RoutedEventArgs e)

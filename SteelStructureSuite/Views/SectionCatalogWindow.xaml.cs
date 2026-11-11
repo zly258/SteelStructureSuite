@@ -45,31 +45,32 @@ namespace SteelStructureSuite.Views
                 DataGrid dg = CreateSectionDataGrid(shapeType);
                 _gridsByType[shapeType] = dg;
 
-                ListBoxItem item = new ListBoxItem
+                TabItem item = new TabItem
                 {
                     Tag = shapeType,
-                    Content = SectionCatalogService.GetShapeTabTitle(shapeType)
+                    Header = SectionCatalogService.GetShapeTabTitle(shapeType),
+                    Content = dg
                 };
-                LstSections.Items.Add(item);
+                TabsSections.Items.Add(item);
             }
 
-            if (LstSections.Items.Count > 0)
+            if (TabsSections.Items.Count > 0)
             {
-                LstSections.SelectedIndex = 0;
+                TabsSections.SelectedIndex = 0;
             }
             RefreshAllTabGrids();
 
             // 恢复上次停留的截面类型页签
             int lastTab = UserSettings.GetInt("Catalog.LastTabIndex", 0);
-            if (lastTab >= 0 && lastTab < LstSections.Items.Count)
+            if (lastTab >= 0 && lastTab < TabsSections.Items.Count)
             {
-                LstSections.SelectedIndex = lastTab;
+                TabsSections.SelectedIndex = lastTab;
             }
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
             Closed += (s, e) =>
             {
-                UserSettings.SetInt("Catalog.LastTabIndex", LstSections.SelectedIndex);
+                UserSettings.SetInt("Catalog.LastTabIndex", TabsSections.SelectedIndex);
                 UserSettings.Save();
                 UserSettings.SaveWindowState(this, "SectionCatalogWindow");
             };
@@ -107,11 +108,10 @@ namespace SteelStructureSuite.Views
 
         private void OnSectionSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (LstSections.SelectedItem is ListBoxItem item &&
+            if (TabsSections.SelectedItem is TabItem item &&
                 item.Tag is SectionShapeType st &&
-                _gridsByType.TryGetValue(st, out DataGrid dg))
+                _gridsByType.ContainsKey(st))
             {
-                SectionHost.Content = dg;
                 int idx = Array.IndexOf(OrderedTypes, st);
                 if (idx >= 0 && CmbType != null)
                 {
@@ -135,9 +135,9 @@ namespace SteelStructureSuite.Views
                     dg.ItemsSource = list;
                 }
 
-                if (i < LstSections.Items.Count && LstSections.Items[i] is ListBoxItem item)
+                if (i < TabsSections.Items.Count && TabsSections.Items[i] is TabItem item)
                 {
-                    item.Content = $"{SectionCatalogService.GetShapeTabTitle(st)} ({list.Count})";
+                    item.Header = $"{SectionCatalogService.GetShapeTabTitle(st)} ({list.Count})";
                 }
             }
 
@@ -165,13 +165,13 @@ namespace SteelStructureSuite.Views
             SectionShapeType shapeType = OrderedTypes[Math.Max(0, Math.Min(CmbType.SelectedIndex, OrderedTypes.Length - 1))];
             SectionCatalogService.AddOrUpdate(new SectionProfile(name, shapeType, h, b, tw, tf));
 
-            LstSections.SelectedIndex = Array.IndexOf(OrderedTypes, shapeType);
+            TabsSections.SelectedIndex = Array.IndexOf(OrderedTypes, shapeType);
             RefreshAllTabGrids();
         }
 
         private void OnDeleteSectionClick(object sender, RoutedEventArgs e)
         {
-            if (LstSections.SelectedItem is ListBoxItem item &&
+            if (TabsSections.SelectedItem is TabItem item &&
                 item.Tag is SectionShapeType st &&
                 _gridsByType.TryGetValue(st, out DataGrid dg) &&
                 dg.SelectedItem is SectionProfile sel)

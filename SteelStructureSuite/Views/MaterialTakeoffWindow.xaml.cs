@@ -67,14 +67,6 @@ namespace SteelStructureSuite.Views
                 $"共 {structures.Count} 座构件，{_summaryRows.Count} 种规格  |  总重: {totalKg:0.00} kg ({totalKg / 1000.0:0.000} t)  |  面积: {totalM2:0.00} m²";
         }
 
-        private void OnViewModeChanged(object sender, RoutedEventArgs e)
-        {
-            if (DgSummary == null || DgDetails == null) return;
-            bool showDetails = RadDetails != null && RadDetails.IsChecked == true;
-            DgSummary.Visibility = showDetails ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
-            DgDetails.Visibility = showDetails ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
-        }
-
         private void OnAllScopeClick(object sender, RoutedEventArgs e)
         {
             ReloadData(null);

@@ -30,20 +30,9 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Grid Grid.Row="0">
-            <Grid.RowDefinitions>
-                <RowDefinition Height="Auto" />
-                <RowDefinition Height="*" />
-            </Grid.RowDefinitions>
-
-            <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,4">
-                <RadioButton x:Name="RadParams" Content="参数与示意" GroupName="EditView"
-                             IsChecked="True" Checked="OnViewModeChanged" />
-                <RadioButton x:Name="RadBom" Content="材料清单" GroupName="EditView"
-                             Checked="OnViewModeChanged" />
-            </StackPanel>
-
-            <Grid x:Name="ParamsPanel" Grid.Row="1" Margin="0,4,0,0">
+        <TabControl Grid.Row="0">
+            <TabItem x:Name="TbiParams" Header="参数与示意">
+            <Grid x:Name="ParamsPanel">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -157,8 +146,10 @@
                         </StackPanel>
                     </ScrollViewer>
             </Grid>
+            </TabItem>
 
-            <Grid x:Name="BomPanel" Grid.Row="1" Margin="0,4,0,0" Visibility="Collapsed">
+            <TabItem x:Name="TbiBom" Header="材料清单">
+            <Grid x:Name="BomPanel">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
@@ -181,7 +172,8 @@
                         </DataGrid.Columns>
                     </DataGrid>
             </Grid>
-        </Grid>
+            </TabItem>
+        </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
             <Button x:Name="BtnUpdate" Content="更新模型" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />

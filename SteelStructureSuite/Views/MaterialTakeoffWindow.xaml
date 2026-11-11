@@ -34,25 +34,14 @@
         <TextBlock x:Name="TxtBanner" Grid.Row="0" Style="{StaticResource Text.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
 
         <Border Grid.Row="1" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
-            <Grid>
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="*" />
-                    <ColumnDefinition Width="Auto" />
-                </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0" Orientation="Horizontal" HorizontalAlignment="Left">
-                    <Button Content="全图统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnAllScopeClick" />
-                    <Button Content="框选统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnPickSelectionClick" />
-                </StackPanel>
-                <StackPanel Grid.Column="1" Orientation="Horizontal">
-                    <RadioButton x:Name="RadSummary" Content="规格汇总" GroupName="TakeoffView"
-                                 IsChecked="True" Checked="OnViewModeChanged" />
-                    <RadioButton x:Name="RadDetails" Content="零件明细" GroupName="TakeoffView"
-                                 Checked="OnViewModeChanged" />
-                </StackPanel>
-            </Grid>
+            <StackPanel Orientation="Horizontal">
+                <Button Content="全图统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnAllScopeClick" />
+                <Button Content="框选统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnPickSelectionClick" />
+            </StackPanel>
         </Border>
 
-        <Grid Grid.Row="2" Margin="0,0,0,4">
+        <TabControl Grid.Row="2" Margin="0,0,0,4">
+            <TabItem Header="规格汇总">
                 <DataGrid x:Name="DgSummary"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
@@ -73,8 +62,9 @@
                         <DataGridTextColumn Header="刷漆面积(m²)" Binding="{Binding TotalSurfaceAreaM2, StringFormat=0.00}" Width="1.0*" MinWidth="95" />
                     </DataGrid.Columns>
                 </DataGrid>
+            </TabItem>
+            <TabItem Header="零件明细">
                 <DataGrid x:Name="DgDetails"
-                          Visibility="Collapsed"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"
                           IsReadOnly="True"
@@ -95,7 +85,8 @@
                         <DataGridTextColumn Header="面积(m²)" Binding="{Binding TotalSurfaceAreaM2, StringFormat=0.00}" Width="0.9*" MinWidth="82" />
                     </DataGrid.Columns>
                 </DataGrid>
-        </Grid>
+            </TabItem>
+        </TabControl>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="导出 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportExcelClick" />

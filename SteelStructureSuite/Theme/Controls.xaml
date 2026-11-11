@@ -594,9 +594,9 @@
     <!-- ============================================================
          4. CheckBox / RadioButton
          ============================================================ -->
-    <!-- 复选框统一几何：12×8 外包，从 (0,0) 起笔，在 16×16 方框内居中。
+    <!-- 复选框统一几何：10×8 外包，从 (0,0) 起笔，在 16×16 方框内居中。
          隐式 CheckBox、表格选择列、筛选面板全选框共用这一份几何。 -->
-    <StreamGeometry x:Key="Geometry.CheckBox.Check">M 0,0 L 2,0 L 5,3 L 10,0 L 12,2 L 5,8 Z</StreamGeometry>
+    <StreamGeometry x:Key="Geometry.CheckBox.Check">M 0,4.5 L 3.5,8 L 10,1.5 L 8.5,0 L 3.5,5 L 1.5,3 Z</StreamGeometry>
 
     <Style x:Key="CheckBox.Base" TargetType="{x:Type CheckBox}">
         <Setter Property="FontFamily" Value="{StaticResource Font.Ui}" />
@@ -621,12 +621,11 @@
                                 BorderThickness="1"
                                 VerticalAlignment="Center">
                             <Grid>
-                                <!-- 对勾用填充多边形：外包 12×8、从 0,0 起笔，
-                                     在 16×16 靶心内居中。 -->
+                                <!-- 对勾用填充多边形：外包 10×8、从 0,0 起笔，
+                                     在 16×16 靶心内居中。禁止加 Width/Height/Stretch，
+                                     否则 DesiredSize 会再次改变，墨迹右下偏移。 -->
                                 <Path x:Name="Check"
                                       Data="{StaticResource Geometry.CheckBox.Check}"
-                                      Width="12" Height="8"
-                                      Stretch="None"
                                       Fill="{StaticResource Brush.OnAccent}"
                                       HorizontalAlignment="Center"
                                       VerticalAlignment="Center"
@@ -690,6 +689,13 @@
                 </ControlTemplate>
             </Setter.Value>
         </Setter>
+        <Style.Triggers>
+            <!-- 没有文字的就不要留文字间距：表头全选框和表格单元格复选框没有 Content，
+                 右侧 12px 会把它推离中心，与下方行复选框不在一条竖线。 -->
+            <Trigger Property="HasContent" Value="False">
+                <Setter Property="Margin" Value="0" />
+            </Trigger>
+        </Style.Triggers>
     </Style>
 
     <Style TargetType="{x:Type CheckBox}" BasedOn="{StaticResource CheckBox.Base}" />
