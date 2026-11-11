@@ -129,7 +129,13 @@ namespace SteelStructureSuite.Services.Modeling
                 new TypedValue((int)DxfCode.Real, p.RotationRad),
                 new TypedValue((int)DxfCode.Real, p.EndPointOffsetZ),
                 new TypedValue((int)DxfCode.Int32, p.BayCount),
-                new TypedValue((int)DxfCode.ExtendedDataWorldXCoordinate, anchorCenter)
+                new TypedValue((int)DxfCode.ExtendedDataWorldXCoordinate, anchorCenter),
+                new TypedValue((int)DxfCode.Int32, p.UseCurveFrame ? 1 : 0),
+                new TypedValue((int)DxfCode.ExtendedDataWorldXCoordinate, new Point3d(p.FrameX.X, p.FrameX.Y, p.FrameX.Z)),
+                new TypedValue((int)DxfCode.ExtendedDataWorldXCoordinate, new Point3d(p.FrameY.X, p.FrameY.Y, p.FrameY.Z)),
+                new TypedValue((int)DxfCode.ExtendedDataWorldXCoordinate, new Point3d(p.FrameZ.X, p.FrameZ.Y, p.FrameZ.Z)),
+                new TypedValue((int)DxfCode.Real, p.TopRadius),
+                new TypedValue((int)DxfCode.Int32, p.HelixCounterClockwise ? 1 : 0)
             );
 
             xrec.Data = rb;
@@ -366,6 +372,21 @@ namespace SteelStructureSuite.Services.Modeling
             {
                 storedAnchorCenter = anchorPt;
             }
+            if (vals.Length >= 16)
+                p.UseCurveFrame = Convert.ToInt32(vals[15].Value) != 0;
+            if (vals.Length >= 19 &&
+                vals[16].Value is Point3d frameX &&
+                vals[17].Value is Point3d frameY &&
+                vals[18].Value is Point3d frameZ)
+            {
+                p.FrameX = new Vector3d(frameX.X, frameX.Y, frameX.Z);
+                p.FrameY = new Vector3d(frameY.X, frameY.Y, frameY.Z);
+                p.FrameZ = new Vector3d(frameZ.X, frameZ.Y, frameZ.Z);
+            }
+            if (vals.Length >= 20)
+                p.TopRadius = Convert.ToDouble(vals[19].Value);
+            if (vals.Length >= 21)
+                p.HelixCounterClockwise = Convert.ToInt32(vals[20].Value) != 0;
             return true;
         }
     }

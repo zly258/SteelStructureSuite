@@ -157,7 +157,7 @@ namespace SteelStructureSuite.Services.Modeling
         /// <summary>
         /// 创建截面封闭面域（XY 平面，Z=0）。
         /// </summary>
-        private static Region CreateProfileRegion(SectionProfile sec)
+        internal static Region CreateProfileRegion(SectionProfile sec)
         {
             if (sec == null) return null;
 
@@ -451,12 +451,9 @@ namespace SteelStructureSuite.Services.Modeling
         public static Solid3d SweepAlongPath(SectionProfile sec, IList<Point3d> path, bool smooth, bool closed)
         {
             if (sec == null || path == null || path.Count < 2) return null;
-            if (path.Count == 2 && !closed)
-            {
+            if (!closed && path.Count == 2)
                 return BuildMemberBetweenPoints(sec, path[0], path[1]);
-            }
-            // 返回 null，统一交由 AddContinuousMember 以解析直杆段高速拼接，彻底规避 ACIS 样条扫掠实体布尔求交卡顿
-            return null;
+            return CurveSweepService.SweepAlongPath(sec, path, smooth, closed);
         }
     }
 }

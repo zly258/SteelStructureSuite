@@ -53,6 +53,30 @@ namespace SteelStructureSuite.Services.Modeling
         }
 
         /// <summary>
+        /// 局部坐标到世界坐标。曲线拾取使用曲线自身坐标系，其余构件仍绕 Z 轴旋转后平移。
+        /// </summary>
+        public static Matrix3d GetPlacementMatrix(SteelStructureParams p)
+        {
+            if (p == null) return Matrix3d.Identity;
+            if (p.UseCurveFrame && p.FrameX.Length > 1e-6 && p.FrameZ.Length > 1e-6)
+            {
+                Vector3d z = p.FrameZ.GetNormal();
+                Vector3d x = p.FrameX - z * p.FrameX.DotProduct(z);
+                if (x.Length < 1e-6)
+                    x = Math.Abs(z.Z) > 0.9 ? Vector3d.XAxis : z.CrossProduct(Vector3d.ZAxis);
+                x = x.GetNormal();
+                Vector3d y = z.CrossProduct(x).GetNormal();
+                x = y.CrossProduct(z).GetNormal();
+                return Matrix3d.AlignCoordinateSystem(
+                    Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis,
+                    p.Origin, x, y, z);
+            }
+
+            return Matrix3d.Displacement(p.Origin - Point3d.Origin) *
+                   Matrix3d.Rotation(p.RotationRad, Vector3d.ZAxis, Point3d.Origin);
+        }
+
+        /// <summary>
         /// 生成轻量级三维预览线段集合（专供 DrawJig 动态移动鼠标或两点线性绘制时 60FPS 零卡顿实时渲染）
         /// </summary>
         public static List<Tuple<Point3d, Point3d>> BuildFastPreviewWireframeLines(SteelStructureParams p)
@@ -65,8 +89,7 @@ namespace SteelStructureSuite.Services.Modeling
             double baseOffsetZ = GetBaseOffsetZ(p);
 
             // 与 BuildCombinedSolid 完全一致的旋转与平移变换矩阵：先局部下移基点，再绕原点旋转，最后平移到 p.Origin
-            Matrix3d worldMat = Matrix3d.Displacement(p.Origin - Point3d.Origin) *
-                                Matrix3d.Rotation(p.RotationRad, Vector3d.ZAxis, Point3d.Origin) *
+            Matrix3d worldMat = GetPlacementMatrix(p) *
                                 Matrix3d.Displacement(new Vector3d(0, 0, -baseOffsetZ));
 
             SectionProfile colSec = SectionCatalogService.GetByName(p.ColumnSection);
@@ -322,14 +345,18 @@ namespace SteelStructureSuite.Services.Modeling
                 }
                 case ParametricStructureType.ArcSteelMember:
                 {
-                    double radius = Math.Max(span, 80.0);
-                    double sweep = Math.Min(330.0, Math.Max(15.0, subH)) * Math.PI / 180.0;
-                    int n = Math.Max(8, (int)Math.Ceiling(Math.Min(330.0, Math.Max(15.0, subH)) / 8.0));
+                    double radius = Math.Max(p.Span, 80.0);
+                    double sweepDeg = Math.Min(360.0, Math.Max(1.0, p.SubHeight));
+                    double sweep = sweepDeg * Math.PI / 180.0;
+                    bool full = sweepDeg >= 359.0 && Math.Abs(p.EndPointOffsetZ) < 1.0;
+                    int n = full ? 36 : Math.Max(8, (int)Math.Ceiling(sweepDeg / 8.0));
                     Point3d prev = new Point3d(radius, 0, 0);
                     for (int i = 1; i <= n; i++)
                     {
-                        double a = sweep * i / n;
-                        Point3d cur = new Point3d(radius * Math.Cos(a), radius * Math.Sin(a), 0);
+                        double t = (double)i / n;
+                        double a = (full ? Math.PI * 2.0 : sweep) * t;
+                        double z = Math.Abs(p.EndPointOffsetZ) < 1.0 ? 0.0 : p.EndPointOffsetZ * t;
+                        Point3d cur = new Point3d(radius * Math.Cos(a), radius * Math.Sin(a), z);
                         addSeg(prev, cur);
                         prev = cur;
                     }
@@ -337,26 +364,20 @@ namespace SteelStructureSuite.Services.Modeling
                 }
                 case ParametricStructureType.SpiralSteelMember:
                 {
-                    double radius = Math.Max(len, 30.0);
-                    double turns = SpiralTurns(subH);
-                    double axisLen = Math.Sqrt(span * span + p.EndPointOffsetZ * p.EndPointOffsetZ);
-                    if (axisLen < 50.0) axisLen = Math.Max(span, 200.0);
-                    Vector3d axis = new Vector3d(span, 0, p.EndPointOffsetZ);
-                    if (axis.Length < 10.0) axis = Vector3d.XAxis;
-                    axis = axis.GetNormal();
-                    Vector3d side = Math.Abs(axis.Z) > 0.9
-                        ? Vector3d.YAxis
-                        : Vector3d.ZAxis.CrossProduct(axis).GetNormal();
-                    Vector3d binormal = axis.CrossProduct(side).GetNormal();
-                    int n = Math.Max(16, (int)Math.Ceiling(turns * 16.0));
-                    Point3d prev = Point3d.Origin + side * radius;
+                    double radius = Math.Max(p.Length, 1.0);
+                    double topR = p.TopRadius > 1.0 ? p.TopRadius : radius;
+                    double turns = SpiralTurns(p.SubHeight);
+                    double height = Math.Max(p.Span, 1.0);
+                    double dir = p.HelixCounterClockwise ? 1.0 : -1.0;
+                    int n = Math.Max(24, (int)Math.Ceiling(turns * 16.0));
+                    if (n > 180) n = 180;
+                    Point3d prev = new Point3d(radius, 0, 0);
                     for (int i = 1; i <= n; i++)
                     {
                         double t = (double)i / n;
-                        double a = t * turns * Math.PI * 2.0;
-                        Point3d cur = Point3d.Origin + axis * (axisLen * t)
-                            + side * (radius * Math.Cos(a))
-                            + binormal * (radius * Math.Sin(a));
+                        double a = dir * t * turns * Math.PI * 2.0;
+                        double rr = radius + (topR - radius) * t;
+                        Point3d cur = new Point3d(rr * Math.Cos(a), rr * Math.Sin(a), height * t);
                         addSeg(prev, cur);
                         prev = cur;
                     }
@@ -589,7 +610,7 @@ namespace SteelStructureSuite.Services.Modeling
                     BuildPipeBridgeTrussParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
                     break;
                 case ParametricStructureType.SpiralStair:
-                    BuildSpiralStairParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    BuildSpiralStairParts(parts, colProf, beamProf, braceProf, span, len, h, Math.Max(p.SubHeight, 30.0));
                     break;
                 case ParametricStructureType.StraightStair:
                     BuildStraightStairParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
@@ -604,16 +625,16 @@ namespace SteelStructureSuite.Services.Modeling
                     BuildLinearSteelMemberParts(parts, colProf, span, p.EndPointOffsetZ);
                     break;
                 case ParametricStructureType.ArcSteelMember:
-                    BuildArcSteelMemberParts(parts, colProf, span, subH, p.EndPointOffsetZ);
+                    BuildArcSteelMemberParts(parts, colProf, Math.Max(p.Span, 20.0), p.SubHeight, p.EndPointOffsetZ);
                     break;
                 case ParametricStructureType.SpiralSteelMember:
-                    BuildSpiralSteelMemberParts(parts, colProf, span, len, subH, p.EndPointOffsetZ);
+                    BuildSpiralSteelMemberParts(parts, colProf, Math.Max(p.Span, 1.0), Math.Max(p.Length, 1.0), p.SubHeight, p.TopRadius, p.HelixCounterClockwise);
                     break;
                 case ParametricStructureType.VesselSupport:
-                    BuildVesselSupportParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    BuildVesselSupportParts(parts, colProf, beamProf, braceProf, span, len, h, p.SubHeight);
                     break;
                 case ParametricStructureType.TowerCircularPlatform:
-                    BuildTowerCircularPlatformParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
+                    BuildTowerCircularPlatformParts(parts, colProf, beamProf, braceProf, span, len, h, p.SubHeight);
                     break;
                 case ParametricStructureType.VerticalVesselSkirt:
                     BuildVerticalVesselSkirtParts(parts, colProf, beamProf, braceProf, span, len, h, subH, Math.Max(8, p.BayCount));
@@ -622,7 +643,7 @@ namespace SteelStructureSuite.Services.Modeling
                     BuildPipeShoeSupportParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
                     break;
                 case ParametricStructureType.TankRoofHandrail:
-                    BuildTankRoofHandrailParts(parts, colProf, beamProf, span, h, subH);
+                    BuildTankRoofHandrailParts(parts, colProf, beamProf, span, h, p.SubHeight);
                     break;
                 case ParametricStructureType.SubstationGantryFrame:
                     BuildSubstationGantryFrameParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
@@ -733,16 +754,7 @@ namespace SteelStructureSuite.Services.Modeling
             Solid3d master = solids.Count > 0 ? solids[0] : null;
 
             if (master != null)
-            {
-                if (Math.Abs(p.RotationRad) > 1e-6)
-                {
-                    master.TransformBy(Matrix3d.Rotation(p.RotationRad, Vector3d.ZAxis, Point3d.Origin));
-                }
-                if (p.Origin != Point3d.Origin)
-                {
-                    master.TransformBy(Matrix3d.Displacement(p.Origin - Point3d.Origin));
-                }
-            }
+                master.TransformBy(GetPlacementMatrix(p));
 
             return master;
         }
@@ -1159,8 +1171,6 @@ namespace SteelStructureSuite.Services.Modeling
             int stepCount = Math.Max(8, (int)Math.Round(totalHeight / 220.0));
             double handrailH = 1050.0;
 
-            // 螺旋不要走样条扫略：槽钢沿样条扫掠再布尔，AutoCAD 会卡很久。
-            // 用约 24° 一段的直杆接成螺旋，外形仍然连续，生成快一个数量级。
             AddHelixChords(parts, "内螺旋斜梁", stringerProf, innerR, totalHeight, totalRad, 0.0);
             AddHelixChords(parts, "外螺旋斜梁", stringerProf, outerR, totalHeight, totalRad, 0.0);
             AddHelixChords(parts, "外侧螺旋扶手", handrailProf, outerR, totalHeight, totalRad, handrailH);
@@ -1309,8 +1319,8 @@ namespace SteelStructureSuite.Services.Modeling
             for (int j = 0; j < hoopCount; j++)
             {
                 double hz = startZ + (h + topExt - startZ) * j / Math.Max(1, hoopCount - 1);
-                var hoop = new List<Point3d> { new Point3d(w, 0, hz) };
-                int samples = 20;
+                var hoop = new List<Point3d>();
+                int samples = 24;
                 double a0 = cageAngles[0];
                 double a1 = cageAngles[arcSegs];
                 for (int k = 0; k <= samples; k++)
@@ -1318,8 +1328,13 @@ namespace SteelStructureSuite.Services.Modeling
                     double ang = a0 + (a1 - a0) * k / samples;
                     hoop.Add(new Point3d(centerX + cageR * Math.Cos(ang), centerY + cageR * Math.Sin(ang), hz));
                 }
-                hoop.Add(new Point3d(0, 0, hz));
                 AddContinuousMember(parts, "护笼横箍", pipeRung, hoop, bendRadius: 0.0, smooth: true, closed: false);
+                Point3d rightStile = new Point3d(w, 0, hz);
+                Point3d leftStile = new Point3d(0, 0, hz);
+                if (rightStile.DistanceTo(hoop[0]) > 20.0)
+                    AddMember(parts, "护笼横箍接头", pipeRung, rightStile, hoop[0]);
+                if (leftStile.DistanceTo(hoop[hoop.Count - 1]) > 20.0)
+                    AddMember(parts, "护笼横箍接头", pipeRung, hoop[hoop.Count - 1], leftStile);
             }
 
             // 护笼纵向立条 (5 根纵向立杆连接所有护笼横箍)
@@ -2174,16 +2189,20 @@ namespace SteelStructureSuite.Services.Modeling
                 }
                 case ParametricStructureType.ArcSteelMember:
                 {
-                    double sweep = Math.Min(330.0, Math.Max(15.0, subH)) * Math.PI / 180.0;
-                    addRow("弧形型钢", col, 1, Math.Max(span, 80.0) * sweep);
+                    double sweep = Math.Min(360.0, Math.Max(1.0, p.SubHeight)) * Math.PI / 180.0;
+                    double rise = p.EndPointOffsetZ;
+                    double arcLen = Math.Sqrt(Math.Pow(Math.Max(p.Span, 20.0) * sweep, 2) + rise * rise);
+                    addRow("弧形型钢", col, 1, arcLen);
                     break;
                 }
                 case ParametricStructureType.SpiralSteelMember:
                 {
-                    double radius = Math.Max(len, 30.0);
-                    double turns = SpiralTurns(subH);
-                    double axisLen = Math.Sqrt(span * span + p.EndPointOffsetZ * p.EndPointOffsetZ);
-                    double helix = Math.Sqrt(Math.Pow(Math.PI * 2.0 * radius * turns, 2) + axisLen * axisLen);
+                    double radius = Math.Max(p.Length, 1.0);
+                    double top = p.TopRadius > 1.0 ? p.TopRadius : radius;
+                    double meanR = (radius + top) * 0.5;
+                    double turns = SpiralTurns(p.SubHeight);
+                    double axisLen = Math.Max(p.Span, 1.0);
+                    double helix = Math.Sqrt(Math.Pow(Math.PI * 2.0 * meanR * turns, 2) + axisLen * axisLen);
                     addRow("螺旋型钢", col, 1, helix);
                     break;
                 }
@@ -2491,49 +2510,31 @@ namespace SteelStructureSuite.Services.Modeling
             double sweepDeg,
             double endRise)
         {
-            double r = Math.Max(radius, 80.0);
-            double sweep = Math.Min(330.0, Math.Max(15.0, sweepDeg)) * Math.PI / 180.0;
-            int n = Math.Max(12, (int)Math.Ceiling(sweep * 180.0 / Math.PI / 6.0));
-            var path = new List<Point3d>(n + 1);
-            for (int i = 0; i <= n; i++)
-            {
-                double t = (double)i / n;
-                double a = sweep * t;
-                path.Add(new Point3d(r * Math.Cos(a), r * Math.Sin(a), endRise * t));
-            }
-            AddContinuousMember(parts, "弧形型钢", sec, path, 0.0, smooth: true, closed: false);
+            Curve path = CurveSweepService.CreateArcMemberPath(radius, sweepDeg, endRise);
+            if (path == null) return;
+            int samples = Math.Max(12, (int)Math.Ceiling(Math.Min(360.0, Math.Max(1.0, sweepDeg)) / 6.0));
+            List<Point3d> pts = CurveSweepService.SampleCurve(path, samples);
+            AddSweptCurve(parts, "弧形型钢", sec, path, pts, Math.Abs(sweepDeg) >= 359.0 && Math.Abs(endRise) < 1.0);
         }
 
         private static void BuildSpiralSteelMemberParts(
             List<SolidMemberPart> parts,
             SectionProfile sec,
-            double horizontalLen,
+            double axisHeight,
             double helixRadius,
-            double turnsOrDegrees,
-            double endRise)
+            double turns,
+            double topRadius,
+            bool counterClockwise)
         {
-            double radius = Math.Max(helixRadius, 30.0);
-            double turns = SpiralTurns(turnsOrDegrees);
-            double axisLen = Math.Sqrt(horizontalLen * horizontalLen + endRise * endRise);
-            if (axisLen < 50.0) axisLen = Math.Max(horizontalLen, 200.0);
-            Vector3d axis = new Vector3d(horizontalLen, 0, endRise);
-            if (axis.Length < 10.0) axis = Vector3d.XAxis;
-            axis = axis.GetNormal();
-            Vector3d side = Math.Abs(axis.Z) > 0.9
-                ? Vector3d.YAxis
-                : Vector3d.ZAxis.CrossProduct(axis).GetNormal();
-            Vector3d binormal = axis.CrossProduct(side).GetNormal();
-            int n = Math.Max(24, (int)Math.Ceiling(turns * 24.0));
-            var path = new List<Point3d>(n + 1);
-            for (int i = 0; i <= n; i++)
-            {
-                double t = (double)i / n;
-                double a = t * turns * Math.PI * 2.0;
-                path.Add(Point3d.Origin + axis * (axisLen * t)
-                    + side * (radius * Math.Cos(a))
-                    + binormal * (radius * Math.Sin(a)));
-            }
-            AddContinuousMember(parts, "螺旋型钢", sec, path, 0.0, smooth: true, closed: false);
+            double radius = Math.Max(helixRadius, 1.0);
+            double top = topRadius > 1.0 ? topRadius : radius;
+            double actualTurns = SpiralTurns(turns);
+            double height = Math.Max(axisHeight, 1.0);
+            Curve path = CurveSweepService.CreateVerticalHelix(radius, top, height, actualTurns, counterClockwise);
+            if (path == null) return;
+            int samples = Math.Min(720, Math.Max(24, (int)Math.Ceiling(actualTurns * 12.0)));
+            List<Point3d> pts = CurveSweepService.SampleCurve(path, samples);
+            AddSweptCurve(parts, "螺旋型钢", sec, path, pts, false);
         }
 
         private static void AddHelixChords(
@@ -2546,24 +2547,69 @@ namespace SteelStructureSuite.Services.Modeling
             double z0)
         {
             if (prof == null) return;
-            int seg = (int)Math.Ceiling(Math.Abs(totalRad) / (Math.PI / 7.5));
-            if (seg < 6) seg = 6;
-            if (seg > 14) seg = 14;
-            Point3d prev = new Point3d(radius, 0, z0);
-            for (int i = 1; i <= seg; i++)
+            double turns = Math.Abs(totalRad) / (Math.PI * 2.0);
+            Curve path = CurveSweepService.CreateVerticalHelix(radius, radius, Math.Max(Math.Abs(height), 1.0), Math.Max(turns, 0.05), totalRad >= 0.0);
+            if (path == null)
             {
-                double t = (double)i / seg;
-                double a = t * totalRad;
-                Point3d cur = new Point3d(radius * Math.Cos(a), radius * Math.Sin(a), z0 + height * t);
-                AddMember(parts, role, prof, prev, cur);
-                prev = cur;
+                AddContinuousMember(parts, role, prof, SampleHelix(radius, height, totalRad, z0), 0.0, true, false);
+                return;
             }
+            if (Math.Abs(z0) > 1e-6)
+                path.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, z0)));
+            int samples = Math.Max(16, (int)Math.Ceiling(Math.Abs(totalRad) * 180.0 / Math.PI / 8.0));
+            AddSweptCurve(parts, role, prof, path, CurveSweepService.SampleCurve(path, samples), false);
+        }
+
+        private static void AddSweptCurve(
+            List<SolidMemberPart> parts,
+            string roleName,
+            SectionProfile prof,
+            Curve path,
+            List<Point3d> samples,
+            bool closed)
+        {
+            Solid3d solid = null;
+            try
+            {
+                solid = CurveSweepService.SweepProfileAlongCurve(prof, path);
+            }
+            catch (System.Exception ex)
+            {
+                LastBuildWarnings.Add(roleName + " 扫掠失败：" + ex.Message);
+            }
+            finally
+            {
+                try { path?.Dispose(); } catch { }
+            }
+
+            if (solid != null && samples != null && samples.Count >= 2)
+            {
+                parts.Add(new SolidMemberPart
+                {
+                    Solid = solid,
+                    RoleName = roleName,
+                    SectionName = prof.Name,
+                    Section = prof,
+                    IsPlate = false,
+                    StartPt = samples[0],
+                    EndPt = samples[samples.Count - 1],
+                    PathPoints = samples
+                });
+                return;
+            }
+
+            solid?.Dispose();
+            LastBuildWarnings.Add(
+                roleName + " 未能沿路径扫掠，已改为分段近似。" +
+                (string.IsNullOrEmpty(CurveSweepService.LastSweepError)
+                    ? ""
+                    : " 原因：" + CurveSweepService.LastSweepError));
+            AddContinuousMember(parts, roleName, prof, samples, 0.0, false, closed);
         }
 
         private static double SpiralTurns(double subH)
         {
-            if (subH > 30.0) return Math.Max(0.25, subH / 360.0);
-            return Math.Max(0.25, subH);
+            return Math.Max(0.05, subH);
         }
 
         /// <summary>
@@ -2584,8 +2630,40 @@ namespace SteelStructureSuite.Services.Modeling
             List<Point3d> used = CleanPath(path, closed);
             if (used.Count < 2) return;
 
-            // 将高密度采样曲线降采样为至多 12 段直杆搭接，彻底消除 ACIS 样条扫掠布尔卡顿
-            List<Point3d> chords = DownsamplePath(used, maxSegs: closed ? 12 : 10);
+            if (smooth && used.Count >= 3)
+            {
+                Solid3d swept = null;
+                try
+                {
+                    swept = SectionSolidBuilder.SweepAlongPath(prof, used, true, closed);
+                }
+                catch (System.Exception ex)
+                {
+                    LastBuildWarnings.Add(roleName + " 扫掠失败：" + ex.Message);
+                }
+                if (swept != null)
+                {
+                    parts.Add(new SolidMemberPart
+                    {
+                        Solid = swept,
+                        RoleName = roleName,
+                        SectionName = prof.Name,
+                        Section = prof,
+                        IsPlate = false,
+                        StartPt = used[0],
+                        EndPt = used[used.Count - 1],
+                        PathPoints = used
+                    });
+                    return;
+                }
+                LastBuildWarnings.Add(
+                    roleName + " 未能沿路径扫掠，已改为分段近似。" +
+                    (string.IsNullOrEmpty(CurveSweepService.LastSweepError)
+                        ? ""
+                        : " 原因：" + CurveSweepService.LastSweepError));
+            }
+
+            List<Point3d> chords = (smooth || used.Count > 40) ? DownsamplePath(used, closed ? 48 : 36) : used;
             double overlap = Math.Max(10.0, Math.Max(prof.H, prof.B) * 0.32);
             int last = closed ? chords.Count : chords.Count - 1;
             for (int i = 0; i < last; i++)

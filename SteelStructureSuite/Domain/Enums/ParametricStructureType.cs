@@ -22,8 +22,8 @@
 
         // 三、单根型钢构件 (Single Profile Members)
         LinearSteelMember = 14,     // 15. 直线单根型钢(梁/柱/撑，支持两点三维动态绘制)
-        ArcSteelMember = 16,        // 16. 弧形单根型钢(圆弧扫掠，支持两点绘制)
-        SpiralSteelMember = 17,     // 17. 螺旋单根型钢(螺旋扫掠，支持两点绘制)
+        ArcSteelMember = 16,        // 16. 弧形单根型钢(选择圆弧后截面扫掠)
+        SpiralSteelMember = 17,     // 17. 螺旋单根型钢(选择螺旋线后截面扫掠)
 
         // 四、化工行业标准组件 (Chemical & Petrochemical - HG/T 21574, HG/T 21629, NB/T 47041, SH/T 3070)
         VesselSupport = 15,         // 18. 卧式容器鞍式钢支座(NB/T 47042)

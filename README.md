@@ -199,8 +199,8 @@ C:\ProgramData\Autodesk\ApplicationPlugins\
 | `SS_LADDER` | 护笼钢直梯（GB 4053.1） |
 | `SS_HANDRAIL` | 安全栏杆 |
 | `SS_MEMBER` | 任意两点绘制单根型钢 |
-| `SS_ARC` | 两点绘制弧形单根型钢（第一点为圆心，第二点定半径与起始方向） |
-| `SS_SPIRAL` | 两点绘制螺旋单根型钢（第一点到第二点为轴线） |
+| `SS_ARC` | 选择圆弧、圆或圆弧多段线生成弧形单根型钢 |
+| `SS_SPIRAL` | 选择螺旋线（HELIX）生成螺旋单根型钢 |
 | `SS_SADDLE` | 卧式容器鞍式支座（NB/T 47042） |
 | `SS_LINEAR_CHAIN` | 连续折线绘制栏杆/走道/钢梁 |
 | `SS_EDIT` | 编辑选中构件参数（双击实体亦可） |

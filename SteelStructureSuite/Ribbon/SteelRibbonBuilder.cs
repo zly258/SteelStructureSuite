@@ -110,9 +110,9 @@ namespace SteelStructureSuite.Ribbon
             RibbonRowPanel mCol = new RibbonRowPanel();
             mCol.Items.Add(CreateSmallButton("直线型钢", "SS_MEMBER ", "两点绘制直线型钢梁、柱或斜撑", "member"));
             mCol.Items.Add(CreateRowBreak());
-            mCol.Items.Add(CreateSmallButton("弧形型钢", "SS_ARC ", "两点绘制圆弧扫掠型钢", "arc"));
+            mCol.Items.Add(CreateSmallButton("弧形型钢", "SS_ARC ", "选择已有圆弧，截面沿弧线扫掠", "arc"));
             mCol.Items.Add(CreateRowBreak());
-            mCol.Items.Add(CreateSmallButton("螺旋型钢", "SS_SPIRAL ", "两点绘制螺旋扫掠型钢", "helix"));
+            mCol.Items.Add(CreateSmallButton("螺旋型钢", "SS_SPIRAL ", "选择已有螺旋线，截面沿螺旋扫掠", "helix"));
             memberPanel.Items.Add(mCol);
             memberPanel.Items.Add(CreateLargeButton("编辑参数", "SS_EDIT ", "选中已有三维钢结构修改参数", "edit"));
 

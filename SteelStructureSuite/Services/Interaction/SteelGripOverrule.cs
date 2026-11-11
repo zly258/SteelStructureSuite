@@ -227,13 +227,29 @@ namespace SteelStructureSuite.Services.Interaction
                 return;
             }
 
-            Vector3d dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0);
-            Vector3d dirY = new Vector3d(-Math.Sin(p.RotationRad), Math.Cos(p.RotationRad), 0);
+            Vector3d dirX;
+            Vector3d dirY;
+            Vector3d dirZ = Vector3d.ZAxis;
+            if (p.UseCurveFrame && p.FrameZ.Length > 1e-6)
+            {
+                dirZ = p.FrameZ.GetNormal();
+                dirX = p.FrameX - dirZ * p.FrameX.DotProduct(dirZ);
+                if (dirX.Length < 1e-6) dirX = Vector3d.XAxis;
+                dirX = dirX.GetNormal();
+                dirY = dirZ.CrossProduct(dirX).GetNormal();
+            }
+            else
+            {
+                dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0);
+                dirY = new Vector3d(-Math.Sin(p.RotationRad), Math.Cos(p.RotationRad), 0);
+            }
+            Vector3d spanDir = p.StructureType == ParametricStructureType.SpiralSteelMember ? dirZ : dirX;
+            Vector3d widthDir = p.StructureType == ParametricStructureType.SpiralSteelMember ? dirX : dirY;
 
             grips.Add(MakeGrip(0, origin, dirX, handle, p));
-            grips.Add(MakeGrip(1, spanPt, dirX, handle, p));
+            grips.Add(MakeGrip(1, spanPt, spanDir, handle, p));
             if (hasHeight) grips.Add(MakeGrip(2, heightPt, Vector3d.ZAxis, handle, p));
-            if (hasWidth) grips.Add(MakeGrip(3, widthPt, dirY, handle, p));
+            if (hasWidth) grips.Add(MakeGrip(3, widthPt, widthDir, handle, p));
         }
 
         public override void GetGripPoints(
@@ -435,11 +451,14 @@ namespace SteelStructureSuite.Services.Interaction
             switch (p.StructureType)
             {
                 case ParametricStructureType.LinearSteelMember:
-                case ParametricStructureType.SpiralSteelMember:
                     spanPt = ToWorld(p, p.Span, 0, dz);
                     break;
+                case ParametricStructureType.SpiralSteelMember:
+                    spanPt = ToWorld(p, 0, 0, Math.Max(p.Span, 1.0));
+                    widthPt = ToWorld(p, Math.Max(p.Length, 1.0), 0, 0);
+                    break;
                 case ParametricStructureType.ArcSteelMember:
-                    spanPt = ToWorld(p, Math.Max(p.Span, 80.0), 0, 0);
+                    spanPt = ToWorld(p, Math.Max(p.Span, 20.0), 0, 0);
                     break;
                 case ParametricStructureType.SpiralStair:
                 case ParametricStructureType.VesselSupport:
@@ -482,7 +501,8 @@ namespace SteelStructureSuite.Services.Interaction
             hasHeight = p.StructureType != ParametricStructureType.LinearSteelMember &&
                         p.StructureType != ParametricStructureType.ArcSteelMember &&
                         p.StructureType != ParametricStructureType.SpiralSteelMember;
-            hasWidth = p.StructureType == ParametricStructureType.SpacePlatform ||
+            hasWidth = p.StructureType == ParametricStructureType.SpiralSteelMember ||
+                       p.StructureType == ParametricStructureType.SpacePlatform ||
                        p.StructureType == ParametricStructureType.CantileverWalkway ||
                        p.StructureType == ParametricStructureType.MultiBaySpaceFrame ||
                        p.StructureType == ParametricStructureType.PipeBridgeTruss ||
@@ -496,9 +516,7 @@ namespace SteelStructureSuite.Services.Interaction
         private static Point3d ToWorld(SteelStructureParams p, double x, double y, double z)
         {
             Point3d local = new Point3d(x, y, z - SteelStructureBuilder.GetBaseOffsetZ(p));
-            if (Math.Abs(p.RotationRad) > 1e-9)
-                local = local.TransformBy(Matrix3d.Rotation(p.RotationRad, Vector3d.ZAxis, Point3d.Origin));
-            return local + (p.Origin - Point3d.Origin);
+            return local.TransformBy(SteelStructureBuilder.GetPlacementMatrix(p));
         }
 
         private static SteelStructureParams ApplyGripMove(
@@ -536,8 +554,23 @@ namespace SteelStructureSuite.Services.Interaction
             HookDocument(ent.Database);
             SteelStructureParams p = origParams.Clone();
 
-            Vector3d dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0.0);
-            Vector3d dirY = new Vector3d(-Math.Sin(p.RotationRad), Math.Cos(p.RotationRad), 0.0);
+            Vector3d dirX;
+            Vector3d dirY;
+            Vector3d dirZ;
+            if (p.UseCurveFrame && p.FrameZ.Length > 1e-6)
+            {
+                dirZ = p.FrameZ.GetNormal();
+                dirX = p.FrameX - dirZ * p.FrameX.DotProduct(dirZ);
+                if (dirX.Length < 1e-6) dirX = Vector3d.XAxis;
+                dirX = dirX.GetNormal();
+                dirY = dirZ.CrossProduct(dirX).GetNormal();
+            }
+            else
+            {
+                dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0.0);
+                dirY = new Vector3d(-Math.Sin(p.RotationRad), Math.Cos(p.RotationRad), 0.0);
+                dirZ = Vector3d.ZAxis;
+            }
 
             bool originMovedOnly = true;
             foreach (int kind in kinds)
@@ -561,13 +594,16 @@ namespace SteelStructureSuite.Services.Interaction
                     }
                     else if (p.StructureType == ParametricStructureType.ArcSteelMember)
                     {
-                        p.Span = Math.Max(80.0, Math.Round(p.Span + dSpan, 0));
+                        p.Span = Math.Max(20.0, Math.Round(p.Span + offset.DotProduct(dirX), 0));
+                    }
+                    else if (p.StructureType == ParametricStructureType.SpiralSteelMember)
+                    {
+                        p.Span = Math.Max(1.0, Math.Round(p.Span + offset.DotProduct(dirZ), 0));
                     }
                     else
                     {
                         p.Span = Math.Max(200.0, Math.Round(p.Span + dSpan, 0));
-                        if (p.StructureType == ParametricStructureType.LinearSteelMember ||
-                            p.StructureType == ParametricStructureType.SpiralSteelMember)
+                        if (p.StructureType == ParametricStructureType.LinearSteelMember)
                             p.EndPointOffsetZ = Math.Round(p.EndPointOffsetZ + offset.Z, 0);
                     }
                 }
@@ -579,8 +615,11 @@ namespace SteelStructureSuite.Services.Interaction
                 else if (kind == 3)
                 {
                     originMovedOnly = false;
-                    double dLen = offset.DotProduct(dirY);
-                    p.Length = Math.Max(150.0, Math.Round(p.Length + dLen, 0));
+                    double dLen = offset.DotProduct(p.StructureType == ParametricStructureType.SpiralSteelMember ? dirX : dirY);
+                    double minLen = p.StructureType == ParametricStructureType.SpiralSteelMember ? 1.0 : 150.0;
+                    p.Length = Math.Max(minLen, Math.Round(p.Length + dLen, 0));
+                    if (p.StructureType == ParametricStructureType.SpiralSteelMember && p.TopRadius > 1.0)
+                        p.TopRadius = p.Length;
                 }
             }
 

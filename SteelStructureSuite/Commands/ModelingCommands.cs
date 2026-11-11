@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+
 using System.Windows;
 using System.IO;
 using Autodesk.AutoCAD.ApplicationServices;
@@ -13,6 +14,7 @@ using SteelStructureSuite.Ribbon;
 using SteelStructureSuite.Services.Drawing;
 using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Modeling;
+
 using SteelStructureSuite.Services.Settings;
 using SteelStructureSuite.Services.Takeoff;
 using SteelStructureSuite.Views;
@@ -421,7 +423,11 @@ namespace SteelStructureSuite.Commands
             SteelStructureParams finalParams = win.Data;
             bool useLinearDraw = win.UseTwoPointLinearDraw && finalParams.SupportsTwoPointDraw;
 
-            if (useLinearDraw)
+            if (win.UseCurvePick || finalParams.RequiresPickedCurve)
+            {
+                if (!PromptAndBindCurve(ed, finalParams)) return;
+            }
+            else if (useLinearDraw)
             {
                 PromptPointResult pprStart = ed.GetPoint(finalParams.TwoPointStartPrompt);
                 if (pprStart.Status != PromptStatus.OK) return;
@@ -569,6 +575,42 @@ namespace SteelStructureSuite.Commands
             }
 
             return p;
+        }
+
+        private static bool PromptAndBindCurve(Editor ed, SteelStructureParams p)
+        {
+            bool helix = p.StructureType == ParametricStructureType.SpiralSteelMember;
+            PromptEntityOptions peo = new PromptEntityOptions(
+                helix
+                    ? "\n选择作为路径的螺旋线: "
+                    : "\n选择作为路径的圆弧、圆或圆弧多段线: ");
+            peo.SetRejectMessage(helix ? "\n请选择螺旋线。" : "\n请选择圆弧、圆或圆弧多段线。");
+            if (helix)
+            {
+                peo.AddAllowedClass(typeof(Helix), false);
+            }
+            else
+            {
+                peo.AddAllowedClass(typeof(Arc), false);
+                peo.AddAllowedClass(typeof(Circle), false);
+                peo.AddAllowedClass(typeof(Polyline), false);
+            }
+            PromptEntityResult per = ed.GetEntity(peo);
+            if (per.Status != PromptStatus.OK) return false;
+
+            using (Transaction tr = ed.Document.Database.TransactionManager.StartTransaction())
+            {
+                Curve curve = tr.GetObject(per.ObjectId, OpenMode.ForRead) as Curve;
+                string error = null;
+                bool ok = curve != null && CurveSweepService.TryBindPickedCurve(p, curve, out error);
+                tr.Commit();
+                if (!ok)
+                {
+                    ed.WriteMessage("\n[SteelStructureSuite] " + (string.IsNullOrEmpty(error) ? "无法使用这条曲线。" : error));
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>把建模过程中的告警（例如布尔合并失败导致构件缺失）回显给用户。</summary>

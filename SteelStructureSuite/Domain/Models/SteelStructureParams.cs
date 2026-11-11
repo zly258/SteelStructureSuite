@@ -58,6 +58,54 @@ namespace SteelStructureSuite.Domain.Models
         public double RotationRad { get; set; } = 0.0;
         public double EndPointOffsetZ { get; set; } = 0.0;
         public int BayCount { get; set; } = 2;
+        public bool UseCurveFrame { get; set; }
+        public bool HelixCounterClockwise { get; set; } = true;
+        public double TopRadius { get; set; }
+        public double FrameXx { get; set; } = 1.0;
+        public double FrameXy { get; set; }
+        public double FrameXz { get; set; }
+        public double FrameYx { get; set; }
+        public double FrameYy { get; set; } = 1.0;
+        public double FrameYz { get; set; }
+        public double FrameZx { get; set; }
+        public double FrameZy { get; set; }
+        public double FrameZz { get; set; } = 1.0;
+
+        [XmlIgnore]
+        public Vector3d FrameX
+        {
+            get => new Vector3d(FrameXx, FrameXy, FrameXz);
+            set
+            {
+                FrameXx = value.X;
+                FrameXy = value.Y;
+                FrameXz = value.Z;
+            }
+        }
+
+        [XmlIgnore]
+        public Vector3d FrameY
+        {
+            get => new Vector3d(FrameYx, FrameYy, FrameYz);
+            set
+            {
+                FrameYx = value.X;
+                FrameYy = value.Y;
+                FrameYz = value.Z;
+            }
+        }
+
+        [XmlIgnore]
+        public Vector3d FrameZ
+        {
+            get => new Vector3d(FrameZx, FrameZy, FrameZz);
+            set
+            {
+                FrameZx = value.X;
+                FrameZy = value.Y;
+                FrameZz = value.Z;
+            }
+        }
 
         [XmlIgnore]
         public double RotationDeg
@@ -170,8 +218,6 @@ namespace SteelStructureSuite.Domain.Models
                 return StructureType == ParametricStructureType.HandrailGuardrail ||
                        StructureType == ParametricStructureType.StraightStair ||
                        StructureType == ParametricStructureType.LinearSteelMember ||
-                       StructureType == ParametricStructureType.ArcSteelMember ||
-                       StructureType == ParametricStructureType.SpiralSteelMember ||
                        StructureType == ParametricStructureType.CantileverWalkway ||
                        StructureType == ParametricStructureType.PipeBridgeTruss ||
                        StructureType == ParametricStructureType.CableTrenchSupport ||
@@ -197,6 +243,13 @@ namespace SteelStructureSuite.Domain.Models
                        StructureType == ParametricStructureType.PipeShoeSupport;
             }
         }
+
+        public bool RequiresPickedCurve =>
+            StructureType == ParametricStructureType.ArcSteelMember ||
+            StructureType == ParametricStructureType.SpiralSteelMember;
+
+        public string PickedCurveButtonText =>
+            StructureType == ParametricStructureType.SpiralSteelMember ? "选择螺旋线" : "选择圆弧";
 
         public string TwoPointButtonText
         {
@@ -281,7 +334,7 @@ namespace SteelStructureSuite.Domain.Models
                 case ParametricStructureType.ArcSteelMember:
                     return $"{StructureTypeDisplayName} R={Span:0.#} ∠{SubHeight:0.#}° ({ColumnSection})";
                 case ParametricStructureType.SpiralSteelMember:
-                    return $"{StructureTypeDisplayName} L={Span:0.#} R={Length:0.#} ×{SubHeight:0.#}圈 ({ColumnSection})";
+                    return $"{StructureTypeDisplayName} H={Span:0.#} R={Length:0.#} ×{SubHeight:0.#}圈 ({ColumnSection})";
                 case ParametricStructureType.SpacePlatform:
                 case ParametricStructureType.MultiBaySpaceFrame:
                 case ParametricStructureType.CantileverWalkway:
@@ -407,7 +460,19 @@ namespace SteelStructureSuite.Domain.Models
                 Material = Material,
                 RotationRad = RotationRad,
                 EndPointOffsetZ = EndPointOffsetZ,
-                BayCount = BayCount
+                BayCount = BayCount,
+                UseCurveFrame = UseCurveFrame,
+                HelixCounterClockwise = HelixCounterClockwise,
+                TopRadius = TopRadius,
+                FrameXx = FrameXx,
+                FrameXy = FrameXy,
+                FrameXz = FrameXz,
+                FrameYx = FrameYx,
+                FrameYy = FrameYy,
+                FrameYz = FrameYz,
+                FrameZx = FrameZx,
+                FrameZy = FrameZy,
+                FrameZz = FrameZz
             };
         }
     }

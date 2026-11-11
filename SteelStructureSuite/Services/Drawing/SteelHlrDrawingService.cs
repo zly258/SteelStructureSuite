@@ -691,8 +691,7 @@ namespace SteelStructureSuite.Services.Drawing
         private static List<SteelStructureBuilder.SolidMemberPart> PlaceStructureInWorld(SteelStructureParams p)
         {
             var parts = SteelStructureBuilder.BuildDetailedParts(p);
-            Matrix3d xf = Matrix3d.Displacement(p.Origin - Point3d.Origin) *
-                          Matrix3d.Rotation(p.RotationRad, Vector3d.ZAxis, Point3d.Origin);
+            Matrix3d xf = SteelStructureBuilder.GetPlacementMatrix(p);
             foreach (var part in parts)
             {
                 part.Solid?.TransformBy(xf);
