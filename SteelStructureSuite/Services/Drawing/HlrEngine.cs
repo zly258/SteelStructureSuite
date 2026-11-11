@@ -92,6 +92,13 @@ namespace SteelStructureSuite.Services.Drawing
         private const double BboxEpsilon = 0.5;
         /// <summary>短于该长度的线段不绘制。</summary>
         private const double MinSegmentLength = 0.05;
+        /// <summary>
+        /// 相邻面法向点积大于此值（夹角约 37° 以内）时，视为圆管或圆柱的光滑表面。
+        /// 这类细分棱只保留轮廓线，避免 12 边形棱柱被画成一束平行线。
+        /// </summary>
+        private const double SmoothNormalDot = 0.80;
+        /// <summary>扫掠路径转角余弦小于此值（约 23°）时，才画出中间截面环。</summary>
+        private const double RingTurnDot = 0.92;
 
         /// <summary>
         /// 计算某视图下的可见线段与隐藏线段。
@@ -99,15 +106,18 @@ namespace SteelStructureSuite.Services.Drawing
         /// <param name="parts">参与出图的构件（世界坐标）</param>
         /// <param name="proj">世界坐标 → 视图平面坐标</param>
         /// <param name="viewNormal">指向观察者的单位向量</param>
+        /// <param name="simplifyTolerance">图面上应分开的最小距离（模型 mm，约 0.5mm×比例）。更近的平行线会合并。</param>
         public static ViewResult Compute(
             IList<SolidMemberPart> parts,
             Func<Point3d, Point2d> proj,
-            Vector3d viewNormal)
+            Vector3d viewNormal,
+            double simplifyTolerance = 0)
         {
             var result = new ViewResult();
             if (parts == null || parts.Count == 0 || proj == null) return result;
 
             Vector3d n = viewNormal.Length > 1e-9 ? viewNormal.GetNormal() : Vector3d.ZAxis;
+            double simplify = simplifyTolerance > 0 ? simplifyTolerance : 0;
 
             var geoms = new List<PartGeometry>();
             foreach (SolidMemberPart part in parts)
@@ -169,7 +179,7 @@ namespace SteelStructureSuite.Services.Drawing
                     // 两个相邻面都背对观察者：这是实体背面的棱，不画。
                     // 朝向观察者或处于轮廓上的棱才保留。不能靠“射线打到自身”判断，
                     // 那会把贴着表面的可见棱误判成被挡住，轴测图就会缺线、断线。
-                    if (!EdgeFacesViewer(edge, self.Faces, n)) continue;
+                    if (!ShouldDrawEdge(edge, self.Faces, n)) continue;
 
                     int count = edge.Points.Count;
                     if (count < 2) continue;
@@ -192,7 +202,7 @@ namespace SteelStructureSuite.Services.Drawing
                 }
             }
 
-            CleanupSegments(result);
+            CleanupSegments(result, simplify);
             return result;
         }
 
@@ -255,12 +265,31 @@ namespace SteelStructureSuite.Services.Drawing
             result.MaxY = Math.Max(result.MaxY, Math.Max(a.Y, b.Y));
         }
 
-        /// <summary>棱线是否朝向观察者（含轮廓线）。背面棱线直接丢弃。</summary>
-        private static bool EdgeFacesViewer(Edge3D edge, List<Face> faces, Vector3d view)
+        /// <summary>
+        /// 棱线是否要画。背面棱丢掉。圆管、圆柱这类光滑曲面上的细分棱只留轮廓
+        /// （一面朝向观察者、另一面背向），其余实棱仍保留。
+        /// </summary>
+        private static bool ShouldDrawEdge(Edge3D edge, List<Face> faces, Vector3d view)
         {
             if (edge.FaceA < 0 && edge.FaceB < 0) return true;
-            return FaceViewDot(faces, edge.FaceA, view) > 1e-4
-                || FaceViewDot(faces, edge.FaceB, view) > 1e-4;
+            const double eps = 1e-4;
+            double da = FaceViewDot(faces, edge.FaceA, view);
+            double db = FaceViewDot(faces, edge.FaceB, view);
+            bool frontA = da > eps;
+            bool frontB = db > eps;
+            if (!frontA && !frontB) return false;
+            if (edge.FaceA < 0 || edge.FaceB < 0 || edge.FaceA >= faces.Count || edge.FaceB >= faces.Count)
+                return true;
+
+            double nd = Dot(faces[edge.FaceA].N, faces[edge.FaceB].N);
+            if (nd <= SmoothNormalDot) return true;
+
+            bool backA = da < -eps;
+            bool backB = db < -eps;
+            if ((frontA && backB) || (frontB && backA)) return true;
+            bool grazA = Math.Abs(da) <= eps;
+            bool grazB = Math.Abs(db) <= eps;
+            return (grazA && (frontB || backB)) || (grazB && (frontA || backA));
         }
 
         private static double FaceViewDot(List<Face> faces, int index, Vector3d view)
@@ -379,44 +408,57 @@ namespace SteelStructureSuite.Services.Drawing
 
         /// <summary>
         /// 去掉过短碎线、重合线和同一直线上被拆开的小段。
-        /// 截面每个顶点都会拉出一条纵向棱，正投影后大量重合，不合并就会又密又花。
+        /// 截面每个顶点都会拉出一条纵向棱，正投影后大量重合；
+        /// 圆管轮廓、翼缘厚度线靠得比图面分辨距离更近时也并成一条。
+        /// 隐藏线用更大的合并距离，避免被板挡住的杆件画出一排虚线。
         /// </summary>
-        private static void CleanupSegments(ViewResult result)
+        private static void CleanupSegments(ViewResult result, double simplifyTolerance)
         {
             if (result.Segments.Count == 0) return;
 
-            var ordered = new List<Segment2D>(result.Segments);
-            ordered.Sort((a, b) =>
-            {
-                int vis = (b.Visible ? 1 : 0) - (a.Visible ? 1 : 0);
-                if (vis != 0) return vis;
-                return SegLength(b).CompareTo(SegLength(a));
-            });
+            double visTol = Math.Max(MergeTol, simplifyTolerance);
+            double hidTol = Math.Max(visTol, simplifyTolerance * 2.0);
+            double minHidden = Math.Max(8.0, simplifyTolerance * 0.8);
+            double collinearTol = Math.Max(1.5, simplifyTolerance * 0.08);
 
-            var unique = new List<Segment2D>();
-            foreach (Segment2D seg in ordered)
+            var visible = new List<Segment2D>();
+            var hidden = new List<Segment2D>();
+            foreach (Segment2D seg in result.Segments)
             {
                 if (SegLength(seg) < 2.0) continue;
-                bool covered = false;
-                for (int i = 0; i < unique.Count; i++)
-                {
-                    if (!NearlyCovered(seg, unique[i], MergeTol)) continue;
-                    if (seg.Visible) unique[i].Visible = true;
-                    covered = true;
-                    break;
-                }
-                if (!covered) unique.Add(seg);
+                if (seg.Visible) visible.Add(seg);
+                else hidden.Add(seg);
             }
 
-            var welded = WeldCollinear(unique);
+            visible = WeldCollinear(visible, collinearTol);
+            hidden = WeldCollinear(hidden, collinearTol);
+
+            var kept = new List<Segment2D>();
+            AbsorbNearDuplicates(visible, kept, visTol, 2.0);
+            AbsorbNearDuplicates(hidden, kept, hidTol, minHidden);
+
+            var vis2 = new List<Segment2D>();
+            var hid2 = new List<Segment2D>();
+            foreach (Segment2D seg in kept)
+            {
+                if (seg.Visible) vis2.Add(seg);
+                else hid2.Add(seg);
+            }
+
             result.Segments.Clear();
             result.MinX = double.MaxValue;
             result.MaxX = double.MinValue;
             result.MinY = double.MaxValue;
             result.MaxY = double.MinValue;
-            foreach (Segment2D seg in welded)
+            AppendClean(result, WeldCollinear(vis2, collinearTol), 2.0);
+            AppendClean(result, WeldCollinear(hid2, collinearTol), minHidden);
+        }
+
+        private static void AppendClean(ViewResult result, List<Segment2D> segs, double minLen)
+        {
+            foreach (Segment2D seg in segs)
             {
-                if (SegLength(seg) < 2.0) continue;
+                if (SegLength(seg) < minLen) continue;
                 result.Segments.Add(seg);
                 result.MinX = Math.Min(result.MinX, Math.Min(seg.A.X, seg.B.X));
                 result.MaxX = Math.Max(result.MaxX, Math.Max(seg.A.X, seg.B.X));
@@ -425,7 +467,25 @@ namespace SteelStructureSuite.Services.Drawing
             }
         }
 
-        private static List<Segment2D> WeldCollinear(List<Segment2D> segs)
+        private static void AbsorbNearDuplicates(List<Segment2D> source, List<Segment2D> kept, double tol, double minLen)
+        {
+            source.Sort((a, b) => SegLength(b).CompareTo(SegLength(a)));
+            foreach (Segment2D seg in source)
+            {
+                if (SegLength(seg) < minLen) continue;
+                bool covered = false;
+                for (int i = 0; i < kept.Count; i++)
+                {
+                    if (!NearlyCovered(seg, kept[i], tol)) continue;
+                    if (seg.Visible) kept[i].Visible = true;
+                    covered = true;
+                    break;
+                }
+                if (!covered) kept.Add(seg);
+            }
+        }
+
+        private static List<Segment2D> WeldCollinear(List<Segment2D> segs, double tol)
         {
             var used = new bool[segs.Count];
             var result = new List<Segment2D>();
@@ -443,7 +503,7 @@ namespace SteelStructureSuite.Services.Drawing
                     for (int j = 0; j < segs.Count; j++)
                     {
                         if (used[j] || segs[j].Visible != visible) continue;
-                        if (!TryExtend(ref a, ref b, segs[j].A, segs[j].B)) continue;
+                        if (!TryMergeCollinear(ref a, ref b, segs[j].A, segs[j].B, tol)) continue;
                         used[j] = true;
                         grew = true;
                     }
@@ -453,40 +513,34 @@ namespace SteelStructureSuite.Services.Drawing
             return result;
         }
 
-        private static bool TryExtend(ref Point2d a, ref Point2d b, Point2d c, Point2d d)
-        {
-            const double join = 1.0;
-            bool touchA = Dist(a, c) <= join || Dist(a, d) <= join;
-            bool touchB = Dist(b, c) <= join || Dist(b, d) <= join;
-            if (!touchA && !touchB) return false;
-
-            Point2d farC = Dist(a, c) >= Dist(a, d) ? c : d;
-            Point2d farD = Dist(b, c) >= Dist(b, d) ? c : d;
-            if (touchA && !touchB && !Collinear(b, a, farC)) return false;
-            if (touchB && !touchA && !Collinear(a, b, farD)) return false;
-            if (touchA && touchB) return false;
-
-            if (touchA)
-            {
-                Point2d other = Dist(a, c) <= join ? d : c;
-                if (Dist(other, b) > Dist(a, b)) a = other;
-            }
-            else
-            {
-                Point2d other = Dist(b, c) <= join ? d : c;
-                if (Dist(other, a) > Dist(a, b)) b = other;
-            }
-            return true;
-        }
-
-        private static bool Collinear(Point2d a, Point2d b, Point2d c)
+        /// <summary>
+        /// 共线、并且重叠或间隙不超过 tol 时并成一段。
+        /// 垂直距离必须很小，相距一个翼缘厚度的平行线不会在这里被并掉。
+        /// </summary>
+        private static bool TryMergeCollinear(ref Point2d a, ref Point2d b, Point2d c, Point2d d, double tol)
         {
             double dx = b.X - a.X;
             double dy = b.Y - a.Y;
             double len = Math.Sqrt(dx * dx + dy * dy);
-            if (len < 1e-6) return true;
-            double cross = dx * (c.Y - a.Y) - dy * (c.X - a.X);
-            return Math.Abs(cross) <= 1.5 * len;
+            if (len < 1e-6) return false;
+            double ux = dx / len;
+            double uy = dy / len;
+            if (Math.Abs(ux * (c.Y - a.Y) - uy * (c.X - a.X)) > tol) return false;
+            if (Math.Abs(ux * (d.Y - a.Y) - uy * (d.X - a.X)) > tol) return false;
+
+            double tc = (c.X - a.X) * ux + (c.Y - a.Y) * uy;
+            double td = (d.X - a.X) * ux + (d.Y - a.Y) * uy;
+            double c0 = Math.Min(tc, td);
+            double c1 = Math.Max(tc, td);
+            if (c1 < -tol || c0 > len + tol) return false;
+
+            double n0 = Math.Min(0.0, c0);
+            double n1 = Math.Max(len, c1);
+            Point2d na = new Point2d(a.X + ux * n0, a.Y + uy * n0);
+            Point2d nb = new Point2d(a.X + ux * n1, a.Y + uy * n1);
+            a = na;
+            b = nb;
+            return true;
         }
 
         private static bool NearlyCovered(Segment2D seg, Segment2D cover, double tol)
@@ -797,6 +851,7 @@ namespace SteelStructureSuite.Services.Drawing
 
             for (int s = 0; s < nR; s++)
             {
+                if (!ShouldEmitCrossSection(rings, s)) continue;
                 for (int k = 0; k < m; k++)
                 {
                     int k2 = (k + 1) % m;
@@ -825,6 +880,39 @@ namespace SteelStructureSuite.Services.Drawing
                     });
                 }
             }
+        }
+
+
+        /// <summary>
+        /// 直杆和缓弯扫掠只画两端截面。中间截面会把圆管和螺旋构件切成一串片子。
+        /// 折角大约超过 23° 时仍保留该环，用来表达栏杆、折梁的转角。
+        /// </summary>
+        private static bool ShouldEmitCrossSection(Point3d[][] rings, int s)
+        {
+            int n = rings.Length;
+            if (s <= 0 || s >= n - 1) return true;
+            Point3d c0 = RingCentroid(rings[s - 1]);
+            Point3d c1 = RingCentroid(rings[s]);
+            Point3d c2 = RingCentroid(rings[s + 1]);
+            Vector3d incoming = c1 - c0;
+            Vector3d outgoing = c2 - c1;
+            if (incoming.Length < 1e-6 || outgoing.Length < 1e-6) return false;
+            return incoming.GetNormal().DotProduct(outgoing.GetNormal()) < RingTurnDot;
+        }
+
+        private static Point3d RingCentroid(Point3d[] ring)
+        {
+            double x = 0, y = 0, z = 0;
+            int m = ring.Length;
+            if (m == 0) return Point3d.Origin;
+            for (int k = 0; k < m; k++)
+            {
+                x += ring[k].X;
+                y += ring[k].Y;
+                z += ring[k].Z;
+            }
+            double inv = 1.0 / m;
+            return new Point3d(x * inv, y * inv, z * inv);
         }
 
         private static void AddFace(List<Face> faces, Point3d[] verts)
@@ -856,5 +944,4 @@ namespace SteelStructureSuite.Services.Drawing
         }
     }
 }
-
 

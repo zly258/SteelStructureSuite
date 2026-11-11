@@ -872,13 +872,14 @@ namespace SteelStructureSuite.Services.Drawing
                     ? new Vector3d(1, 0, 0)
                     : new Vector3d(0, 0, 1);
 
-            HlrEngine.ViewResult hlr = HlrEngine.Compute(parts3d, proj2d, viewNormal);
+            double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
+            HlrEngine.ViewResult hlr = HlrEngine.Compute(parts3d, proj2d, viewNormal, 0.50 * paperScale);
 
             if (hlr.HasGeometry)
             {
                 minViewX = hlr.MinX; maxViewX = hlr.MaxX;
                 minViewY = hlr.MinY; maxViewY = hlr.MaxY;
-                DrawHlrSegments(tr, ms, viewBase, hlr);
+                DrawHlrSegments(tr, ms, viewBase, hlr, paperScale);
             }
             else
             {
@@ -1542,10 +1543,11 @@ namespace SteelStructureSuite.Services.Drawing
             {
                 // 轴测图同样走真正的消隐流程：西南等轴测的观察者位于 (-X,-Y,+Z) 一侧。
                 Vector3d isoNormal = new Vector3d(-1, -1, 1).GetNormal();
-                HlrEngine.ViewResult isoHlr = HlrEngine.Compute(parts3d, isoProj, isoNormal);
+                double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
+                HlrEngine.ViewResult isoHlr = HlrEngine.Compute(parts3d, isoProj, isoNormal, 0.50 * paperScale);
                 if (isoHlr.HasGeometry)
                 {
-                    DrawHlrSegments(tr, ms, isoBase, isoHlr);
+                    DrawHlrSegments(tr, ms, isoBase, isoHlr, paperScale);
                     minIsoX = isoHlr.MinX; maxIsoX = isoHlr.MaxX;
                     minIsoY = isoHlr.MinY; maxIsoY = isoHlr.MaxY;
                 }
@@ -2061,7 +2063,8 @@ namespace SteelStructureSuite.Services.Drawing
             double y1,
             double x2,
             double y2,
-            string layer)
+            string layer,
+            double linetypeScale = 0)
         {
             Line ln = new Line(
                 new Point3d(basePt.X + x1, basePt.Y + y1, 0),
@@ -2073,27 +2076,152 @@ namespace SteelStructureSuite.Services.Drawing
             {
                 // acad.lin 的 DASHED 周期只有 0.75 个图形单位，不放大的话在米级构件上会看成实线。
                 double len = Math.Max(ln.Length, 80.0);
-                ln.LinetypeScale = Math.Max(20.0, len / 14.0);
+                ln.LinetypeScale = linetypeScale > 1.0
+                    ? linetypeScale
+                    : Math.Max(20.0, len / 14.0);
             }
             ms.AppendEntity(ln);
             tr.AddNewlyCreatedDBObject(ln, true);
         }
 
         /// <summary>
-        /// 绘制消隐计算结果：可见线段画实线（LayerVisible），隐藏线段画虚线（LayerHidden）。
+        /// 绘制消隐结果。可见线用实线；隐藏线先按端点串成连续多段线再画虚线，
+        /// 避免每小段各自起笔，虚线花成碎点。
         /// </summary>
         private static void DrawHlrSegments(
             Transaction tr,
             BlockTableRecord ms,
             Point3d basePt,
-            HlrEngine.ViewResult hlr)
+            HlrEngine.ViewResult hlr,
+            double paperScale)
         {
             if (hlr == null) return;
+            double lts = Math.Max(8.0, paperScale * 6.0);
+            var hidden = new List<HlrEngine.Segment2D>();
             foreach (HlrEngine.Segment2D seg in hlr.Segments)
             {
-                string layer = seg.Visible ? LayerVisible : LayerHidden;
-                AppendLine2D(tr, ms, basePt, seg.A.X, seg.A.Y, seg.B.X, seg.B.Y, layer);
+                if (seg == null) continue;
+                if (seg.Visible)
+                {
+                    AppendLine2D(tr, ms, basePt, seg.A.X, seg.A.Y, seg.B.X, seg.B.Y, LayerVisible);
+                }
+                else
+                {
+                    hidden.Add(seg);
+                }
             }
+
+            foreach (List<Point2d> path in ChainHiddenSegments(hidden, 2.0))
+            {
+                AppendHiddenPath(tr, ms, basePt, path, lts);
+            }
+        }
+
+        /// <summary>把首尾相接的隐藏线段串成路径。三岔及以上的接头断开，不把丁字接画成一条虚线。</summary>
+        private static List<List<Point2d>> ChainHiddenSegments(List<HlrEngine.Segment2D> segs, double join)
+        {
+            var paths = new List<List<Point2d>>();
+            int n = segs.Count;
+            if (n == 0) return paths;
+            var used = new bool[n];
+            double join2 = join * join;
+
+            List<int> Touching(Point2d pt)
+            {
+                var hits = new List<int>();
+                for (int i = 0; i < n; i++)
+                {
+                    if (used[i]) continue;
+                    if (Dist2(segs[i].A, pt) <= join2 || Dist2(segs[i].B, pt) <= join2)
+                        hits.Add(i);
+                }
+                return hits;
+            }
+
+            void Extend(List<Point2d> pts, bool atFront)
+            {
+                while (true)
+                {
+                    Point2d end = atFront ? pts[0] : pts[pts.Count - 1];
+                    List<int> hits = Touching(end);
+                    if (hits.Count != 1) break;
+                    int j = hits[0];
+                    used[j] = true;
+                    bool aClose = Dist2(segs[j].A, end) <= join2;
+                    Point2d add = aClose ? segs[j].B : segs[j].A;
+                    if (atFront) pts.Insert(0, add);
+                    else pts.Add(add);
+                }
+            }
+
+            for (int i = 0; i < n; i++)
+            {
+                if (used[i]) continue;
+                used[i] = true;
+                var pts = new List<Point2d> { segs[i].A, segs[i].B };
+                Extend(pts, true);
+                Extend(pts, false);
+                if (pts.Count >= 2) paths.Add(pts);
+            }
+            return paths;
+        }
+
+        private static double Dist2(Point2d a, Point2d b)
+        {
+            double dx = a.X - b.X;
+            double dy = a.Y - b.Y;
+            return dx * dx + dy * dy;
+        }
+
+        private static void AppendHiddenPath(
+            Transaction tr,
+            BlockTableRecord ms,
+            Point3d basePt,
+            List<Point2d> pts,
+            double linetypeScale)
+        {
+            if (pts == null || pts.Count < 2) return;
+            bool closed = false;
+            if (pts.Count >= 4 && Dist2(pts[0], pts[pts.Count - 1]) <= 4.0)
+            {
+                pts.RemoveAt(pts.Count - 1);
+                closed = true;
+            }
+            if (pts.Count == 2 && !closed)
+            {
+                AppendLine2D(tr, ms, basePt, pts[0].X, pts[0].Y, pts[1].X, pts[1].Y, LayerHidden, linetypeScale);
+                return;
+            }
+
+            Autodesk.AutoCAD.DatabaseServices.Polyline pl = new Autodesk.AutoCAD.DatabaseServices.Polyline();
+            pl.SetDatabaseDefaults(ms.Database);
+            int added = 0;
+            for (int i = 0; i < pts.Count; i++)
+            {
+                Point2d p = new Point2d(basePt.X + pts[i].X, basePt.Y + pts[i].Y);
+                if (added > 0)
+                {
+                    Point2d prev = pl.GetPoint2dAt(added - 1);
+                    double dx = prev.X - p.X;
+                    double dy = prev.Y - p.Y;
+                    if (dx * dx + dy * dy < 0.25) continue;
+                }
+                pl.AddVertexAt(added, p, 0, 0, 0);
+                added++;
+            }
+            if (added < 2)
+            {
+                pl.Dispose();
+                return;
+            }
+
+            pl.Closed = closed && added >= 3;
+            pl.Plinegen = true;
+            pl.Layer = LayerHidden;
+            pl.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+            pl.LinetypeScale = linetypeScale;
+            ms.AppendEntity(pl);
+            tr.AddNewlyCreatedDBObject(pl, true);
         }
 
         private static void AppendLinearDim(
