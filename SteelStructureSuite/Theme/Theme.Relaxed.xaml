@@ -1,0 +1,18 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!--
+        宽松密度整包入口。
+        适合：触屏、演示和低信息密度面板。
+    -->
+    <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="Tokens.xaml" />
+        <ResourceDictionary Source="Controls.xaml" />
+        <ResourceDictionary Source="DataControls.xaml" />
+        <ResourceDictionary Source="Icons.xaml" />
+        <ResourceDictionary Source="Extras.xaml" />
+        <!-- 密度档案必须最后合并，才能让密度键在查找时优先命中。 -->
+        <ResourceDictionary Source="Density.Relaxed.xaml" />
+    </ResourceDictionary.MergedDictionaries>
+
+</ResourceDictionary>

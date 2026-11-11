@@ -475,8 +475,13 @@ namespace SteelStructureSuite.Views.Controls
 
                     // 右侧：护笼圆弧平面
                     double rCage = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.38;
-                    DrawLine(rMidX - 18, rMidY - rCage * 0.6, rMidX + 18, rMidY - rCage * 0.6, SteelMemberBrush, 3.0);
-                    DrawCircleArc(rMidX, rMidY, rCage, 160, 380, SteelSubBrush, 2.2);
+                    double stileY = rMidY + rCage * 0.55;
+                    DrawLine(rMidX - 16, stileY, rMidX + 16, stileY, SteelMemberBrush, 3.0);
+                    DrawCircleArc(rMidX, rMidY, rCage, 20, 140, SteelSubBrush, 2.2);
+                    double a0 = 20.0 * Math.PI / 180.0;
+                    double a1 = 160.0 * Math.PI / 180.0;
+                    DrawLine(rMidX + rCage * Math.Cos(a0), rMidY - rCage * Math.Sin(a0), rMidX + 16, stileY, SteelSubBrush, 1.8);
+                    DrawLine(rMidX + rCage * Math.Cos(a1), rMidY - rCage * Math.Sin(a1), rMidX - 16, stileY, SteelSubBrush, 1.8);
                     DrawHorizDim(rMidX - rCage, rMidX + rCage, ryBot + 12, $"笼径 D = {p.Length:0}", w);
                     break;
                 }
@@ -533,12 +538,15 @@ namespace SteelStructureSuite.Views.Controls
                 {
                     leftTitle = $"平面 (圆弧扫掠 {p.SubHeight:0}°)";
                     rightTitle = "立面爬升 & 截面";
-                    double rArc = Math.Min(lx1 - lx0, lyBot - lyTop) * 0.44;
-                    double sweep = Math.Min(330.0, Math.Max(20.0, p.SubHeight));
+                    double rArc = Math.Min(lx1 - lx0, lyBot - lyTop) * 0.42;
+                    double sweep = Math.Min(360.0, Math.Max(15.0, p.SubHeight));
                     DrawCircleArc(lMidX, lMidY + 8, rArc, 0, sweep, SteelMemberBrush, 4.0);
-                    double radEnd = sweep * Math.PI / 180.0;
                     DrawLine(lMidX, lMidY + 8, lMidX + rArc, lMidY + 8, AxisLineBrush, 1.2, true);
-                    DrawLine(lMidX, lMidY + 8, lMidX + rArc * Math.Cos(radEnd), lMidY + 8 - rArc * Math.Sin(radEnd), AxisLineBrush, 1.2, true);
+                    if (sweep < 359.0)
+                    {
+                        double radEnd = sweep * Math.PI / 180.0;
+                        DrawLine(lMidX, lMidY + 8, lMidX + rArc * Math.Cos(radEnd), lMidY + 8 - rArc * Math.Sin(radEnd), AxisLineBrush, 1.2, true);
+                    }
                     DrawHorizDim(lx0, lx1, lyBot + 18, $"半径 R = {p.Span:0} | 扫掠 {p.SubHeight:0}°", w);
 
                     DrawLine(rx0, ryBot - 16, rx1, ryTop + 20, SteelMemberBrush, 3.6);
@@ -551,21 +559,23 @@ namespace SteelStructureSuite.Views.Controls
                 {
                     leftTitle = $"主视图 (螺旋 {p.SubHeight:0.#} 圈)";
                     rightTitle = "端视螺旋圆";
-                    DrawRect(lx0, lyTop + 14, lx1 - lx0, lyBot - lyTop - 28, BorderLineBrush, 1.0);
-                    int n = 32;
-                    double px0 = lx0, py0 = lMidY;
-                    double turns = p.SubHeight > 30 ? p.SubHeight / 360.0 : Math.Max(0.5, p.SubHeight);
+                    int n = 48;
+                    double turns = Math.Max(0.05, p.SubHeight);
+                    double amp = (lx1 - lx0) * 0.28;
+                    double px0 = lMidX;
+                    double py0 = lyBot - 8;
                     for (int i = 1; i <= n; i++)
                     {
                         double t = (double)i / n;
-                        double a = t * Math.Min(turns, 5.0) * Math.PI * 2.0;
-                        double px = lx0 + (lx1 - lx0) * t;
-                        double py = lMidY + Math.Sin(a) * (lyBot - lyTop - 32) * 0.46;
+                        double a = t * Math.Min(turns, 6.0) * Math.PI * 2.0;
+                        double px = lMidX + Math.Sin(a) * amp;
+                        double py = lyBot - 8 - (lyBot - lyTop - 28) * t;
                         DrawLine(px0, py0, px, py, SteelMemberBrush, 3.0);
-                        px0 = px; py0 = py;
+                        px0 = px;
+                        py0 = py;
                     }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"轴长 L = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot - 14, lyTop + 14, $"2R={p.Length * 2:0}", h);
+                    DrawVertDim(lx0 - 8, lyBot - 8, lyTop + 16, $"H={p.Span:0}", h);
+                    DrawHorizDim(lMidX - amp, lMidX + amp, lyBot + 16, $"2R={p.Length * 2:0}", w);
 
                     double rHelix = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.38;
                     DrawEllipse(rMidX - rHelix, rMidY - rHelix, rHelix * 2, rHelix * 2, SteelMemberBrush, 2.8);
@@ -582,22 +592,29 @@ namespace SteelStructureSuite.Views.Controls
                     double cyV = lyTop + rV + 2;
                     // 容器虚线圆与月牙形鞍座板
                     DrawEllipse(lMidX - rV, cyV - rV, rV * 2, rV * 2, BorderLineBrush, 1.4);
-                    DrawCircleArc(lMidX, cyV, rV, 210, 330, SteelMemberBrush, 3.6);
-                    double saddleL = lMidX - rV * 0.86, saddleR = lMidX + rV * 0.86;
-                    double arcBotY = cyV + rV * 0.5;
-                    DrawLine(saddleL - 8, lyBot, saddleR + 8, lyBot, SteelMemberBrush, 3.6);
-                    DrawLine(saddleL, lyBot, saddleL + 8, arcBotY, SteelMemberBrush, 2.6);
-                    DrawLine(saddleR, lyBot, saddleR - 8, arcBotY, SteelMemberBrush, 2.6);
-                    DrawLine(lMidX, lyBot, lMidX, cyV + rV, SteelSubBrush, 2.2);
+                    double wrap = Math.Min(150.0, Math.Max(90.0, p.SubHeight));
+                    double arcStart = 270.0 - wrap * 0.5;
+                    DrawCircleArc(lMidX, cyV, rV, arcStart, wrap, SteelMemberBrush, 3.6);
+                    double aL = arcStart * Math.PI / 180.0;
+                    double aR = (arcStart + wrap) * Math.PI / 180.0;
+                    double xL = lMidX + rV * Math.Cos(aL);
+                    double yL = cyV - rV * Math.Sin(aL);
+                    double xR = lMidX + rV * Math.Cos(aR);
+                    double yR = cyV - rV * Math.Sin(aR);
+                    DrawLine(xL - 10, lyBot, xR + 10, lyBot, SteelMemberBrush, 3.6);
+                    DrawLine(xL, yL, xL, lyBot, SteelMemberBrush, 2.4);
+                    DrawLine(xR, yR, xR, lyBot, SteelMemberBrush, 2.4);
+                    DrawLine(lMidX, cyV + rV, lMidX, lyBot, SteelSubBrush, 2.2);
                     DrawHorizDim(lMidX - rV, lMidX + rV, lyBot + 18, $"容器外径 DN = {p.Span:0}", w);
                     DrawVertDim(lx0 - 20, lyBot, cyV, $"H={p.Height:0}", h);
 
                     // 右：侧视图
+                    double webTop = ryTop + 28;
                     DrawLine(rx0 + 8, ryBot, rx1 - 8, ryBot, SteelMemberBrush, 3.4);
-                    DrawLine(rMidX, ryBot, rMidX, ryTop + 26, SteelMemberBrush, 2.8);
-                    DrawLine(rx0 + 16, ryBot, rx0 + 24, ryTop + 26, SteelSubBrush, 1.8);
-                    DrawLine(rx1 - 16, ryBot, rx1 - 24, ryTop + 26, SteelSubBrush, 1.8);
-                    DrawLine(rx0 + 6, ryTop + 26, rx1 - 6, ryTop + 26, SteelMemberBrush, 2.6);
+                    DrawRect(rMidX - 5, webTop, 10, Math.Max(8, ryBot - webTop), SteelMemberBrush, 2.2);
+                    DrawLine(rMidX - 26, ryBot, rMidX - 26, webTop + 6, SteelSubBrush, 2.0);
+                    DrawLine(rMidX + 26, ryBot, rMidX + 26, webTop + 6, SteelSubBrush, 2.0);
+                    DrawLine(rx0 + 14, webTop, rx1 - 14, webTop, SteelMemberBrush, 3.2);
                     DrawHorizDim(rx0 + 8, rx1 - 8, ryBot + 14, $"鞍宽 B = {p.Length:0}", w);
                     break;
                 }
@@ -670,14 +687,13 @@ namespace SteelStructureSuite.Views.Controls
                     rightTitle = "侧立面 (管托长 L)";
                     double rP = Math.Min(32.0, (lyBot - lyTop) * 0.25);
                     double cyP = lyTop + rP + 10;
-                    DrawEllipse(lMidX - rP, cyP - rP, rP * 2, rP * 2, SteelSubBrush, 2.4);
-                    // 管卡耳板
-                    DrawLine(lMidX - rP - 10, cyP, lMidX + rP + 10, cyP, SteelMemberBrush, 2.2);
-                    // 腹板与肋板
+                    DrawEllipse(lMidX - rP, cyP - rP, rP * 2, rP * 2, BorderLineBrush, 1.4);
+                    DrawCircleArc(lMidX, cyP, rP, 207, 126, SteelMemberBrush, 3.2);
+                    DrawCircleArc(lMidX, cyP, rP + 4, -27, 234, SteelSubBrush, 2.2);
                     double shoeHalfB = Math.Min(48.0, (lx1 - lx0) * 0.34);
                     DrawLine(lMidX, cyP + rP, lMidX, lyBot, SteelMemberBrush, 3.2);
-                    DrawLine(lMidX - shoeHalfB * 0.85, lyBot, lMidX - rP * 0.6, cyP + rP * 0.8, SteelSubBrush, 1.8);
-                    DrawLine(lMidX + shoeHalfB * 0.85, lyBot, lMidX + rP * 0.6, cyP + rP * 0.8, SteelSubBrush, 1.8);
+                    DrawLine(lMidX - shoeHalfB * 0.55, lyBot, lMidX - shoeHalfB * 0.55, cyP + rP * 0.15, SteelSubBrush, 1.8);
+                    DrawLine(lMidX + shoeHalfB * 0.55, lyBot, lMidX + shoeHalfB * 0.55, cyP + rP * 0.15, SteelSubBrush, 1.8);
                     DrawLine(lMidX - shoeHalfB, lyBot, lMidX + shoeHalfB, lyBot, SteelMemberBrush, 3.6);
                     DrawHorizDim(lMidX - shoeHalfB, lMidX + shoeHalfB, lyBot + 18, $"底板宽 B={p.SubHeight:0} (DN{p.Span:0})", w);
                     DrawVertDim(lMidX - shoeHalfB - 24, lyBot, cyP, $"H={p.Height:0}", h);

@@ -1,0 +1,88 @@
+<Window x:Class="SteelStructureSuite.Views.DwgToDxfWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="批量 DWG 转 DXF"
+        Width="720"
+        Height="600"
+        MinWidth="560"
+        MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        FontSize="{DynamicResource FontSize.Body}"
+        Background="{DynamicResource Brush.WindowBackground}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+    <Window.FontFamily>
+        <DynamicResource ResourceKey="Font.Ui" />
+    </Window.FontFamily>
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <!-- layout-check: allow-fixed-window-height（文件列表与日志需要固定视口，内部独立滚动） -->
+    <Grid Margin="{StaticResource Layout.WindowPadding}">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid Grid.Row="0" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="240" />
+                <ColumnDefinition Width="8" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <ListBox x:Name="LstFiles" HorizontalContentAlignment="Stretch">
+                <ListBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Name}" ToolTip="{Binding FullPath}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <StackPanel Grid.Column="2">
+                <Button Content="添加" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnAddClick" />
+                <Button Content="移除" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnRemoveClick" />
+                <Button Content="上移" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnUpClick" />
+                <Button Content="下移" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnDownClick" />
+                <Button Content="清空" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Click="OnClearClick" />
+            </StackPanel>
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
+                <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="输出目录" Style="{StaticResource Text.Label}" Margin="0,0,8,0" />
+            <TextBox x:Name="TxtOutput" Grid.Column="1" />
+            <Button Grid.Column="2" Content="浏览" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="8,0,0,0" Click="OnBrowseOutputClick" />
+        </Grid>
+
+        <Grid Grid.Row="2" Margin="0,0,0,8">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
+                <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock Grid.Column="0" Text="DXF 版本" Style="{StaticResource Text.Label}" Margin="0,0,8,0" />
+            <ComboBox x:Name="CmbVersion" Grid.Column="1" DisplayMemberPath="Label" />
+            <CheckBox x:Name="ChkOverwrite" Grid.Column="2" Content="覆盖已有 DXF" VerticalAlignment="Center" Margin="12,0,0,0" />
+        </Grid>
+
+        <TextBox x:Name="TxtLog" Grid.Row="3" Style="{StaticResource TextBox.Code}" MinHeight="72" VerticalAlignment="Top" Margin="0,0,0,8" />
+
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="打开目录" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnOpenFolderClick" />
+            <Button x:Name="BtnRun" Content="开始转换" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" IsDefault="True" Click="OnConvertClick" />
+            <Button Content="关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCloseClick" />
+        </StackPanel>
+    </Grid>
+</Window>

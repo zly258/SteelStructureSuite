@@ -1,4 +1,4 @@
-﻿<?xml version="1.0" encoding="utf-8"?>
+<?xml version="1.0" encoding="utf-8"?>
 <!-- ============================================================================
      AutoCAD 自动加载清单（Autodesk ApplicationPlugins Bundle）
      放置位置：<AutoCAD 安装目录>\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
@@ -87,6 +87,7 @@
         <Command Global="SS_DROPZ0"        Local="SS_DROPZ0" />
         <Command Global="SS_OVERRULE_ON"   Local="SS_OVERRULE_ON" />
         <Command Global="SS_OVERRULE_OFF"  Local="SS_OVERRULE_OFF" />
+        <Command Global="SS_RESETSETTINGS" Local="SS_RESETSETTINGS" />
       </Commands>
     </ComponentEntry>
   </Components>

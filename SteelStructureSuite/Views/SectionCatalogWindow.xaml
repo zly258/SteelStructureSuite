@@ -1,78 +1,114 @@
-﻿<Window x:Class="SteelStructureSuite.Views.SectionCatalogWindow"
+<Window x:Class="SteelStructureSuite.Views.SectionCatalogWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        Title="型钢截面库管理 (5分表)"
-        Width="960" Height="640"
-        MinWidth="840" MinHeight="520"
+        Title="型钢截面库"
+        Width="980"
+        Height="680"
+        MinWidth="840"
+        MinHeight="420"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
+        FontSize="{DynamicResource FontSize.Body}"
+        Background="{DynamicResource Brush.WindowBackground}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Grid Margin="10">
+    <Window.FontFamily>
+        <DynamicResource ResourceKey="Font.Ui" />
+    </Window.FontFamily>
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <!-- layout-check: allow-fixed-window-height（型钢库表格需要固定视口，数据区独立滚动） -->
+    <Grid Margin="{StaticResource Layout.WindowPadding}">
         <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <DockPanel Grid.Row="0" Margin="0,0,0,8">
-            <WrapPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="导入 (.xlsx/.csv)" MinWidth="125" MinHeight="28" Padding="10,4" Margin="6,2,0,2" Click="OnImportClick" />
-                <Button Content="导出多表 (.xlsx)" MinWidth="125" MinHeight="28" Padding="10,4" Margin="6,2,0,2" Click="OnExportXlsxClick" />
-                <Button Content="导出 (.csv)" MinWidth="100" MinHeight="28" Padding="10,4" Margin="6,2,0,2" Click="OnExportCsvClick" />
-                <Button Content="恢复默认库" MinWidth="100" MinHeight="28" Padding="10,4" Margin="6,2,0,2" Click="OnResetDefaultClick" />
-            </WrapPanel>
-            <TextBlock x:Name="TxtSummary" VerticalAlignment="Center" FontWeight="Bold" TextTrimming="CharacterEllipsis" ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" Margin="0,0,8,0" />
-        </DockPanel>
+        <TextBlock x:Name="TxtSummary" Grid.Row="0" Style="{StaticResource Text.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
 
-        <TabControl x:Name="TabSections" Grid.Row="1" Margin="0,0,0,8" SelectionChanged="OnTabSelectionChanged" />
+        <Border Grid.Row="1" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
+            <StackPanel Orientation="Horizontal">
+                <Button Content="导入" ToolTip="从 Excel 或 CSV 导入截面" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnImportClick" />
+                <Button Content="Excel" ToolTip="导出多工作表 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportXlsxClick" />
+                <Button Content="CSV" ToolTip="导出 CSV" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportCsvClick" />
+                <Button Content="恢复默认库" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Click="OnResetDefaultClick" />
+            </StackPanel>
+        </Border>
 
-        <GroupBox Grid.Row="2" Header="新增 / 更新截面规格" Margin="0,0,0,8" Padding="10,6">
+        <Grid Grid.Row="2" Margin="0,0,0,4">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="*" />
+            </Grid.RowDefinitions>
+            <ListBox x:Name="LstSections"
+                     SelectionChanged="OnSectionSelectionChanged"
+                     MaxHeight="{StaticResource Layout.LogMaxHeight}"
+                     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                     ScrollViewer.VerticalScrollBarVisibility="Auto">
+                <ListBox.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ListBox.ItemsPanel>
+            </ListBox>
+            <ContentControl x:Name="SectionHost" Grid.Row="1" Margin="0,4,0,0" />
+        </Grid>
+
+        <GroupBox Grid.Row="3" Header="新增 / 更新截面">
             <Grid>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="1.05*" />
-                    <ColumnDefinition Width="1.45*" />
-                    <ColumnDefinition Width="1.0*" />
-                    <ColumnDefinition Width="1.0*" />
-                    <ColumnDefinition Width="1.0*" />
-                    <ColumnDefinition Width="1.0*" />
+                    <ColumnDefinition Width="*" MinWidth="110" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="1.4*" MinWidth="140" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" MinWidth="90" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" MinWidth="90" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" MinWidth="90" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" MinWidth="90" />
                 </Grid.ColumnDefinitions>
-
-                <StackPanel Grid.Column="0" Margin="0,0,8,0">
-                    <TextBlock Text="所属分表" Margin="0,0,0,3" />
-                    <ComboBox x:Name="CmbType" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="所属分表" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <ComboBox x:Name="CmbType" />
                 </StackPanel>
-                <StackPanel Grid.Column="1" Margin="0,0,8,0">
-                    <TextBlock Text="截面代号" Margin="0,0,0,3" />
-                    <TextBox x:Name="TxtName" Text="HM294x200x8x12" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="截面代号" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBox x:Name="TxtName" Text="HM294x200x8x12" />
                 </StackPanel>
-                <StackPanel Grid.Column="2" Margin="0,0,8,0">
-                    <TextBlock Text="高度/外径 H (mm)" Margin="0,0,0,3" />
-                    <TextBox x:Name="TxtH" Text="294" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="高度 H" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBox x:Name="TxtH" Text="294" ToolTip="高度或外径，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="3" Margin="0,0,8,0">
-                    <TextBlock Text="宽度 B (mm)" Margin="0,0,0,3" />
-                    <TextBox x:Name="TxtB" Text="200" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="6">
+                    <TextBlock Text="宽度 B" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBox x:Name="TxtB" Text="200" ToolTip="宽度，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="4" Margin="0,0,8,0">
-                    <TextBlock Text="腹板/壁厚 tw (mm)" Margin="0,0,0,3" />
-                    <TextBox x:Name="TxtTw" Text="8" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="8">
+                    <TextBlock Text="腹板 tw" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBox x:Name="TxtTw" Text="8" ToolTip="腹板或壁厚，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="5">
-                    <TextBlock Text="翼缘厚 tf (mm)" Margin="0,0,0,3" />
-                    <TextBox x:Name="TxtTf" Text="12" MinHeight="27" VerticalContentAlignment="Center" Padding="5,3" />
+                <StackPanel Grid.Column="10">
+                    <TextBlock Text="翼缘 tf" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBox x:Name="TxtTf" Text="12" ToolTip="翼缘厚度，单位 mm" />
                 </StackPanel>
             </Grid>
         </GroupBox>
 
-        <DockPanel Grid.Row="3">
-            <WrapPanel DockPanel.Dock="Right" Orientation="Horizontal">
-                <Button Content="添加 / 更新" MinWidth="110" MinHeight="29" Padding="12,4" Margin="6,2,0,2" Click="OnAddSectionClick" />
-                <Button Content="删除选中项" MinWidth="110" MinHeight="29" Padding="12,4" Margin="6,2,0,2" Click="OnDeleteSectionClick" />
-                <Button Content="保存并关闭" MinWidth="110" MinHeight="29" Padding="12,4" Margin="6,2,0,2" IsDefault="True" Click="OnSaveCloseClick" />
-            </WrapPanel>
-            <TextBlock Text="支持 5 类截面分表管理与多工作表 Excel 导入导出" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" ToolTip="支持 5 类截面分表管理与多工作表 Excel 导入导出" />
-        </DockPanel>
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
+            <Button Content="添加 / 更新" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnAddSectionClick" />
+            <Button Content="删除选中项" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Margin="0,0,8,0" Click="OnDeleteSectionClick" />
+            <Button Content="保存并关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" IsDefault="True" Click="OnSaveCloseClick" />
+        </StackPanel>
     </Grid>
 </Window>

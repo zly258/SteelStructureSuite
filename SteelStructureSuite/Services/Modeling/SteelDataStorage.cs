@@ -190,16 +190,22 @@ namespace SteelStructureSuite.Services.Modeling
                             DBObject obj = tr.GetObject(id, OpenMode.ForWrite, false);
 
                             // 若夹点拖拽期间仅使用二维/三维线框快速预览，则在拖拽结束落位时一次性生成最终三维实体
-                            if (obj is Solid3d existingSolid && !PendingGeometryRebuilt.ContainsKey(kv.Key))
+                            if (!PendingGeometryRebuilt.ContainsKey(kv.Key))
                             {
-                                using (Solid3d newSolid = SteelStructureBuilder.BuildCombinedSolid(kv.Value))
+                                if (obj is Solid3d existingSolid)
                                 {
-                                    if (newSolid != null)
+                                    using (Solid3d newSolid = SteelStructureBuilder.BuildCombinedSolid(kv.Value))
                                     {
-                                        SteelStructureBuilder.CopySolidKeepingLook(existingSolid, newSolid);
+                                        if (newSolid != null)
+                                            SteelStructureBuilder.CopySolidKeepingLook(existingSolid, newSolid);
                                     }
                                 }
+                                else if (obj is BlockReference existingBr)
+                                {
+                                    SteelStructureBuilder.RewriteWireframe(existingBr, kv.Value);
+                                }
                             }
+
 
                             WriteParams(tr, obj, kv.Value);
                             PendingEdits.TryRemove(kv.Key, out _);

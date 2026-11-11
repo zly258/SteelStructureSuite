@@ -333,7 +333,7 @@ namespace SteelStructureSuite.Services.Drawing
                     double isoH = hasIso ? isoBounds.Height : 0.0;
 
                     double orthoH = Math.Max(frontH, sideH);
-                    double leaderSideReserve = hasIso ? 11.5 * textH : 0.0;
+                    double leaderSideReserve = hasIso ? 12.5 * textH : 0.0;
 
                     // 左中区（正立面 + 侧立面 + 平面图）与右区（轴测图 + 材料表 + 标题栏）双区独立核算
                     double orthoRowW = (hasFront ? dimPad + frontW : 0.0)
@@ -414,8 +414,8 @@ namespace SteelStructureSuite.Services.Drawing
                             isoLeft = (innerX1 - margin * 0.6) - leaderSideReserve - isoW;
                         }
 
-                        double isoFloorY = rightTableTop + 6.2 * textH;
-                        double isoCeilY = innerY1 - margin - 1.5 * textH;
+                        double isoFloorY = rightTableTop + 6.6 * textH;
+                        double isoCeilY = innerY1 - margin - 4.4 * textH;
                         double isoFreeY = Math.Max(0.0, (isoCeilY - isoFloorY) - isoH);
                         double isoBottom = isoFloorY + isoFreeY * 0.52;
                         if (isoBottom + isoH > isoCeilY)
@@ -507,7 +507,7 @@ namespace SteelStructureSuite.Services.Drawing
             double planRowW = hasPlan ? dimPad + plan.Width : 0.0;
             double leftZoneW = Math.Max(orthoRowW, planRowW);
 
-            double leaderSideReserve = hasIso ? 11.5 * textH : 0.0;
+            double leaderSideReserve = hasIso ? 12.5 * textH : 0.0;
             double titleW = 180.0 * scale;
             double rightZoneW = Math.Max(
                 hasIso ? iso.Width + leaderSideReserve * 2.0 : 0.0,
@@ -521,7 +521,7 @@ namespace SteelStructureSuite.Services.Drawing
             double bomRowH = textH * 2.05;
             double bomHeaderH = textH * 2.45;
             double bomH = hasBom ? bomHeaderH + (billCount + 2) * bomRowH : 0.0;
-            double rightZoneH = titleBlockH + bomH + (hasIso ? iso.Height + 8.0 * textH : 0.0);
+            double rightZoneH = titleBlockH + bomH + (hasIso ? iso.Height + 11.2 * textH : 0.0);
 
             double requiredW = margin * 2.0 + leftZoneW + (leftZoneW > 0 && rightZoneW > 0 ? gap : 0.0) + rightZoneW;
             double requiredH = margin * 2.0 + Math.Max(leftZoneH, rightZoneH);
@@ -1587,7 +1587,12 @@ namespace SteelStructureSuite.Services.Drawing
                     if (groupedByNo.TryGetValue(partNo, out List<IsoPart2D> candidates) && candidates.Count > 0)
                     {
                         // 优先选取离轴测图左右两侧边缘更近的代表性构件，使水平引线最短且最清晰
-                        rep = candidates.OrderByDescending(x => Math.Abs(x.Anchor2D.X - cx) + Math.Abs(x.Anchor2D.Y) * 0.15).First();
+                        rep = candidates.OrderByDescending(x =>
+                        {
+                            double dx = x.Anchor2D.X - cx;
+                            double dy = x.Anchor2D.Y - ((minIsoY + maxIsoY) * 0.5);
+                            return dx * dx + dy * dy;
+                        }).First();
                     }
                     else
                     {
@@ -1704,7 +1709,9 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// 轴测图件号引线自动避让布局：严格只使用左侧 (Side=0) 与右侧 (Side=1) 水平引线，绝不向上穿出图框！
+        /// Places isometric part-number balloons on a ring around the view.
+        /// Slots are evenly spaced and matched in angular order so leaders do not cross.
+        /// The downward arc stays open for the view title.
         /// </summary>
         private static void PlaceCollisionFreeLeaders(
             Transaction tr,
@@ -1719,112 +1726,119 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (requests == null || requests.Count == 0) return;
 
-            double pad = 3.2 * textH;
-            double shelf = 2.4 * textH;
-            double minGapY = 2.35 * textH;
-            double midX = (viewMinX + viewMaxX) * 0.5;
+            int n = requests.Count;
+            double cx = (viewMinX + viewMaxX) * 0.5;
+            double cy = (viewMinY + viewMaxY) * 0.5;
+            double hx = Math.Max((viewMaxX - viewMinX) * 0.5, textH);
+            double hy = Math.Max((viewMaxY - viewMinY) * 0.5, textH);
 
-            // 全部引线严格归入左 (0) 或右 (1) 两侧，如果某一侧数量过多则按 X 坐标自动均衡分流
+            double textW = 2.2 * textH;
             foreach (LeaderRequest req in requests)
             {
-                req.Side = req.AnchorPt.X >= midX ? 1 : 0;
+                if (req == null || string.IsNullOrEmpty(req.LabelText)) continue;
+                textW = Math.Max(textW, EstimateSimSunTextWidth(req.LabelText, textH));
             }
 
-            var orderedByX = requests.OrderBy(r => r.AnchorPt.X).ToList();
-            int leftCount = requests.Count(r => r.Side == 0);
-            int rightCount = requests.Count(r => r.Side == 1);
-            if (requests.Count >= 4 && (leftCount == 0 || rightCount == 0 || Math.Abs(leftCount - rightCount) > (requests.Count + 1) / 2))
+            double forbid = 0.90;
+            double arc = Math.PI * 2.0 - forbid * 2.0;
+            double startAng = -Math.PI / 2.0 + forbid;
+            int rings = n > 14 ? 2 : 1;
+            double step = arc / Math.Max(1, n);
+            double sameStep = step * rings;
+            double chordNeed = textW + 0.9 * textH;
+            double rNeed = n <= 2
+                ? hx + 2.8 * textH
+                : chordNeed / (2.0 * Math.Sin(Math.Max(0.16, sameStep * 0.5)));
+            double extra = rNeed - Math.Min(hx, hy);
+            if (double.IsNaN(extra) || extra < 2.6 * textH) extra = 2.6 * textH;
+            if (extra > 7.4 * textH) extra = 7.4 * textH;
+
+            double rx0 = hx + extra;
+            double ry0 = hy + Math.Min(2.6 * textH, extra);
+            double rx1 = rx0 + 3.5 * textH;
+            double ry1 = ry0 + 2.3 * textH;
+
+            var ordered = new List<Tuple<LeaderRequest, double>>();
+            foreach (LeaderRequest req in requests)
             {
-                int targetLeft = requests.Count / 2;
-                for (int i = 0; i < orderedByX.Count; i++)
-                {
-                    orderedByX[i].Side = i < targetLeft ? 0 : 1;
-                }
+                if (req == null) continue;
+                double key = UnwrapLeaderAngle(
+                    Math.Atan2(req.AnchorPt.Y - cy, req.AnchorPt.X - cx), startAng, arc);
+                ordered.Add(Tuple.Create(req, key));
             }
+            ordered = ordered.OrderBy(x => x.Item2).ThenBy(x => x.Item1.AnchorPt.X).ToList();
+            n = ordered.Count;
+            if (n == 0) return;
 
-            for (int side = 0; side <= 1; side++)
+            for (int i = 0; i < n; i++)
             {
-                var group = requests
-                    .Where(r => r.Side == side)
-                    .OrderBy(r => r.AnchorPt.Y)
-                    .ToList();
-                if (group.Count == 0) continue;
-
-                double minC = viewMinY + 0.8 * textH;
-                double maxC = viewMaxY - 1.2 * textH;
-                if (maxC < minC)
-                {
-                    minC = viewMinY;
-                    maxC = viewMaxY;
-                }
-
-                double spanY = Math.Max(textH * 2.0, maxC - minC);
-                double effGap = group.Count > 1
-                    ? Math.Min(minGapY, spanY / (group.Count - 1))
-                    : minGapY;
-
-                double[] slot = new double[group.Count];
-                for (int i = 0; i < group.Count; i++)
-                    slot[i] = Math.Max(minC, Math.Min(maxC, group[i].AnchorPt.Y));
-
-                for (int i = 1; i < group.Count; i++)
-                {
-                    if (slot[i] < slot[i - 1] + effGap)
-                        slot[i] = slot[i - 1] + effGap;
-                }
-                if (slot[group.Count - 1] > maxC)
-                {
-                    double shift = slot[group.Count - 1] - maxC;
-                    for (int i = 0; i < slot.Length; i++) slot[i] -= shift;
-                }
-                for (int i = group.Count - 2; i >= 0; i--)
-                {
-                    if (slot[i] > slot[i + 1] - effGap)
-                        slot[i] = slot[i + 1] - effGap;
-                }
-                if (slot[0] < minC)
-                {
-                    double shift = minC - slot[0];
-                    for (int i = 0; i < slot.Length; i++) slot[i] += shift;
-                }
-
-                for (int i = 0; i < group.Count; i++)
-                {
-                    LeaderRequest req = group[i];
-                    Point3d elbow;
-                    Point3d end;
-                    Point3d textPos;
-                    double textW = Math.Max(req.LabelText.Length * textH * 0.68, 2.1 * textH);
-                    double atY = slot[i];
-
-                    if (side == 0)
-                    {
-                        elbow = new Point3d(viewMinX - pad, atY, 0);
-                        end = new Point3d(elbow.X - shelf, atY, 0);
-                        textPos = new Point3d(end.X - textW - 0.25 * textH, atY - 0.35 * textH, 0);
-                    }
-                    else
-                    {
-                        elbow = new Point3d(viewMaxX + pad, atY, 0);
-                        end = new Point3d(elbow.X + shelf, atY, 0);
-                        textPos = new Point3d(end.X + 0.30 * textH, atY - 0.35 * textH, 0);
-                    }
-
-                    using (Leader ld = new Leader())
-                    {
-                        ld.SetDatabaseDefaults();
-                        ld.Layer = LayerDim;
-                        ld.AppendVertex(req.AnchorPt);
-                        ld.AppendVertex(elbow);
-                        ld.AppendVertex(end);
-                        ld.HasArrowHead = true;
-                        ld.Dimasz = textH * 0.70;
-                        ms.AppendEntity(ld);
-                        tr.AddNewlyCreatedDBObject(ld, true);
-                    }
-                    AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
-                }
+                double ang = n == 1 ? startAng + ordered[0].Item2 : startAng + arc * (i + 0.5) / n;
+                int ring = (rings == 2 && (i % 2 == 1)) ? 1 : 0;
+                DrawRingLeader(
+                    tr, ms, ordered[i].Item1, cx, cy,
+                    ring == 0 ? rx0 : rx1,
+                    ring == 0 ? ry0 : ry1,
+                    ang, textStyleId, textH);
             }
+        }
+
+        private static double UnwrapLeaderAngle(double angle, double startAng, double arc)
+        {
+            double d = angle - startAng;
+            double twoPi = Math.PI * 2.0;
+            while (d < 0) d += twoPi;
+            while (d >= twoPi) d -= twoPi;
+            if (d > arc)
+            {
+                double into = d - arc;
+                double back = twoPi - d;
+                d = into <= back ? arc : 0.0;
+            }
+            return d;
+        }
+
+        private static void DrawRingLeader(
+            Transaction tr,
+            BlockTableRecord ms,
+            LeaderRequest req,
+            double cx,
+            double cy,
+            double rx,
+            double ry,
+            double ang,
+            ObjectId textStyleId,
+            double textH)
+        {
+            if (req == null || string.IsNullOrEmpty(req.LabelText)) return;
+            double cos = Math.Cos(ang);
+            double sin = Math.Sin(ang);
+            var elbow = new Point3d(cx + rx * cos, cy + ry * sin, 0);
+            double dir = cos >= 0.0 ? 1.0 : -1.0;
+            double tick = 0.95 * textH;
+            var tip = new Point3d(elbow.X + dir * tick, elbow.Y, 0);
+            double labelW = Math.Max(EstimateSimSunTextWidth(req.LabelText, textH), 2.1 * textH);
+            Point3d textPos = dir > 0
+                ? new Point3d(tip.X + 0.22 * textH, tip.Y - 0.35 * textH, 0)
+                : new Point3d(tip.X - labelW - 0.22 * textH, tip.Y - 0.35 * textH, 0);
+
+            Point3d anchor = req.AnchorPt;
+            if (anchor.DistanceTo(elbow) < 0.45 * textH)
+                elbow = new Point3d(anchor.X + cos * 1.2 * textH, anchor.Y + sin * 1.2 * textH, 0);
+
+            using (Leader ld = new Leader())
+            {
+                ld.SetDatabaseDefaults();
+                ld.Layer = LayerDim;
+                ld.AppendVertex(anchor);
+                ld.AppendVertex(elbow);
+                if (elbow.DistanceTo(tip) > 0.2 * textH)
+                    ld.AppendVertex(tip);
+                ld.HasArrowHead = true;
+                ld.Dimasz = textH * 0.70;
+                ms.AppendEntity(ld);
+                tr.AddNewlyCreatedDBObject(ld, true);
+            }
+            AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
         }
 
         /// <summary>

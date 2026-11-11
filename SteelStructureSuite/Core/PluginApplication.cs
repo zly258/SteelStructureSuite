@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
@@ -41,7 +41,9 @@ namespace SteelStructureSuite.Core
                     "\n[SteelStructureSuite] 参数化钢结构套件已加载 (Ribbon 已自动激活)" +
                     "\n  - 模型管理: SS_MANAGER      截面管理: SS_SECTIONS" +
                     "\n  - 材料统计: SS_BOM          施工详图: SS_DRAWING" +
+                    "\n  - 批量转DXF: SS_DWG2DXF     合并图纸: SS_DWGMERGE" +
                     "\n  - 开启复写: SS_OVERRULE_ON  关闭复写: SS_OVERRULE_OFF" +
+                    "\n  - 重置设置: SS_RESETSETTINGS  恢复各构件初始预设" +
                     "\n==================================================================\n");
             }
             catch (System.Exception ex)
@@ -99,9 +101,9 @@ namespace SteelStructureSuite.Core
         {
             if (_overrulesRegistered) return;
 
-            RXClass solidClass = RXObject.GetClass(typeof(Solid3d));
             _gripOverrule = new SteelGripOverrule();
-            Overrule.AddOverrule(solidClass, _gripOverrule, true);
+            Overrule.AddOverrule(RXObject.GetClass(typeof(Solid3d)), _gripOverrule, true);
+            Overrule.AddOverrule(RXObject.GetClass(typeof(BlockReference)), _gripOverrule, true);
             Overrule.Overruling = true;
             _overrulesRegistered = true;
         }
@@ -110,10 +112,10 @@ namespace SteelStructureSuite.Core
         {
             if (!_overrulesRegistered) return;
 
-            RXClass solidClass = RXObject.GetClass(typeof(Solid3d));
             if (_gripOverrule != null)
             {
-                Overrule.RemoveOverrule(solidClass, _gripOverrule);
+                try { Overrule.RemoveOverrule(RXObject.GetClass(typeof(Solid3d)), _gripOverrule); } catch { }
+                try { Overrule.RemoveOverrule(RXObject.GetClass(typeof(BlockReference)), _gripOverrule); } catch { }
                 _gripOverrule = null;
             }
             _overrulesRegistered = false;
@@ -140,8 +142,9 @@ namespace SteelStructureSuite.Core
                 ObjectId id = psr.Value.GetObjectIds()[0];
                 using (Transaction tr = doc.Database.TransactionManager.StartTransaction())
                 {
-                    if (tr.GetObject(id, OpenMode.ForRead) is Solid3d solid &&
-                        SteelDataStorage.TryReadParams(solid, out SteelStructureParams _))
+                    Entity ent = tr.GetObject(id, OpenMode.ForRead) as Entity;
+                    if (ent != null && (ent is Solid3d || ent is BlockReference) &&
+                        SteelDataStorage.TryReadParams(ent, out SteelStructureParams _))
                     {
                         doc.SendStringToExecute("SS_EDIT ", true, false, false);
                     }

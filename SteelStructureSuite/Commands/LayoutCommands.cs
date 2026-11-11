@@ -1,4 +1,4 @@
-﻿using Autodesk.AutoCAD.ApplicationServices;
+using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
@@ -131,8 +131,9 @@ namespace SteelStructureSuite.Commands
             Database db = doc.Database;
 
             PromptEntityOptions peo = new PromptEntityOptions("\n请选择要定距阵列复制的参数化钢结构构件: ");
-            peo.SetRejectMessage("\n请选择三维实体构件。");
+            peo.SetRejectMessage("\n请选择参数化钢结构构件。");
             peo.AddAllowedClass(typeof(Solid3d), false);
+            peo.AddAllowedClass(typeof(BlockReference), false);
             PromptEntityResult per = ed.GetEntity(peo);
             if (per.Status != PromptStatus.OK) return;
 

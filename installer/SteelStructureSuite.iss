@@ -30,9 +30,9 @@
 #endif
 
 #define BundleName "SteelStructureSuite.bundle"
-#define BundleDir "{commonpf}\Autodesk\ApplicationPlugins\" + BundleName
+#define BundleDir "{commonappdata}\Autodesk\ApplicationPlugins\" + BundleName
 #define BundleNameR24 "SteelStructureSuite2021.bundle"
-#define BundleDirR24 "{commonpf}\Autodesk\ApplicationPlugins\" + BundleNameR24
+#define BundleDirR24 "{commonappdata}\Autodesk\ApplicationPlugins\" + BundleNameR24
 
 [Setup]
 AppId={{62F3CFDA-6F06-467A-ADA0-9948368EA1C5}
@@ -92,12 +92,20 @@ Name: "{group}\使用说明"; Filename: "{sys}\notepad.exe"; Parameters: """{app
 Type: dirifempty; Name: "{#BundleDir}\Contents\Help"
 Type: dirifempty; Name: "{#BundleDir}\Contents"
 Type: dirifempty; Name: "{#BundleDir}"
+Type: dirifempty; Name: "{#BundleDirR24}\Contents\Help"
+Type: dirifempty; Name: "{#BundleDirR24}\Contents"
+Type: dirifempty; Name: "{#BundleDirR24}"
 
 [Code]
 procedure CleanLegacyBundles;
 begin
   { 1. 用户级同名 Bundle 必须删除，否则 AutoCAD 会同时加载两份 DLL }
   DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
+  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
+  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
+  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
+  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
+  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
 
   { 2. 历史遗留包名（如曾用缩写或测试包名，可在此追加 DelTree 调用） }
 

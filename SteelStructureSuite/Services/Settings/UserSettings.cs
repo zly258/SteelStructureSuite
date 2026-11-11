@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -269,6 +269,26 @@ namespace SteelStructureSuite.Services.Settings
             SetString(key, value.ToString("R", CultureInfo.InvariantCulture));
 
         // ---------- 窗口几何（大小 / 位置）记忆 ----------
+
+        /// <summary>清除全部界面记忆。截面库不受影响。</summary>
+        public static void Reset()
+        {
+            lock (_sync)
+            {
+                _values = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                _loaded = true;
+                try
+                {
+                    if (File.Exists(SettingsFilePath)) File.Delete(SettingsFilePath);
+                    string tmp = SettingsFilePath + ".tmp";
+                    if (File.Exists(tmp)) File.Delete(tmp);
+                }
+                catch
+                {
+                    // 文件被占用时至少清空内存，下次启动不再读到旧值。
+                }
+            }
+        }
 
         /// <summary>恢复窗口上次的尺寸与位置；无记录时保持调用方给定的初始值。</summary>
         public static void RestoreWindowState(Window window, string key)

@@ -1,9 +1,11 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using SteelStructureSuite.Commands;
+
 using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
@@ -18,6 +20,7 @@ namespace SteelStructureSuite.Views
         public bool IsEditMode { get; }
         public bool LockStructureType { get; }
         public bool UseTwoPointLinearDraw { get; private set; }
+        public bool UseCurvePick { get; private set; }
         public bool ChainPlacementMode { get; }
 
         private bool _isInitializing = true;
@@ -42,9 +45,8 @@ namespace SteelStructureSuite.Views
         {
             InitializeComponent();
             Width = Math.Max(Width, 590);
-            Height = Math.Max(Height, 730);
             MinWidth = 550;
-            MinHeight = 630;
+            MinHeight = 420;
             if (DgPreviewBom != null)
             {
                 DgPreviewBom.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
@@ -97,15 +99,17 @@ namespace SteelStructureSuite.Views
                 CmbBeamTypeFilter.Items.Add(f);
                 CmbBraceTypeFilter.Items.Add(f);
             }
-            // 恢复上次使用的截面筛选方式
-            CmbColTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.ColFilterIndex", 0);
-            CmbBeamTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.BeamFilterIndex", 0);
-            CmbBraceTypeFilter.SelectedIndex = UserSettings.GetInt("Edit.BraceFilterIndex", 0);
-
-            SyncControlsFromData();
-
-            // 新建构件时沿用上次使用的截面规格（编辑既有构件时以构件自身数据为准）
-            if (!isEditMode) RestoreLastSections();
+            if (isEditMode)
+            {
+                CmbColTypeFilter.SelectedIndex = 0;
+                CmbBeamTypeFilter.SelectedIndex = 0;
+                CmbBraceTypeFilter.SelectedIndex = 0;
+                SyncControlsFromData();
+            }
+            else
+            {
+                ApplyRememberedSections();
+            }
 
             ReloadPresetsForCurrentType();
 
@@ -113,6 +117,7 @@ namespace SteelStructureSuite.Views
             {
                 BtnUpdate.Visibility = Visibility.Visible;
                 BtnUpdate.IsDefault = true;
+                ApplyActionStyle(BtnUpdate, true);
             }
             else
             {
@@ -135,40 +140,48 @@ namespace SteelStructureSuite.Views
             };
         }
 
-        /// <summary>沿用上次使用的立柱 / 主梁 / 斜撑截面规格。</summary>
-        private void RestoreLastSections()
+        /// <summary>只恢复当前构件类型自己记住的截面，没有记录时用该类型的初始预设。</summary>
+        private void ApplyRememberedSections()
         {
-            string col = UserSettings.GetString("Edit.ColumnSection", null);
-            string beam = UserSettings.GetString("Edit.BeamSection", null);
-            string brace = UserSettings.GetString("Edit.BraceSection", null);
-
-            if (!string.IsNullOrEmpty(col))
-            {
-                Data.ColumnSection = col;
-                PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedIndex, col);
-            }
-            if (!string.IsNullOrEmpty(beam))
-            {
-                Data.BeamSection = beam;
-                PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedIndex, beam);
-            }
-            if (!string.IsNullOrEmpty(brace))
-            {
-                Data.BraceSection = brace;
-                PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedIndex, brace);
-            }
+            ApplySectionChoice(CmbColTypeFilter, CmbColSec, "ColFilter", "ColSec", Data.ColumnSection, v => Data.ColumnSection = v);
+            ApplySectionChoice(CmbBeamTypeFilter, CmbBeamSec, "BeamFilter", "BeamSec", Data.BeamSection, v => Data.BeamSection = v);
+            ApplySectionChoice(CmbBraceTypeFilter, CmbBraceSec, "BraceFilter", "BraceSec", Data.BraceSection, v => Data.BraceSection = v);
+            SyncControlsFromData();
         }
 
-        /// <summary>记录本次使用的材质、截面筛选与截面规格。</summary>
+        private void ApplySectionChoice(ComboBox filter, ComboBox combo, string filterPart, string sectionPart, string fallback, Action<string> assign)
+        {
+            string saved = UserSettings.GetString(SectionSettingKey(sectionPart), null);
+            bool savedOk = !string.IsNullOrEmpty(saved) && SectionCatalogService.GetAllNames().Contains(saved);
+            int filterIndex = savedOk ? UserSettings.GetInt(SectionSettingKey(filterPart), 0) : 0;
+            if (filterIndex < 0 || filterIndex >= ShapeFilterNames.Length) filterIndex = 0;
+            filter.SelectedIndex = filterIndex;
+            string preferred = savedOk ? saved : fallback;
+            PopulateSectionCombo(combo, filter.SelectedIndex, preferred);
+            if (!string.Equals(combo.SelectedItem as string, preferred, StringComparison.Ordinal))
+            {
+                filter.SelectedIndex = 0;
+                PopulateSectionCombo(combo, 0, string.IsNullOrEmpty(preferred) ? fallback : preferred);
+            }
+            string chosen = combo.SelectedItem as string;
+            if (!string.IsNullOrEmpty(chosen)) assign(chosen);
+        }
+
+        private string SectionSettingKey(string part)
+        {
+            return "Edit." + Data.StructureType.ToString() + "." + part;
+        }
+
+        /// <summary>按当前构件类型分别记住截面，避免门架、栏杆、管托互相串用。</summary>
         private void SaveLastSettings()
         {
             UserSettings.SetString("Edit.Material", CmbMaterial.SelectedItem as string);
-            UserSettings.SetInt("Edit.ColFilterIndex", CmbColTypeFilter.SelectedIndex);
-            UserSettings.SetInt("Edit.BeamFilterIndex", CmbBeamTypeFilter.SelectedIndex);
-            UserSettings.SetInt("Edit.BraceFilterIndex", CmbBraceTypeFilter.SelectedIndex);
-            UserSettings.SetString("Edit.ColumnSection", CmbColSec.SelectedItem as string);
-            UserSettings.SetString("Edit.BeamSection", CmbBeamSec.SelectedItem as string);
-            UserSettings.SetString("Edit.BraceSection", CmbBraceSec.SelectedItem as string);
+            UserSettings.SetInt(SectionSettingKey("ColFilter"), CmbColTypeFilter.SelectedIndex);
+            UserSettings.SetInt(SectionSettingKey("BeamFilter"), CmbBeamTypeFilter.SelectedIndex);
+            UserSettings.SetInt(SectionSettingKey("BraceFilter"), CmbBraceTypeFilter.SelectedIndex);
+            UserSettings.SetString(SectionSettingKey("ColSec"), CmbColSec.SelectedItem as string);
+            UserSettings.SetString(SectionSettingKey("BeamSec"), CmbBeamSec.SelectedItem as string);
+            UserSettings.SetString(SectionSettingKey("BraceSec"), CmbBraceSec.SelectedItem as string);
             UserSettings.Save();
         }
 
@@ -242,14 +255,26 @@ namespace SteelStructureSuite.Views
                 return;
             }
 
+            if (Data.RequiresPickedCurve)
+            {
+                BtnSinglePt.Visibility = Visibility.Collapsed;
+                BtnLinearTwoPt.Visibility = Visibility.Visible;
+                BtnLinearTwoPt.Content = Data.PickedCurveButtonText;
+                BtnLinearTwoPt.IsDefault = true;
+                BtnSinglePt.IsDefault = false;
+                ApplyActionStyle(BtnSinglePt, false);
+                ApplyActionStyle(BtnLinearTwoPt, true);
+                return;
+            }
+
             BtnSinglePt.Content = "单点放置";
             bool canLinear = Data.SupportsTwoPointDraw;
             BtnLinearTwoPt.Visibility = canLinear ? Visibility.Visible : Visibility.Collapsed;
             BtnLinearTwoPt.Content = Data.TwoPointButtonText;
             BtnLinearTwoPt.IsDefault = canLinear && Data.PrefersLinearTwoPointDraw;
             BtnSinglePt.IsDefault = !BtnLinearTwoPt.IsDefault;
-            BtnSinglePt.FontWeight = BtnSinglePt.IsDefault ? FontWeights.Bold : FontWeights.Normal;
-            BtnLinearTwoPt.FontWeight = BtnLinearTwoPt.IsDefault ? FontWeights.Bold : FontWeights.Normal;
+            ApplyActionStyle(BtnSinglePt, BtnSinglePt.IsDefault);
+            ApplyActionStyle(BtnLinearTwoPt, BtnLinearTwoPt.IsDefault);
         }
 
         private void BuildAvailableTypeList()
@@ -327,7 +352,16 @@ namespace SteelStructureSuite.Views
         private void OnStructureTypeChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
-            Data.StructureType = GetSelectedType();
+            SaveLastSettings();
+            ParametricStructureType type = GetSelectedType();
+            string tag = Data.Tag;
+            string material = CmbMaterial.SelectedItem as string ?? Data.Material;
+            double rotation = Data.RotationDeg;
+            SteelStructureParams fresh = ModelingCommands.CreateDefaultParamsForType(type);
+            fresh.Tag = tag;
+            if (!string.IsNullOrEmpty(material)) fresh.Material = material;
+            fresh.RotationDeg = rotation;
+            Data = fresh;
             if (!LockStructureType)
             {
                 Title = ChainPlacementMode
@@ -335,6 +369,8 @@ namespace SteelStructureSuite.Views
                     : Data.StructureTypeDisplayName;
             }
             _isInitializing = true;
+            TxtTag.Text = Data.Tag;
+            ApplyRememberedSections();
             ReloadPresetsForCurrentType();
             _isInitializing = false;
             UpdatePerComponentFieldVisibilityAndLabels();
@@ -529,11 +565,11 @@ namespace SteelStructureSuite.Views
                     break;
 
                 case ParametricStructureType.SpiralSteelMember:
-                    LblSpan.Text = "轴线水平长 L:";
-                    LblLength.Text = "螺旋半径 R:";
+                    LblSpan.Text = "螺旋高度 H:";
+                    LblLength.Text = "底部半径 R:";
                     LblSubHeight.Text = "螺旋圈数 n:";
                     SetRowVisible(LblHeight, TxtHeight, false);
-                    SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
+                    SetRowVisible(LblEndDz, TxtEndOffsetZ, false);
                     LblColSec.Text = "型钢截面:";
                     SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
                     SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
@@ -657,9 +693,10 @@ namespace SteelStructureSuite.Views
             {
                 h = Data.Height > 80 ? Data.Height : 1000;
             }
-            if (!double.TryParse(TxtSubHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double subH) || subH < 1)
+            double minSub = Data.StructureType == ParametricStructureType.SpiralSteelMember ? 0.05 : 1.0;
+            if (!double.TryParse(TxtSubHeight.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double subH) || subH < minSub)
             {
-                subH = Data.SubHeight > 1 ? Data.SubHeight : 500;
+                subH = Data.SubHeight >= minSub ? Data.SubHeight : (Data.StructureType == ParametricStructureType.SpiralSteelMember ? 3.0 : 500);
             }
             if (int.TryParse(TxtBayCount.Text, NumberStyles.Integer, CultureInfo.InvariantCulture, out int bays) && bays >= 1 && bays <= 36)
             {
@@ -704,7 +741,15 @@ namespace SteelStructureSuite.Views
             double sumM2 = items.Sum(x => x.TotalSurfaceAreaM2);
             TxtLiveWeightSummary.Text =
                 $"总重: {sumKg:0.00} kg  |  刷漆面积: {sumM2:0.00} m²  |  零件种数: {items.Count}";
-            TabBom.Header = $"材料清单 ({sumKg:0.#}kg)";
+            RadBom.Content = $"材料清单 ({sumKg:0.#}kg)";
+        }
+
+        private void OnViewModeChanged(object sender, RoutedEventArgs e)
+        {
+            if (ParamsPanel == null || BomPanel == null) return;
+            bool showBom = RadBom != null && RadBom.IsChecked == true;
+            ParamsPanel.Visibility = showBom ? System.Windows.Visibility.Collapsed : System.Windows.Visibility.Visible;
+            BomPanel.Visibility = showBom ? System.Windows.Visibility.Visible : System.Windows.Visibility.Collapsed;
         }
 
         private void OnSinglePointConfirmClick(object sender, RoutedEventArgs e)
@@ -717,6 +762,12 @@ namespace SteelStructureSuite.Views
             OnConfirmWithMode(useLinearDraw: true);
         }
 
+
+        private void ApplyActionStyle(System.Windows.Controls.Button button, bool primary)
+        {
+            if (button == null) return;
+            button.Style = (System.Windows.Style)FindResource(primary ? "Button.Primary" : "Button.Secondary");
+        }
         private void OnCancelClick(object sender, RoutedEventArgs e)
         {
             DialogResult = false;
@@ -731,7 +782,8 @@ namespace SteelStructureSuite.Views
                 return;
             }
 
-            UseTwoPointLinearDraw = useLinearDraw;
+            UseCurvePick = Data.RequiresPickedCurve;
+            UseTwoPointLinearDraw = useLinearDraw && !UseCurvePick;
             DialogResult = true;
             Close();
         }

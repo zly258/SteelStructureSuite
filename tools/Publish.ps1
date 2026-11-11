@@ -1,4 +1,4 @@
-﻿# ============================================================================================
+# ============================================================================================
 #  SteelStructureSuite 发布脚本（PowerShell 7 / pwsh）
 #
 #  背景：
@@ -37,6 +37,24 @@ $targets = @(
     @{ Key = 'R24'; Series = 'R24.0 - R24.3 (AutoCAD 2021~2024)'; AutoCADDir = 'C:\Program Files\Autodesk\AutoCAD 2021'; Bundle = 'SteelStructureSuite2021.bundle'; Manifest = 'installer\PackageContentsR24.xml' }
 )
 
+
+$InstallRoot = Join-Path $env:ProgramData 'Autodesk\ApplicationPlugins'
+
+function Remove-LegacyBundle([string]$BundleName) {
+    $legacyRoots = @(
+        'C:\Program Files\Autodesk\ApplicationPlugins',
+        'C:\Program Files (x86)\Autodesk\ApplicationPlugins',
+        (Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins')
+    )
+    foreach ($legacyRoot in $legacyRoots) {
+        $legacy = Join-Path $legacyRoot $BundleName
+        if (Test-Path -LiteralPath $legacy) {
+            Write-Host ("remove legacy " + $legacy) -ForegroundColor Yellow
+            Remove-Item -LiteralPath $legacy -Recurse -Force
+        }
+    }
+}
+
 function Stop-Acad {
     $procs = Get-Process -Name acad -ErrorAction SilentlyContinue
     if ($procs) {
@@ -73,8 +91,9 @@ foreach ($t in $targets) {
     Write-Host "已生成 dist\$($t.Bundle)" -ForegroundColor Green
 
     if ($Install) {
-        $dest = Join-Path 'C:\Program Files\Autodesk\ApplicationPlugins' $t.Bundle
+        $dest = Join-Path $InstallRoot $t.Bundle
         Stop-Acad
+        Remove-LegacyBundle $t.Bundle
         New-Item -ItemType Directory -Force -Path $dest | Out-Null
         if (Test-Path (Join-Path $dest 'Contents')) { Remove-Item (Join-Path $dest 'Contents') -Recurse -Force }
         Copy-Item $contents (Join-Path $dest 'Contents') -Recurse -Force

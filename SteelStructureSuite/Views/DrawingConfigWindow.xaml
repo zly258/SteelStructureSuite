@@ -2,13 +2,29 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         Title="施工详图出图设置"
-        Width="530" Height="530"
-        MinWidth="490" MinHeight="480"
+        Width="560"
+        MinWidth="520"
+        MinHeight="320"
+        SizeToContent="Height"
+        MaxHeight="720"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
+        FontSize="{DynamicResource FontSize.Body}"
+        Background="{DynamicResource Brush.WindowBackground}"
+        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Grid Margin="12">
+    <Window.FontFamily>
+        <DynamicResource ResourceKey="Font.Ui" />
+    </Window.FontFamily>
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+    <Grid Margin="{StaticResource Layout.WindowPadding}">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -16,56 +32,60 @@
 
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
-                <GroupBox Header="图框与比例" Margin="0,0,0,8" Padding="10,8">
+                <GroupBox Header="图框与比例">
                     <Grid>
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="120" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
+                            <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="标准图框幅面:" VerticalAlignment="Center" Margin="0,4" />
-                        <ComboBox x:Name="CmbSheetSize" Grid.Row="0" Grid.Column="1" MinHeight="27" VerticalContentAlignment="Center" Padding="6,3" Margin="0,4" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="标准图框幅面" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                        <ComboBox x:Name="CmbSheetSize" Grid.Row="0" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" />
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="绘图比例:" VerticalAlignment="Center" Margin="0,4" />
-                        <ComboBox x:Name="CmbScale" Grid.Row="1" Grid.Column="1" MinHeight="27" VerticalContentAlignment="Center" Padding="6,3" Margin="0,4" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="绘图比例" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                        <ComboBox x:Name="CmbScale" Grid.Row="1" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" />
                     </Grid>
                 </GroupBox>
 
-                <GroupBox Header="视图与标注选项" Margin="0,0,0,8" Padding="10,8">
+                <GroupBox Header="视图与标注">
                     <StackPanel>
-                        <WrapPanel Margin="0,2,0,4">
-                            <CheckBox x:Name="ChkFront" Content="正立面图" IsChecked="True" MinWidth="105" Margin="0,4,10,4" />
-                            <CheckBox x:Name="ChkSide" Content="侧立面图" IsChecked="True" MinWidth="105" Margin="0,4,10,4" />
-                            <CheckBox x:Name="ChkPlan" Content="平面图" IsChecked="True" MinWidth="95" Margin="0,4,10,4" />
-                            <CheckBox x:Name="ChkIso" Content="轴测图" IsChecked="True" MinWidth="95" Margin="0,4,0,4" />
+                        <WrapPanel>
+                            <CheckBox x:Name="ChkFront" Content="正立面图" IsChecked="True" Margin="0,3,12,3" />
+                            <CheckBox x:Name="ChkSide" Content="侧立面图" IsChecked="True" Margin="0,3,12,3" />
+                            <CheckBox x:Name="ChkPlan" Content="平面图" IsChecked="True" Margin="0,3,12,3" />
+                            <CheckBox x:Name="ChkIso" Content="轴测图" IsChecked="True" Margin="0,3,0,3" />
                         </WrapPanel>
-                        <CheckBox x:Name="ChkDim" Content="正立面 / 侧立面 / 平面图标注标准设计轴网尺寸" IsChecked="True" Margin="0,5" />
-                        <CheckBox x:Name="ChkLeader" Content="轴测图两侧标注水平件号引线 (#1, #2...)" IsChecked="True" Margin="0,5" />
-                        <CheckBox x:Name="ChkBom" Content="标题栏上方内嵌国标材料明细表" IsChecked="True" Margin="0,5" />
+                        <CheckBox x:Name="ChkDim" Content="正立面 / 侧立面 / 平面图标注轴网尺寸" IsChecked="True" Margin="0,3" />
+                        <CheckBox x:Name="ChkLeader" Content="轴测图标注水平件号引线" IsChecked="True" Margin="0,3" />
+                        <CheckBox x:Name="ChkBom" Content="标题栏上方内嵌材料明细表" IsChecked="True" Margin="0,3" />
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="输出目标" Margin="0,0,0,8" Padding="10,8">
+                <GroupBox Header="输出目标">
                     <StackPanel>
-                        <RadioButton x:Name="RadCurrentDwg" Content="在当前 DWG 文件拾取插入点生成" IsChecked="True" Margin="0,4" Checked="OnOutputTargetChanged" />
-                        <RadioButton x:Name="RadNewDwg" Content="单独创建新 DWG 图纸文件" IsChecked="False" Margin="0,4" Checked="OnOutputTargetChanged" />
-                        <DockPanel Margin="18,4,0,4">
-                            <Button x:Name="BtnBrowseDwg" DockPanel.Dock="Right" Content="浏览..." MinWidth="74" MinHeight="27" Padding="10,3" Margin="6,0,0,0" Click="OnBrowseNewDwgClick" />
-                            <TextBox x:Name="TxtNewDwgPath" MinHeight="27" VerticalContentAlignment="Center" Padding="6,3" />
-                        </DockPanel>
-                        <CheckBox x:Name="ChkOpenAfterSave" Content="生成后在 AutoCAD 中自动打开新 DWG 文件" IsChecked="True" Margin="18,4,0,2" />
+                        <RadioButton x:Name="RadCurrentDwg" Content="在当前 DWG 拾取插入点" IsChecked="True" Margin="{StaticResource Layout.FormRowMargin}" Checked="OnOutputTargetChanged" />
+                        <RadioButton x:Name="RadNewDwg" Content="单独创建新 DWG" IsChecked="False" Margin="{StaticResource Layout.FormRowMargin}" Checked="OnOutputTargetChanged" />
+                        <Grid Margin="18,3,0,3">
+                            <Grid.ColumnDefinitions>
+                                <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                                <ColumnDefinition Width="Auto" />
+                            </Grid.ColumnDefinitions>
+                            <TextBox x:Name="TxtNewDwgPath" Grid.Column="0" />
+                            <Button x:Name="BtnBrowseDwg" Grid.Column="1" Content="浏览" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="8,0,0,0" Click="OnBrowseNewDwgClick" />
+                        </Grid>
+                        <CheckBox x:Name="ChkOpenAfterSave" Content="生成后自动打开新 DWG" IsChecked="True" Margin="18,3,0,3" />
                     </StackPanel>
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button x:Name="BtnOk" Content="拾取点生成详图" MinWidth="140" MinHeight="30" Padding="14,5" Margin="6,2,0,2" IsDefault="True" Click="OnConfirmClick" />
-            <Button Content="取消" MinWidth="80" MinHeight="30" Padding="14,5" Margin="6,2,0,2" IsCancel="True" Click="OnCancelClick" />
+            <Button x:Name="BtnOk" Content="拾取点生成详图" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" IsDefault="True" Click="OnConfirmClick" />
+            <Button Content="取消" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCancelClick" />
         </StackPanel>
     </Grid>
 </Window>

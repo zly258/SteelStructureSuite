@@ -18,9 +18,8 @@ namespace SteelStructureSuite.Views
         {
             InitializeComponent();
             Width = Math.Max(Width, 530);
-            Height = Math.Max(Height, 530);
             MinWidth = 490;
-            MinHeight = 480;
+            MinHeight = 320;
 
             Title = $"施工详图出图设置 - [{targetParams.Tag}]";
 

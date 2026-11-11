@@ -31,7 +31,7 @@ namespace SteelStructureSuite.Views
             Width = Math.Max(Width, 960);
             Height = Math.Max(Height, 640);
             MinWidth = 840;
-            MinHeight = 520;
+            MinHeight = 420;
 
             CmbType.Items.Add("H型钢");
             CmbType.Items.Add("槽钢");
@@ -45,29 +45,31 @@ namespace SteelStructureSuite.Views
                 DataGrid dg = CreateSectionDataGrid(shapeType);
                 _gridsByType[shapeType] = dg;
 
-                TabItem tab = new TabItem
+                ListBoxItem item = new ListBoxItem
                 {
-                    Header = SectionCatalogService.GetShapeTabTitle(shapeType),
                     Tag = shapeType,
-                    Content = dg,
-                    Padding = new Thickness(12, 4, 12, 4)
+                    Content = SectionCatalogService.GetShapeTabTitle(shapeType)
                 };
-                TabSections.Items.Add(tab);
+                LstSections.Items.Add(item);
             }
 
+            if (LstSections.Items.Count > 0)
+            {
+                LstSections.SelectedIndex = 0;
+            }
             RefreshAllTabGrids();
 
             // 恢复上次停留的截面类型页签
             int lastTab = UserSettings.GetInt("Catalog.LastTabIndex", 0);
-            if (lastTab >= 0 && lastTab < TabSections.Items.Count)
+            if (lastTab >= 0 && lastTab < LstSections.Items.Count)
             {
-                TabSections.SelectedIndex = lastTab;
+                LstSections.SelectedIndex = lastTab;
             }
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
             Closed += (s, e) =>
             {
-                UserSettings.SetInt("Catalog.LastTabIndex", TabSections.SelectedIndex);
+                UserSettings.SetInt("Catalog.LastTabIndex", LstSections.SelectedIndex);
                 UserSettings.Save();
                 UserSettings.SaveWindowState(this, "SectionCatalogWindow");
             };
@@ -103,10 +105,13 @@ namespace SteelStructureSuite.Views
             return dg;
         }
 
-        private void OnTabSelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void OnSectionSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
-            if (TabSections.SelectedItem is TabItem tab && tab.Tag is SectionShapeType st)
+            if (LstSections.SelectedItem is ListBoxItem item &&
+                item.Tag is SectionShapeType st &&
+                _gridsByType.TryGetValue(st, out DataGrid dg))
             {
+                SectionHost.Content = dg;
                 int idx = Array.IndexOf(OrderedTypes, st);
                 if (idx >= 0 && CmbType != null)
                 {
@@ -130,9 +135,9 @@ namespace SteelStructureSuite.Views
                     dg.ItemsSource = list;
                 }
 
-                if (i < TabSections.Items.Count && TabSections.Items[i] is TabItem tab)
+                if (i < LstSections.Items.Count && LstSections.Items[i] is ListBoxItem item)
                 {
-                    tab.Header = $"{SectionCatalogService.GetShapeTabTitle(st)} ({list.Count})";
+                    item.Content = $"{SectionCatalogService.GetShapeTabTitle(st)} ({list.Count})";
                 }
             }
 
@@ -160,14 +165,14 @@ namespace SteelStructureSuite.Views
             SectionShapeType shapeType = OrderedTypes[Math.Max(0, Math.Min(CmbType.SelectedIndex, OrderedTypes.Length - 1))];
             SectionCatalogService.AddOrUpdate(new SectionProfile(name, shapeType, h, b, tw, tf));
 
-            TabSections.SelectedIndex = Array.IndexOf(OrderedTypes, shapeType);
+            LstSections.SelectedIndex = Array.IndexOf(OrderedTypes, shapeType);
             RefreshAllTabGrids();
         }
 
         private void OnDeleteSectionClick(object sender, RoutedEventArgs e)
         {
-            if (TabSections.SelectedItem is TabItem tab &&
-                tab.Tag is SectionShapeType st &&
+            if (LstSections.SelectedItem is ListBoxItem item &&
+                item.Tag is SectionShapeType st &&
                 _gridsByType.TryGetValue(st, out DataGrid dg) &&
                 dg.SelectedItem is SectionProfile sel)
             {

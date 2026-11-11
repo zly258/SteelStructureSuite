@@ -1,0 +1,56 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:sys="clr-namespace:System;assembly=mscorlib">
+
+    <!--
+        Density 紧凑 (Compact)
+        用于工程插件、属性面板、数据密集型表格和嵌入式停靠窗。
+        仅尺寸、内边距与行高随密度变化，颜色和字号保持不变。
+    -->
+    <sys:String x:Key="Density.Profile">compact</sys:String>
+
+    <sys:Double x:Key="Layout.ControlHeight">26</sys:Double>
+    <sys:Double x:Key="Layout.ControlHeight.Small">24</sys:Double>
+    <sys:Double x:Key="Layout.ControlHeight.Large">32</sys:Double>
+
+    <sys:Double x:Key="Layout.RowHeight">24</sys:Double>
+    <sys:Double x:Key="Layout.HeaderHeight">26</sys:Double>
+
+    <sys:Double x:Key="Layout.ButtonMinWidth">56</sys:Double>
+    <sys:Double x:Key="Layout.ButtonMinWidth.Small">40</sys:Double>
+    <Thickness x:Key="Layout.ButtonPadding">10,0</Thickness>
+    <Thickness x:Key="Layout.ButtonPadding.Small">6,0</Thickness>
+
+    <Thickness x:Key="Layout.InputPadding">4,0</Thickness>
+    <Thickness x:Key="Layout.InputPadding.Multiline">4,4</Thickness>
+    <Thickness x:Key="Layout.ComboBoxPadding">4,0,20,0</Thickness>
+    <Thickness x:Key="Layout.ComboBoxItemPadding">6,3</Thickness>
+    <Thickness x:Key="Layout.DatePickerPadding">4,0,26,0</Thickness>
+
+    <Thickness x:Key="Layout.ListItemPadding">6,4</Thickness>
+    <Thickness x:Key="Layout.ListViewItemPadding">2,1</Thickness>
+    <Thickness x:Key="Layout.MenuItemPadding">7,4</Thickness>
+
+    <Thickness x:Key="Layout.WindowPadding">8</Thickness>
+    <Thickness x:Key="Layout.GroupPadding">8</Thickness>
+    <Thickness x:Key="Layout.CardPadding">8</Thickness>
+    <Thickness x:Key="Layout.FormRowMargin">0,2,0,2</Thickness>
+    <Thickness x:Key="Layout.SectionMargin">0,0,0,6</Thickness>
+
+    <Thickness x:Key="Layout.TabPadding">10,4</Thickness>
+    <Thickness x:Key="Layout.TabMargin">0,0,2,0</Thickness>
+
+    <Thickness x:Key="Layout.TooltipPadding">6,3</Thickness>
+    <Thickness x:Key="Layout.BadgePadding">6,1</Thickness>
+    <Thickness x:Key="Layout.ExpanderHeaderPadding">8,4</Thickness>
+    <Thickness x:Key="Layout.ExpanderContentPadding">8,5</Thickness>
+    <Thickness x:Key="Layout.ToolBarPadding">4,2</Thickness>
+    <sys:Double x:Key="Layout.ToolBarHeight">38</sys:Double>
+    <sys:Double x:Key="Layout.ProgressBarHeight">6</sys:Double>
+
+    <sys:Double x:Key="Layout.TagHeight">22</sys:Double>
+    <sys:Double x:Key="Layout.IconButton.Micro">22</sys:Double>
+    <sys:Double x:Key="Layout.IconButton.Small">24</sys:Double>
+    <sys:Double x:Key="Layout.IconButton.Large">28</sys:Double>
+
+</ResourceDictionary>

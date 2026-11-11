@@ -1,4 +1,4 @@
-﻿# SteelStructureSuite · 参数化钢结构套件
+# SteelStructureSuite · 参数化钢结构套件
 
 面向 **AutoCAD（x64）** 的参数化钢结构建模插件。以 Autodesk Bundle 形式安装后随 AutoCAD 自动加载，在顶部生成「参数化钢结构」功能区，覆盖门式刚架、平台、管廊、桁架、梯道、栏杆、支座，以及**化工、电力、冶金三大行业的 8 类标准参数化组件**，提供快速建模、正交夹点编辑、材料统计与标准图框详图出图。
 
@@ -133,8 +133,8 @@ pwsh tools\Publish.ps1 -Install
    （`dist\SteelStructureSuite.bundle` 与 `dist\SteelStructureSuite2021.bundle`）。
 2. 用 Inno Setup 编译 `installer\SteelStructureSuite.iss`（或执行 `iscc.exe /DAppVersion=1.0.0 installer\SteelStructureSuite.iss`）。
 3. 运行 `dist\SteelStructureSuite-1.0.0-setup`，安装包会：
-   - 将 `PackageContents.xml` 写入 `C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\`；
-   - 将 `PackageContentsR24.xml` 写入 `C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle\`；
+   - 将 `PackageContents.xml` 写入 `C:\ProgramData\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\`；
+   - 将 `PackageContentsR24.xml` 写入 `C:\ProgramData\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle\`；
    - 将两个版本各自的 `SteelStructureSuite.dll` 写入对应 Bundle 的 `Contents\`；
    - 将使用说明写入 Bundle 的 `Contents\Help\` 及 `%ProgramData%\SteelStructureSuite\`。
 4. 重启 AutoCAD，插件自动加载并激活「参数化钢结构」选项卡。
@@ -142,7 +142,7 @@ pwsh tools\Publish.ps1 -Install
 安装目录约定：
 
 ```text
-C:\Program Files\Autodesk\ApplicationPlugins\
+C:\ProgramData\Autodesk\ApplicationPlugins\
 ├─ SteelStructureSuite.bundle\          # AutoCAD 2019 使用
 │  ├─ PackageContents.xml
 │  └─ Contents\
@@ -181,6 +181,8 @@ C:\Program Files\Autodesk\ApplicationPlugins\
 | `SS_SECTIONS` | 截面库管理（5 类截面，Excel 导入导出） |
 | `SS_BOM` | 材料统计，导出 Excel，或插入 CAD 汇总表 / 构件零件明细表 |
 | `SS_DRAWING` | 生成 A1~A4 标准图框消隐详图 |
+| `SS_DWG2DXF` | 批量把 DWG 转为指定版本的 DXF |
+| `SS_DWGMERGE` | 按模型范围把多张 DWG 横向或纵向合并 |
 | `SS_PANEL` | 打开参数化构件建模工作台 |
 | `SS_PORTAL` | 单跨门式刚架 |
 | `SS_MULTIPORTAL` | 多跨门式刚架 |
@@ -207,6 +209,7 @@ C:\Program Files\Autodesk\ApplicationPlugins\
 | `SS_DROPZ0` | 构件底部归零至 Z=0 |
 | `SS_OVERRULE_ON` | 开启参数化夹点复写 |
 | `SS_OVERRULE_OFF` | 关闭参数化夹点复写 |
+| `SS_RESETSETTINGS` | 清除界面记忆，各构件恢复初始预设（不改截面库） |
 
 ### 行业标准组件命令（化工 / 电力 / 冶金）
 
@@ -241,7 +244,7 @@ msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=
 
 - `RuntimeDir` 优先取 `bin\x64\Release`，不存在时回退 `Debug`；
 - `AppId` / `ProductCode` / `UpgradeCode` 已固定，请勿随版本修改，否则无法覆盖升级；
-- 安装到 `{commonpf}\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle`（64 位 AutoCAD 只扫描该目录与用户级同名目录）；
+- 安装到 `{commonappdata}\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle`（64 位 AutoCAD 只扫描该目录与用户级同名目录）；
 - 卸载时由 Inno 记录删除文件，并清理空的 Bundle 目录。
 
 ---
@@ -249,8 +252,8 @@ msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=
 ## 八、常见问题
 
 **Q1. 安装后 AutoCAD 没有自动加载？**
-- 确认 Bundle 位于 `C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\`，且 `PackageContents.xml` 与 `Contents\SteelStructureSuite.dll` 均在位；
-- 检查 AutoCAD 的 `SECURELOAD` 是否为 0/1，或将 `Program Files\Autodesk\ApplicationPlugins` 加入受信任路径；
+- 确认 Bundle 位于 `C:\ProgramData\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\`，且 `PackageContents.xml` 与 `Contents\SteelStructureSuite.dll` 均在位；
+- 检查 AutoCAD 的 `SECURELOAD` 是否为 0/1，或将 `ProgramData\Autodesk\ApplicationPlugins` 加入受信任路径；
 - 用 `NETLOAD` 手工加载一次，观察命令行报错（常见为 .NET 版本或 AutoCAD 版本不匹配）。
 
 **Q2. 功能区没有出现？**

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using Autodesk.AutoCAD.Colors;
@@ -13,6 +13,7 @@ namespace SteelStructureSuite.Services.Modeling
     public static class SteelStructureBuilder
     {
         private const string LayerModel3D = "SS_STEEL_3D";
+        private const string LayerModelWire = "SS_STEEL_WIRE";
         private const double JointOverlapMm = 22.0;
 
         public class SolidMemberPart
@@ -2290,6 +2291,8 @@ namespace SteelStructureSuite.Services.Modeling
 
         public static ObjectId AppendToCurrentDatabase(Database db, SteelStructureParams p)
         {
+            if (p == null) return ObjectId.Null;
+
             EnsureLayerExists(db, LayerModel3D, 140);
             Solid3d combined = BuildCombinedSolid(p);
             if (combined == null) return ObjectId.Null;
@@ -2311,28 +2314,145 @@ namespace SteelStructureSuite.Services.Modeling
 
         public static void UpdateStructureInDatabase(Database db, ObjectId entityId, SteelStructureParams newParams)
         {
-            if (entityId.IsNull || entityId.IsErased) return;
+            if (entityId.IsNull || entityId.IsErased || newParams == null) return;
 
-            using (Solid3d newSolid = BuildCombinedSolid(newParams))
+            bool wireBlock = false;
+            using (Transaction probe = db.TransactionManager.StartOpenCloseTransaction())
             {
-                if (newSolid == null) return;
+                wireBlock = probe.GetObject(entityId, OpenMode.ForRead, false) is BlockReference;
+                probe.Commit();
+            }
 
-                using (Transaction tr = db.TransactionManager.StartTransaction())
+            if (!wireBlock)
+            {
+                using (Solid3d newSolid = BuildCombinedSolid(newParams))
                 {
-                    if (tr.GetObject(entityId, OpenMode.ForWrite) is Solid3d existing)
+                    if (newSolid == null) return;
+                    using (Transaction tr = db.TransactionManager.StartTransaction())
                     {
-                        // CopyFrom 会把新实体的默认图层（通常是 0）盖掉用户已经指定的图层
-                        CopySolidKeepingLook(existing, newSolid);
-                        SteelDataStorage.WriteParams(tr, existing, newParams);
+                        if (tr.GetObject(entityId, OpenMode.ForWrite, false) is Solid3d existing)
+                        {
+                            CopySolidKeepingLook(existing, newSolid);
+                            SteelDataStorage.WriteParams(tr, existing, newParams);
+                        }
+                        tr.Commit();
                     }
-                    tr.Commit();
                 }
+                return;
+            }
+
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                if (tr.GetObject(entityId, OpenMode.ForWrite, false) is BlockReference br)
+                {
+                    RewriteWireframe(tr, br, newParams);
+                    SteelDataStorage.WriteParams(tr, br, newParams);
+                }
+                tr.Commit();
             }
         }
 
-        /// <summary>
-        /// 只替换三维几何，保留目标实体上用户预设的图层、颜色、线型、线宽和透明度。
-        /// </summary>
+        public static bool RewriteWireframe(BlockReference br, SteelStructureParams p)
+        {
+            if (br == null || p == null) return false;
+            Database db = br.Database;
+            if (db == null) return false;
+            Transaction top = null;
+            try { top = db.TransactionManager.TopTransaction; } catch { }
+            if (top != null) return RewriteWireframe(top, br, p);
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                bool ok = RewriteWireframe(tr, br, p);
+                if (ok) tr.Commit();
+                return ok;
+            }
+        }
+
+        private static bool RewriteWireframe(Transaction tr, BlockReference br, SteelStructureParams p)
+        {
+            if (tr == null || br == null || p == null || br.Database == null) return false;
+            EnsureLayerExists(tr, br.Database, LayerModelWire, 8);
+            if (!br.IsWriteEnabled) br.UpgradeOpen();
+            EnsureUniqueWireDefinition(tr, br);
+            try { br.BlockTransform = Matrix3d.Identity; } catch { }
+            br.Visible = true;
+            try { br.Layer = LayerModelWire; } catch { }
+
+            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForWrite);
+            var oldIds = new List<ObjectId>();
+            foreach (ObjectId id in btr) oldIds.Add(id);
+            foreach (ObjectId id in oldIds)
+            {
+                if (tr.GetObject(id, OpenMode.ForWrite, false) is Entity child && !child.IsErased)
+                    child.Erase();
+            }
+            AddWireSegments(tr, btr, p);
+            try { br.RecordGraphicsModified(true); } catch { }
+            return true;
+        }
+
+        private static ObjectId AppendWireframe(Database db, SteelStructureParams p)
+        {
+            EnsureLayerExists(db, LayerModelWire, 8);
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForWrite);
+                BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+                var btr = new BlockTableRecord { Name = "*U" };
+                ObjectId btrId = bt.Add(btr);
+                tr.AddNewlyCreatedDBObject(btr, true);
+                AddWireSegments(tr, btr, p);
+
+                var br = new BlockReference(Point3d.Origin, btrId);
+                br.Layer = LayerModelWire;
+                ObjectId id = ms.AppendEntity(br);
+                tr.AddNewlyCreatedDBObject(br, true);
+                SteelDataStorage.WriteParams(tr, br, p);
+                tr.Commit();
+                return id;
+            }
+        }
+
+        private static void EnsureUniqueWireDefinition(Transaction tr, BlockReference br)
+        {
+            BlockTableRecord btr = (BlockTableRecord)tr.GetObject(br.BlockTableRecord, OpenMode.ForRead);
+            ObjectIdCollection refs = btr.GetBlockReferenceIds(true, true);
+            if (refs != null && refs.Count <= 1) return;
+            BlockTable bt = (BlockTable)tr.GetObject(br.Database.BlockTableId, OpenMode.ForWrite);
+            var fresh = new BlockTableRecord { Name = "*U" };
+            ObjectId freshId = bt.Add(fresh);
+            tr.AddNewlyCreatedDBObject(fresh, true);
+            if (!br.IsWriteEnabled) br.UpgradeOpen();
+            br.BlockTableRecord = freshId;
+        }
+
+        private static void AddWireSegments(Transaction tr, BlockTableRecord btr, SteelStructureParams p)
+        {
+            List<Tuple<Point3d, Point3d>> lines = BuildFastPreviewWireframeLines(p);
+            int added = 0;
+            if (lines != null)
+            {
+                foreach (Tuple<Point3d, Point3d> seg in lines)
+                {
+                    if (seg == null || seg.Item1.DistanceTo(seg.Item2) < 0.5) continue;
+                    var line = new Line(seg.Item1, seg.Item2);
+                    btr.AppendEntity(line);
+                    tr.AddNewlyCreatedDBObject(line, true);
+                    line.Layer = LayerModelWire;
+                    added++;
+                }
+            }
+            if (added == 0)
+            {
+                Point3d a = p.Origin;
+                var tick = new Line(a, a + new Vector3d(50, 0, 0));
+                btr.AppendEntity(tick);
+                tr.AddNewlyCreatedDBObject(tick, true);
+                tick.Layer = LayerModelWire;
+            }
+        }
+
+
         public static void CopySolidKeepingLook(Solid3d target, Solid3d source)
         {
             if (target == null || source == null) return;
@@ -2628,20 +2748,24 @@ namespace SteelStructureSuite.Services.Modeling
         {
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
-                LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
-                if (!lt.Has(layerName))
-                {
-                    lt.UpgradeOpen();
-                    LayerTableRecord ltr = new LayerTableRecord
-                    {
-                        Name = layerName,
-                        Color = Color.FromColorIndex(ColorMethod.ByAci, colorIndex)
-                    };
-                    lt.Add(ltr);
-                    tr.AddNewlyCreatedDBObject(ltr, true);
-                }
+                EnsureLayerExists(tr, db, layerName, colorIndex);
                 tr.Commit();
             }
         }
+
+        private static void EnsureLayerExists(Transaction tr, Database db, string layerName, short colorIndex)
+        {
+            LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
+            if (lt.Has(layerName)) return;
+            lt.UpgradeOpen();
+            var ltr = new LayerTableRecord
+            {
+                Name = layerName,
+                Color = Color.FromColorIndex(ColorMethod.ByAci, colorIndex)
+            };
+            lt.Add(ltr);
+            tr.AddNewlyCreatedDBObject(ltr, true);
+        }
+
     }
 }

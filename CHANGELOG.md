@@ -1,8 +1,10 @@
-﻿# 更新日志
+# 更新日志
 
 本文件记录 SteelStructureSuite 的重要变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
 ## [未发布]
+- 去掉实体/线条显示模式和按模式转换。新建构件始终生成三维实体。
+- 截面记忆按构件类型分开，避免互相串用。新增 `SS_RESETSETTINGS` 清除界面记忆。
 
 ### 新增
 
@@ -38,11 +40,21 @@
 ### 变更
 
 - Bundle 按 AutoCAD 大版本拆分：`SteelStructureSuite.bundle`（`R23.0~R23.1`，按 2019 编译）与 `SteelStructureSuite2021.bundle`（`R24.0~R24.3`，按 2021 编译）。托管插件引用了特定版本的 `AcDbMgd` / `AcCoreMgd`，仅放宽版本区间并不能让插件在新版本中加载，必须针对目标大版本分别编译。
-- 新增 `tools\Publish.ps1`：一键按两个大版本编译、生成 `dist` Bundle 产物、打包 zip 并安装到 `C:\Program Files\Autodesk\ApplicationPlugins\`（安装前自动结束 `acad.exe`）。
+- 新增 `tools\Publish.ps1`：一键按两个大版本编译、生成 `dist` Bundle 产物、打包 zip 并安装到 `C:\ProgramData\Autodesk\ApplicationPlugins\`（安装前自动结束 `acad.exe`）。
 - `PackageContents.xml` 的 `RuntimeRequirements` 版本区间由 `R23.0~R23.1` 放宽为 `R23.0~R24.3`，使 AutoCAD 2021 及以上版本可正常扫描加载插件。
 - `PackageContents.xml` 补齐 8 条新命令登记。
 - 工程引用路径改由 MSBuild 属性 `AutoCADDir` 控制，便于面向不同 AutoCAD 版本编译。
 - 修正并统一构件所引用的标准号与标准全称（塔器平台改引 HG/T 21543，储罐栏杆改引 SH/T 3007，冶金吊车梁改引 20G520-1~2，柱间支撑标注为 19G518-3），并在 README 与用户手册中增加标准与版权声明。
+
+
+### 细节
+
+- 功能区按钮改为蓝底白线图标，外形按构件绘制，不再使用色块字母。
+- 轴测图件号改为沿视图外围均匀成环、按角度避让，底部让开图名。
+- 新增批量 DWG 转 DXF（`SS_DWG2DXF`）和按模型范围合并图纸（`SS_DWGMERGE`）。
+- 全部 WPF 窗口统一采用紧凑主题：正文 12px、控件高 26px、表格行高 24px、窗口根边距 8px；每个窗口只有一个主按钮，删除、清空和恢复默认使用危险色。
+- 主题新增紧凑 / 中等 / 宽松三档整包入口（`Theme.Compact.xaml` / `Theme.Medium.xaml` / `Theme.Relaxed.xaml`），产品默认使用紧凑档；尺寸全部由 `Layout.*` 密度令牌驱动。
+
 
 ## [1.0.0]
 

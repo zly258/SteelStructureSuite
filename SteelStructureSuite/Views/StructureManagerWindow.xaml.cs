@@ -28,7 +28,7 @@ namespace SteelStructureSuite.Views
             Width = Math.Max(Width, 960);
             Height = Math.Max(Height, 560);
             MinWidth = 820;
-            MinHeight = 460;
+            MinHeight = 420;
             if (DgStructures != null)
             {
                 DgStructures.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;

@@ -208,7 +208,9 @@ namespace SteelStructureSuite.Services.Interaction
 
         public override bool IsApplicable(RXObject overruledSubject)
         {
-            return overruledSubject is Solid3d solid && SteelDataStorage.TryReadParams(solid, out _);
+            if (overruledSubject is Solid3d || overruledSubject is BlockReference)
+                return SteelDataStorage.TryReadParams((DBObject)overruledSubject, out _);
+            return false;
         }
 
         public override void GetGripPoints(
@@ -506,11 +508,11 @@ namespace SteelStructureSuite.Services.Interaction
             long fallbackHandle,
             SteelStructureParams fallbackBaseline)
         {
-            if (!(entity is Solid3d solid) || kinds == null || kinds.Count == 0)
+            if (!(entity is Entity ent) || kinds == null || kinds.Count == 0)
                 return null;
 
             long handle = 0;
-            try { handle = solid.Handle.Value; } catch { }
+            try { handle = ent.Handle.Value; } catch { }
             if (handle == 0) handle = fallbackHandle;
 
             SteelStructureParams origParams = null;
@@ -523,7 +525,7 @@ namespace SteelStructureSuite.Services.Interaction
                 origParams = fallbackBaseline.Clone();
                 if (handle != 0) GripBaseline[handle] = origParams.Clone();
             }
-            else if (SteelDataStorage.TryReadParams(solid, out SteelStructureParams readP) && readP != null)
+            else if (SteelDataStorage.TryReadParams(ent, out SteelStructureParams readP) && readP != null)
             {
                 origParams = readP.Clone();
                 if (handle != 0) GripBaseline[handle] = origParams.Clone();
@@ -531,7 +533,7 @@ namespace SteelStructureSuite.Services.Interaction
 
             if (origParams == null) return null;
 
-            HookDocument(solid.Database);
+            HookDocument(ent.Database);
             SteelStructureParams p = origParams.Clone();
 
             Vector3d dirX = new Vector3d(Math.Cos(p.RotationRad), Math.Sin(p.RotationRad), 0.0);
@@ -583,47 +585,47 @@ namespace SteelStructureSuite.Services.Interaction
             }
 
             long entPtrKey = 0;
-            try { entPtrKey = solid.UnmanagedObject.ToInt64(); } catch { entPtrKey = handle; }
+            try { entPtrKey = ent.UnmanagedObject.ToInt64(); } catch { entPtrKey = handle; }
 
-            // 判断当前是否为鼠标拖拽过程中的内存瞬态克隆实体 (solid.Id.IsNull)
-            bool isDragPreviewClone = solid.Id.IsNull || solid.Database == null;
+            bool isDragPreviewClone = ent.Id.IsNull || ent.Database == null;
 
             if (originMovedOnly)
             {
-                // 基点平移：无论在拖拽预览还是最终落位，均直接对现有实体做纯矩阵平移（0.001ms，无需重生成三维）
                 if (!LastEntityOrigin.TryGetValue(entPtrKey, out Point3d prevOrg))
                     prevOrg = origParams.Origin;
                 Vector3d deltaMove = p.Origin - prevOrg;
                 if (deltaMove.Length > 1e-4)
                 {
-                    solid.TransformBy(Matrix3d.Displacement(deltaMove));
+                    ent.TransformBy(Matrix3d.Displacement(deltaMove));
                     LastEntityOrigin[entPtrKey] = p.Origin;
                 }
                 if (!isDragPreviewClone && handle != 0)
-                {
                     SteelDataStorage.MarkPendingGeometryRebuilt(handle);
-                }
             }
             else if (isDragPreviewClone)
             {
-                // 拉伸改变外形（鼠标移动预览阶段）：绝不重生成三维实体！
-                // 将瞬态克隆实体的旧三维网格清空一次，由 ParamGrip.ViewportDraw 实时绘制二维/三维线框快速预览
                 if (entPtrKey != 0 && ClearedDragClonePtrs.Add(entPtrKey))
                 {
                     try
                     {
-                        using (Solid3d empty = new Solid3d())
+                        if (ent is Solid3d solid)
                         {
-                            empty.SetDatabaseDefaults();
-                            solid.CopyFrom(empty);
+                            using (Solid3d empty = new Solid3d())
+                            {
+                                empty.SetDatabaseDefaults();
+                                solid.CopyFrom(empty);
+                            }
+                        }
+                        else
+                        {
+                            ent.Visible = false;
                         }
                     }
                     catch { }
                 }
             }
-            else
+            else if (ent is Solid3d solid)
             {
-                // 拉伸改变外形（鼠标点击落位提交阶段）：一次性生成最终的三维 Solid3d 实体
                 using (Solid3d updated = SteelStructureBuilder.BuildCombinedSolid(p))
                 {
                     if (updated != null)
@@ -634,16 +636,21 @@ namespace SteelStructureSuite.Services.Interaction
                     }
                 }
             }
+            else if (ent is BlockReference br)
+            {
+                if (SteelStructureBuilder.RewriteWireframe(br, p) && handle != 0)
+                    SteelDataStorage.MarkPendingGeometryRebuilt(handle);
+            }
 
-            SteelDataStorage.SetPendingEdit(solid, p, handle);
+            SteelDataStorage.SetPendingEdit(ent, p, handle);
 
-            if (!isDragPreviewClone && solid.Database != null)
+            if (!isDragPreviewClone && ent.Database != null)
             {
                 try
                 {
-                    Transaction topTr = solid.Database.TransactionManager.TopTransaction;
-                    if (topTr != null && solid.IsWriteEnabled)
-                        SteelDataStorage.WriteParams(topTr, solid, p);
+                    Transaction topTr = ent.Database.TransactionManager.TopTransaction;
+                    if (topTr != null && ent.IsWriteEnabled)
+                        SteelDataStorage.WriteParams(topTr, ent, p);
                 }
                 catch { }
             }

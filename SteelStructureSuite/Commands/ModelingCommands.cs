@@ -1,4 +1,5 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
+using System.Windows;
 using System.IO;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
@@ -12,6 +13,7 @@ using SteelStructureSuite.Ribbon;
 using SteelStructureSuite.Services.Drawing;
 using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Settings;
 using SteelStructureSuite.Services.Takeoff;
 using SteelStructureSuite.Views;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
@@ -52,6 +54,21 @@ namespace SteelStructureSuite.Commands
             PluginApplication.DisableOverrules();
             doc.Editor.Regen();
             doc.Editor.WriteMessage("\n[SteelStructureSuite] 参数化三维夹点复写已【关闭】(SS_OVERRULE_OFF)。\n");
+        }
+
+
+        [CommandMethod("SS_RESETSETTINGS", CommandFlags.Modal)]
+        public void ResetUserSettings()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            MessageBoxResult answer = MessageBox.Show(
+                "将清除界面记忆，包括窗口位置、各构件上次使用的截面、出图选项和图纸工具选项。\n各构件恢复自己的初始预设。截面库不会改动。\n\n是否继续？",
+                "重置设置",
+                MessageBoxButton.YesNo,
+                MessageBoxImage.Warning);
+            if (answer != MessageBoxResult.Yes) return;
+            UserSettings.Reset();
+            doc?.Editor.WriteMessage("\n[SteelStructureSuite] 界面设置已初始化。下次打开对话框时使用各构件的初始预设。\n");
         }
 
         [CommandMethod("SS_SECTIONS", CommandFlags.Modal)]
@@ -577,8 +594,9 @@ namespace SteelStructureSuite.Commands
             }
 
             PromptEntityOptions peo = new PromptEntityOptions(prompt);
-            peo.SetRejectMessage("\n请选择有效的三维实体钢结构构件。");
+            peo.SetRejectMessage("\n请选择参数化钢结构构件。");
             peo.AddAllowedClass(typeof(Solid3d), false);
+            peo.AddAllowedClass(typeof(BlockReference), false);
             PromptEntityResult per = ed.GetEntity(peo);
             if (per.Status == PromptStatus.OK && IsParametricSolid(db, per.ObjectId))
             {
