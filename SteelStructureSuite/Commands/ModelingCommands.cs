@@ -364,7 +364,10 @@ namespace SteelStructureSuite.Commands
 
                 try
                 {
-                    SteelHlrDrawingService.GenerateDetailDrawingSheet(db, picked, ppr.Value, cfgWin.Options);
+                    using (DocumentLock dl = doc.LockDocument())
+                    {
+                        SteelHlrDrawingService.GenerateDetailDrawingSheet(db, picked, ppr.Value, cfgWin.Options);
+                    }
                 }
                 catch (System.Exception ex)
                 {

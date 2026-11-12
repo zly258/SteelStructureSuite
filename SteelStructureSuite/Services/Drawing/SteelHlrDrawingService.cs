@@ -46,6 +46,7 @@ namespace SteelStructureSuite.Services.Drawing
             public int PartNo;
             public List<Point2d> Hull;
             public Point2d Anchor2D;
+            public bool NearEndExposed;
             public double MinX;
             public double MaxX;
             public double MinY;
@@ -295,10 +296,8 @@ namespace SteelStructureSuite.Services.Drawing
             ObjectId simSunTextStyleId = EnsureSimSunTextStyle(db);
             ObjectId simSunDimStyleId = EnsureSimSunDimStyle(db, simSunTextStyleId, textH);
 
-            Dictionary<string, AutoCadSolprof.SolprofView> profiles = null;
             try
             {
-                profiles = BuildSolprofViews(parts3d, hasFront, hasSide, hasPlan, hasIso);
                 using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
                     BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
@@ -367,7 +366,7 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - frontH) * 0.5;
                         Point3d viewBase = new Point3d(frontX - frontBounds.MinX, slotY - frontBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Front.Key], viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, viewBase,
                             frontProj, pt => pt.Y, "正立面图",
                             frontBounds.Width, frontBounds.Height,
                             isFrontView: true, isSideView: false, isPlanView: false,
@@ -381,7 +380,7 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - sideH) * 0.5;
                         Point3d viewBase = new Point3d(sideX - sideBounds.MinX, slotY - sideBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Side.Key], viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, viewBase,
                             sideProj, pt => pt.X, "侧立面图",
                             sideBounds.Width, sideBounds.Height,
                             isFrontView: false, isSideView: true, isPlanView: false,
@@ -397,7 +396,7 @@ namespace SteelStructureSuite.Services.Drawing
                         if (planBottom < minPlanBottom) planBottom = minPlanBottom;
                         Point3d planBase = new Point3d(planLeft - planBounds.MinX, planBottom - planBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Plan.Key], planBase,
+                            tr, ms, p, parts3d, roleToPartNo, planBase,
                             planProj, pt => pt.Z, "平面图",
                             planBounds.Width, planBounds.Height,
                             isFrontView: false, isSideView: false, isPlanView: true,
@@ -427,7 +426,7 @@ namespace SteelStructureSuite.Services.Drawing
 
                         Point3d isoBase = new Point3d(isoLeft - isoBounds.MinX, isoBottom - isoBounds.MinY, 0);
                         DrawIsometricHlrView(
-                            tr, ms, p, parts3d, billItems, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Isometric.Key], isoBase,
+                            tr, ms, p, parts3d, billItems, roleToPartNo, isoBase,
                             options, simSunTextStyleId, textH);
                     }
 
@@ -453,11 +452,6 @@ namespace SteelStructureSuite.Services.Drawing
             }
             finally
             {
-                if (profiles != null)
-                {
-                    foreach (AutoCadSolprof.SolprofView view in profiles.Values)
-                        view.Dispose();
-                }
                 foreach (var item in parts3d)
                 {
                     item.Solid?.Dispose();
@@ -467,36 +461,9 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static Point2d IsoProject(Point3d pt)
         {
-            AutoCadSolprof.ViewSpec iso = AutoCadSolprof.ViewSpec.Isometric;
-            return new Point2d(
-                pt.X * iso.Right.X + pt.Y * iso.Right.Y + pt.Z * iso.Right.Z,
-                pt.X * iso.Up.X + pt.Y * iso.Up.Y + pt.Z * iso.Up.Z);
+            const double cos30 = 0.8660254037844386;
+            return new Point2d((pt.X - pt.Y) * cos30, (pt.X + pt.Y) * 0.5 + pt.Z);
         }
-
-        private static Dictionary<string, AutoCadSolprof.SolprofView> BuildSolprofViews(
-            List<SteelStructureBuilder.SolidMemberPart> parts,
-            bool front,
-            bool side,
-            bool plan,
-            bool iso)
-        {
-            var specs = new List<AutoCadSolprof.ViewSpec>();
-            if (front) specs.Add(AutoCadSolprof.ViewSpec.Front);
-            if (side) specs.Add(AutoCadSolprof.ViewSpec.Side);
-            if (plan) specs.Add(AutoCadSolprof.ViewSpec.Plan);
-            if (iso) specs.Add(AutoCadSolprof.ViewSpec.Isometric);
-            if (specs.Count == 0)
-                return new Dictionary<string, AutoCadSolprof.SolprofView>();
-
-            var solids = new List<Solid3d>();
-            foreach (SteelStructureBuilder.SolidMemberPart part in parts)
-            {
-                if (part?.Solid != null && !part.Solid.IsDisposed)
-                    solids.Add(part.Solid);
-            }
-            return AutoCadSolprof.Project(solids, specs);
-        }
-
 
         private static double SelectBestScale(
             DrawingGenerationOptions options,
@@ -632,7 +599,7 @@ namespace SteelStructureSuite.Services.Drawing
             if (part.Section != null && !part.IsPlate &&
                 part.PathPoints != null && part.PathPoints.Count >= 2)
             {
-                List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
+                List<Point2d> outline = GetDrawingOutlinePoints(part.Section);
                 var curved = new List<Point3d>(part.PathPoints.Count * outline.Count);
                 IList<Point3d> path = part.PathPoints;
                 int step = Math.Max(1, path.Count / 32);
@@ -652,7 +619,7 @@ namespace SteelStructureSuite.Services.Drawing
             {
                 SectionSolidBuilder.GetMemberAxes(axis, out Vector3d xDir, out Vector3d yDir, out _);
 
-                List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
+                List<Point2d> outline = GetDrawingOutlinePoints(part.Section);
                 var pts = new List<Point3d>(outline.Count * 2);
                 foreach (Point3d center in new[] { part.StartPt, part.EndPt })
                 {
@@ -678,6 +645,29 @@ namespace SteelStructureSuite.Services.Drawing
                 new Point3d(max.X, max.Y, max.Z),
                 new Point3d(min.X, max.Y, max.Z)
             };
+        }
+
+        /// <summary>
+        /// 出图用截面外轮廓：圆管用 48 边形逼近，保证投影后两端是平滑圆弧而不是 12 面棱柱的折线端面。
+        /// </summary>
+        private static List<Point2d> GetDrawingOutlinePoints(SectionProfile sec)
+        {
+            if (sec == null) return new List<Point2d>();
+
+            if (sec.Shape == SectionShapeType.PipeTube)
+            {
+                double r = Math.Max(6.0, sec.H * 0.5);
+                const int segments = 48;
+                var pts = new List<Point2d>(segments);
+                for (int i = 0; i < segments; i++)
+                {
+                    double a = 2.0 * Math.PI * i / segments;
+                    pts.Add(new Point2d(r * Math.Cos(a), r * Math.Sin(a)));
+                }
+                return pts;
+            }
+
+            return SectionSolidBuilder.GetProfileOuterPoints(sec);
         }
 
         private static List<Point2d> ConvexHull(List<Point2d> points)
@@ -825,7 +815,6 @@ namespace SteelStructureSuite.Services.Drawing
             SteelStructureParams p,
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             Dictionary<string, int> roleToPartNo,
-            AutoCadSolprof.SolprofView profile,
             Point3d viewBase,
             Func<Point3d, Point2d> proj2d,
             Func<Point3d, double> depthFunc,
@@ -896,19 +885,39 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewY = 0; maxViewY = nominalH;
             }
 
-            if (profile == null || !profile.HasGeometry)
-                throw new InvalidOperationException(viewTitle + "：AutoCAD SOLPROF 没有生成轮廓线。");
+            // 二维工程符号出图：构件本体用真实截面/双线符号绘制，被钢板等实心件遮住的部分走虚线。
+            // 不依赖布局视口与 SOLPROF，任何图面位置都能稳定生成。
+            var sorted = isPlanView
+                ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
+                : boxes.OrderBy(b => b.MinDepth).ToList();
 
-            if (profile.TryGetBounds(out double profileMinX, out double profileMaxX, out double profileMinY, out double profileMaxY))
+            for (int i = 0; i < sorted.Count; i++)
             {
-                minViewX = profileMinX;
-                maxViewX = profileMaxX;
-                minViewY = profileMinY;
-                maxViewY = profileMaxY;
-            }
+                var cur = sorted[i];
+                bool isOccluded = false;
+                Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
 
-            double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
-            profile.Draw(tr, ms, viewBase, LayerVisible, LayerHidden, Math.Max(8.0, paperScale * 6.0));
+                for (int j = 0; j < i; j++)
+                {
+                    var front = sorted[j];
+                    bool strictlyBehind = isPlanView
+                        ? (front.MinDepth > cur.MaxDepth + 5.0)
+                        : (front.MaxDepth < cur.MinDepth - 5.0);
+
+                    // 只有后方构件中心被前方实心钢板（如平台铺板）完全覆盖时才转为虚线
+                    if (strictlyBehind && front.IsPlate &&
+                        curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
+                        curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
+                    {
+                        isOccluded = true;
+                        break;
+                    }
+                }
+
+                DrawOrthographicPart2D(
+                    tr, ms, viewBase, cur, proj2d,
+                    isOccluded ? LayerHidden : LayerVisible);
+            }
 
             GetDesignDimensionTicks(
                 p, minViewX, maxViewX, minViewY, maxViewY,
@@ -976,7 +985,7 @@ namespace SteelStructureSuite.Services.Drawing
                 {
                     // 端视截面（例如平面图中的立柱、立面图中的垂直横梁）：直接绘制真实型钢外轮廓（H型钢工字形、槽钢C形等）
                     SectionSolidBuilder.GetMemberAxes(axis3d, out Vector3d xDir, out Vector3d yDir, out _);
-                    List<Point2d> outline = SectionSolidBuilder.GetProfileOuterPoints(part.Section);
+                    List<Point2d> outline = GetDrawingOutlinePoints(part.Section);
                     var endProfile2d = new List<Point2d>(outline.Count);
                     foreach (Point2d p2 in outline)
                     {
@@ -1462,7 +1471,6 @@ namespace SteelStructureSuite.Services.Drawing
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             List<MemberPartBillItem> billItems,
             Dictionary<string, int> roleToPartNo,
-            AutoCadSolprof.SolprofView profile,
             Point3d isoBase,
             DrawingGenerationOptions options,
             ObjectId textStyleId,
@@ -1474,6 +1482,13 @@ namespace SteelStructureSuite.Services.Drawing
             double minIsoY = double.MaxValue, maxIsoY = double.MinValue;
 
             var isoParts = new List<IsoPart2D>();
+            var partExtents = new List<KeyValuePair<SteelStructureBuilder.SolidMemberPart, Extents3d>>();
+            foreach (var item in parts3d)
+            {
+                if (item?.Solid == null || item.Solid.IsDisposed) continue;
+                try { partExtents.Add(new KeyValuePair<SteelStructureBuilder.SolidMemberPart, Extents3d>(item, item.Solid.GeometricExtents)); }
+                catch { }
+            }
 
             foreach (var part in parts3d)
             {
@@ -1491,9 +1506,9 @@ namespace SteelStructureSuite.Services.Drawing
                     double maxY = samplePts.Max(pt => pt.Y);
 
                     Extents3d ext = part.Solid.GeometricExtents;
-                    double depth = (ext.MinPoint.X + ext.MaxPoint.X +
-                                    ext.MinPoint.Y + ext.MaxPoint.Y +
-                                    ext.MinPoint.Z + ext.MaxPoint.Z) * 0.5;
+                    Point3d center = ext.MinPoint + (ext.MaxPoint - ext.MinPoint) * 0.5;
+                    // 观察者在 (-X,-Y,+Z) 方向：数值越小越远，按由远到近绘制。
+                    double depth = TowardCameraDepth(center);
 
                     Point3d anchor3d;
                     if (part.PathPoints != null && part.PathPoints.Count >= 2)
@@ -1513,6 +1528,11 @@ namespace SteelStructureSuite.Services.Drawing
                         PartNo = partNo,
                         Hull = hull,
                         Anchor2D = anchor2d,
+                        NearEndExposed = part.Section != null && !part.IsPlate &&
+                            IsEndExposed(partExtents, part,
+                                TowardCameraDepth(part.StartPt) >= TowardCameraDepth(part.EndPt)
+                                    ? part.StartPt
+                                    : part.EndPt),
                         MinX = minX,
                         MaxX = maxX,
                         MinY = minY,
@@ -1533,17 +1553,11 @@ namespace SteelStructureSuite.Services.Drawing
                 minIsoX = 0; maxIsoX = p.Span;
                 minIsoY = 0; maxIsoY = p.Height;
             }
-            if (profile == null || !profile.HasGeometry)
-                throw new InvalidOperationException("轴测图：AutoCAD SOLPROF 没有生成轮廓线。");
 
-            double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
-            profile.Draw(tr, ms, isoBase, LayerVisible, LayerHidden, Math.Max(8.0, paperScale * 6.0));
-            if (profile.TryGetBounds(out double profileMinX, out double profileMaxX, out double profileMinY, out double profileMaxY))
+            // 三维模型 → 轴测投影 → 平面压平：由远到近逐件绘制，前方构件自然压住后方构件。
+            foreach (IsoPart2D cur in isoParts.OrderBy(x => x.Depth))
             {
-                minIsoX = profileMinX;
-                maxIsoX = profileMaxX;
-                minIsoY = profileMinY;
-                maxIsoY = profileMaxY;
+                DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
             }
 
             if (options.IncludeLeaderAnnotations && isoParts.Count > 0)
@@ -1640,57 +1654,62 @@ namespace SteelStructureSuite.Services.Drawing
                 return;
             }
 
-            // 2. 直杆型钢构件：绘制外包轮廓 + 端部截面 + 内部三维纵向特征棱线
+            // 2. 直杆型钢构件：绘制外包轮廓 + 端部截面
             Vector3d axis = part.EndPt - part.StartPt;
             if (part.Section != null && !part.IsPlate && axis.Length > 1.0)
             {
                 DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
 
+                // 圆钢管：轴测投影就是“两条外切母线 + 两端平滑圆弧”，只保留这一条纯净外轮廓。
+                // 不再产生任何棱柱母线、端面切片圆环或相切接缝。
+                if (part.Section.Shape == SectionShapeType.PipeTube) return;
+
+                // 端部埋进其他构件（焊接接头）时不画端面，避免接头处堆叠出不存在的截面线。
+                if (!isoPart.NearEndExposed) return;
+
                 SectionSolidBuilder.GetMemberAxes(axis, out Vector3d xDir, out Vector3d yDir, out _);
-                double hx = part.Section.B * 0.5;
-                double hy = part.Section.H * 0.5;
 
-                Point3d[] boxCornersStart =
-                {
-                    part.StartPt - xDir * hx - yDir * hy,
-                    part.StartPt + xDir * hx - yDir * hy,
-                    part.StartPt + xDir * hx + yDir * hy,
-                    part.StartPt - xDir * hx + yDir * hy
-                };
-                Point3d[] boxCornersEnd =
-                {
-                    part.EndPt - xDir * hx - yDir * hy,
-                    part.EndPt + xDir * hx - yDir * hy,
-                    part.EndPt + xDir * hx + yDir * hy,
-                    part.EndPt - xDir * hx + yDir * hy
-                };
+                // 只画靠近观察者的那个端面，并且用真实型钢截面（H 形 / C 形 / 角钢 / 方矩管）而不是包围盒四边形
+                Point3d nearEnd = TowardCameraDepth(part.StartPt) >= TowardCameraDepth(part.EndPt)
+                    ? part.StartPt
+                    : part.EndPt;
 
-                // 绘制最靠近观察者的前向纵向棱边，赋予轴测图真实的三维立体感
-                int frontCornerIdx = 0;
-                double minCornerDepth = double.MaxValue;
-                for (int k = 0; k < 4; k++)
-                {
-                    Point3d midCorner = boxCornersStart[k] + (boxCornersEnd[k] - boxCornersStart[k]) * 0.5;
-                    double d = -(midCorner.X + midCorner.Y) + midCorner.Z * 0.35;
-                    if (d < minCornerDepth)
-                    {
-                        minCornerDepth = d;
-                        frontCornerIdx = k;
-                    }
-                }
-
-                Point2d cStart2d = isoProj(boxCornersStart[frontCornerIdx]);
-                Point2d cEnd2d = isoProj(boxCornersEnd[frontCornerIdx]);
-                AppendLine2D(tr, ms, isoBase, cStart2d.X, cStart2d.Y, cEnd2d.X, cEnd2d.Y, layer);
-
-                // 绘制端盖轮廓
-                var endCap = boxCornersEnd.Select(isoProj).ToList();
-                DrawClosedPolyline2D(tr, ms, isoBase, endCap, layer);
+                List<Point2d> outline = GetDrawingOutlinePoints(part.Section);
+                var endProfile = new List<Point2d>(outline.Count);
+                foreach (Point2d p2 in outline)
+                    endProfile.Add(isoProj(nearEnd + xDir * p2.X + yDir * p2.Y));
+                DrawClosedPolyline2D(tr, ms, isoBase, endProfile, layer);
                 return;
             }
 
             // 3. 钢板与其它实心构件
             DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+        }
+
+        private static double TowardCameraDepth(Point3d pt) => -pt.X - pt.Y + pt.Z;
+
+        /// <summary>
+        /// 判断杆件端部是否真正外露：若端点落在其他构件的包围盒内，说明是焊接接头，不画端面轮廓。
+        /// </summary>
+        private static bool IsEndExposed(
+            List<KeyValuePair<SteelStructureBuilder.SolidMemberPart, Extents3d>> partExtents,
+            SteelStructureBuilder.SolidMemberPart self,
+            Point3d endPt)
+        {
+            const double eps = 6.0;
+            foreach (var kv in partExtents)
+            {
+                if (ReferenceEquals(kv.Key, self)) continue;
+                Extents3d ext = kv.Value;
+
+                if (endPt.X >= ext.MinPoint.X - eps && endPt.X <= ext.MaxPoint.X + eps &&
+                    endPt.Y >= ext.MinPoint.Y - eps && endPt.Y <= ext.MaxPoint.Y + eps &&
+                    endPt.Z >= ext.MinPoint.Z - eps && endPt.Z <= ext.MaxPoint.Z + eps)
+                {
+                    return false;
+                }
+            }
+            return true;
         }
 
         /// <summary>

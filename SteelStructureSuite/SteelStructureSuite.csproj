@@ -57,7 +57,6 @@
     <Compile Include="Services\Takeoff\MaterialTakeoffService.cs" />
     <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
     <Compile Include="Services\Settings\UserSettings.cs" />
-    <Compile Include="Services\Drawing\AutoCadSolprof.cs" />
     <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
     <Compile Include="Services\Drawing\DwgExchangeService.cs" />
 

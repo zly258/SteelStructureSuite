@@ -304,7 +304,10 @@ namespace SteelStructureSuite.Views
                 Point3d insertPt = ppr.Value;
                 RunInCommandContext(doc, () =>
                 {
-                    SteelHlrDrawingService.GenerateDetailDrawingSheet(doc.Database, parms, insertPt, options);
+                    using (DocumentLock dl = doc.LockDocument())
+                    {
+                        SteelHlrDrawingService.GenerateDetailDrawingSheet(doc.Database, parms, insertPt, options);
+                    }
                     doc.Editor.WriteMessage("\n[SteelStructureSuite] " + "详图已写入当前图。\n");
                 });
             }
