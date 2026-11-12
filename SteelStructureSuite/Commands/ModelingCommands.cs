@@ -317,25 +317,36 @@ namespace SteelStructureSuite.Commands
             Editor ed = doc.Editor;
             Database db = doc.Database;
 
-            // 预选了多个构件就用预选集；否则单击一个构件立即出图，不再弹选择框与设置窗。
-            List<SteelStructureParams> picked = CollectParametricStructures(ed, db, promptSelection: false);
-            ObjectId clickedId = ObjectId.Null;
-            if (picked.Count == 0)
+            // 只允许单选：优先用预选集中的唯一构件，否则单击拾取，并校验确实是本插件的参数化钢结构。
+            SteelStructureParams picked = null;
+            List<SteelStructureParams> implied = CollectParametricStructures(ed, db, promptSelection: false);
+            if (implied.Count == 1)
             {
-                PromptEntityResult per = ed.GetEntity("\n请单击要出图的钢结构: ");
-                if (per.Status != PromptStatus.OK) return;
-
-                SteelStructureParams single = ReadStructureParams(db, per.ObjectId);
-                if (single == null)
-                {
-                    ed.WriteMessage("\n该对象不是带参数的钢结构，出图已取消。\n");
-                    return;
-                }
-                picked.Add(single);
-                clickedId = per.ObjectId;
+                picked = implied[0];
+            }
+            else if (implied.Count > 1)
+            {
+                ed.WriteMessage("\n[SteelStructureSuite] 出图仅支持单个构件，已忽略多选。\n");
             }
 
-            DrawingGenerationOptions options = SteelHlrDrawingService.LoadLastDrawingOptions(picked[0]);
+            for (int attempt = 0; picked == null && attempt < 3; attempt++)
+            {
+                string prompt = attempt == 0
+                    ? "\n请单击要出图的钢结构（仅一个）: "
+                    : "\n该对象不是带参数的钢结构，请重新单击: ";
+                PromptEntityResult per = ed.GetEntity(prompt);
+                if (per.Status != PromptStatus.OK) return;
+                picked = ReadStructureParams(db, per.ObjectId);
+            }
+            if (picked == null)
+            {
+                ed.WriteMessage("\n[SteelStructureSuite] 未选择到有效的参数化钢结构，出图已取消。\n");
+                return;
+            }
+
+            var cfgWin = new DrawingConfigWindow(picked);
+            if (Application.ShowModalWindow(cfgWin) != true) return;
+            DrawingGenerationOptions options = cfgWin.Options;
 
             if (options.OutputToNewDwgFile)
             {
@@ -351,7 +362,7 @@ namespace SteelStructureSuite.Commands
                 }
 
                 string savedPath = SteelHlrDrawingService.NormalizeDwgPath(savePath);
-                ed.WriteMessage($"\n[SteelStructureSuite] 已将 {picked.Count} 个构件写入详图：{savedPath}\n");
+                ed.WriteMessage($"\n[SteelStructureSuite] 详图已写入：{savedPath}\n");
 
                 if (options.OpenNewDwgAfterSave && File.Exists(savedPath))
                 {
@@ -367,24 +378,15 @@ namespace SteelStructureSuite.Commands
             }
             else
             {
-                // 单击出图时图框自动放在构件右侧；预选多个构件时仍由用户指定插入点。
-                Point3d insertPt;
-                if (clickedId != ObjectId.Null)
-                {
-                    insertPt = AutoSheetInsertPoint(db, clickedId);
-                }
-                else
-                {
-                    PromptPointResult ppr = ed.GetPoint("\n请在当前图面空白区域拾取标准图框左下角插入点: ");
-                    if (ppr.Status != PromptStatus.OK) return;
-                    insertPt = ppr.Value;
-                }
+                PromptPointResult ppr = ed.GetPoint("\n请在当前图面空白区域拾取标准图框左下角插入点: ");
+                if (ppr.Status != PromptStatus.OK) return;
+                Point3d insertPt = ppr.Value;
 
                 try
                 {
                     using (DocumentLock dl = doc.LockDocument())
                     {
-                        SteelHlrDrawingService.GenerateDetailDrawingSheet(db, picked, insertPt, options);
+                        SteelHlrDrawingService.GenerateDetailDrawingSheet(db, new[] { picked }, insertPt, options);
                     }
                 }
                 catch (System.Exception ex)
@@ -393,7 +395,7 @@ namespace SteelStructureSuite.Commands
                     return;
                 }
 
-                ed.WriteMessage($"\n[SteelStructureSuite] 已生成 {options.SheetSizeName} 详图（图框左下角 {insertPt.X:0.##},{insertPt.Y:0.##}），可用 MOVE 调整位置。\n");
+                ed.WriteMessage($"\n[SteelStructureSuite] 已生成 {options.SheetSizeName} 详图（图框左下角 {insertPt.X:0.##},{insertPt.Y:0.##}）。\n");
             }
         }
 
@@ -428,27 +430,6 @@ namespace SteelStructureSuite.Commands
             {
             }
             return null;
-        }
-
-        /// <summary>单击出图时把图框自动放到构件右侧，留出 60% 构件宽度的间距。</summary>
-        private static Point3d AutoSheetInsertPoint(Database db, ObjectId id)
-        {
-            try
-            {
-                using (Transaction tr = db.TransactionManager.StartTransaction())
-                {
-                    if (tr.GetObject(id, OpenMode.ForRead) is Entity ent)
-                    {
-                        Extents3d ext = ent.GeometricExtents;
-                        double span = Math.Max(ext.MaxPoint.X - ext.MinPoint.X, 1000.0);
-                        return new Point3d(ext.MaxPoint.X + span * 0.6 + 1200.0, ext.MinPoint.Y, 0);
-                    }
-                }
-            }
-            catch
-            {
-            }
-            return Point3d.Origin;
         }
 
         private static List<SteelStructureParams> CollectParametricStructures(Editor ed, Database db, bool promptSelection = true)

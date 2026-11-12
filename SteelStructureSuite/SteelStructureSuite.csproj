@@ -197,6 +197,10 @@
       <HintPath>$(AutoCADDir)\AdWindows.dll</HintPath>
       <Private>False</Private>
     </Reference>
+    <Reference Include="acdbmgdbrep">
+      <HintPath>$(AutoCADDir)\acdbmgdbrep.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
   </ItemGroup>
 
 </Project>

@@ -12,6 +12,7 @@ using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Modeling;
 using SteelStructureSuite.Services.Settings;
+using AcBr = Autodesk.AutoCAD.BoundaryRepresentation;
 
 namespace SteelStructureSuite.Services.Drawing
 {
@@ -358,6 +359,166 @@ namespace SteelStructureSuite.Services.Drawing
             return (double)hit / samples.Count;
         }
 
+        /// <summary>三维实体的真实拓扑边线（含相邻面法向，供背面剔除）。</summary>
+        private class SolidEdgePoly
+        {
+            public List<Point3d> Points;
+            public List<Vector3d> FaceNormals;
+        }
+
+        /// <summary>
+        /// 用 AutoCAD 原生 AcBr 边界表示读取实体的原拓扑边线，保留相邻面法向用于背面剔除。
+        /// 每个构件只读取一次，四视图共用；不把临时实体 Explode 成面，避免 ACIS 生命周期问题。
+        /// </summary>
+        private static Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> BuildRealEdgeCache(
+            List<SteelStructureBuilder.SolidMemberPart> parts)
+        {
+            var cache = new Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>>();
+            if (parts == null) return cache;
+
+            foreach (var part in parts)
+            {
+                if (part?.Solid == null || part.Solid.IsDisposed) continue;
+                var edges = new List<SolidEdgePoly>();
+                try { CollectSolidEdges(part.Solid, edges); }
+                catch { }
+                if (edges.Count > 0) cache[part] = edges;
+            }
+            return cache;
+        }
+
+        private static void CollectSolidEdges(Solid3d solid, List<SolidEdgePoly> result)
+        {
+            AcBr.Brep brep;
+            try { brep = new AcBr.Brep(solid); }
+            catch { return; }
+
+            foreach (AcBr.Edge edge in brep.Edges)
+            {
+                Curve3d curve = null;
+                try { curve = edge.Curve; }
+                catch { }
+                if (curve == null) continue;
+
+                List<Point3d> pts = SampleCurve3D(curve);
+                if (pts == null || pts.Count < 2) continue;
+
+                Point3d mid = pts[pts.Count / 2];
+                var normals = new List<Vector3d>();
+                int loopCount = 0;
+                try
+                {
+                    foreach (AcBr.BoundaryLoop loop in edge.Loops)
+                    {
+                        loopCount++;
+                        Vector3d normal;
+                        if (TryGetFaceNormal(loop.Face, mid, out normal))
+                            normals.Add(normal);
+                    }
+                }
+                catch { }
+
+                // 单环边通常是回转面的接缝；相邻面法向一致的边是相切边，均不是二维制图需要表达的棱线。
+                if (loopCount < 2) continue;
+                bool smooth = normals.Count >= 2;
+                for (int i = 1; i < normals.Count; i++)
+                {
+                    if (normals[0].DotProduct(normals[i]) < 0.995)
+                    {
+                        smooth = false;
+                        break;
+                    }
+                }
+                if (smooth) continue;
+
+                result.Add(new SolidEdgePoly { Points = pts, FaceNormals = normals });
+            }
+        }
+
+        private static bool TryGetFaceNormal(
+            AcBr.Face face,
+            Point3d pointOnEdge,
+            out Vector3d normal)
+        {
+            normal = Vector3d.ZAxis;
+            if (face?.Surface == null) return false;
+            try
+            {
+                Point2d uv = face.Surface.ParameterOf(pointOnEdge);
+                var derivatives = new Vector3dCollection();
+                face.Surface.EvaluatePoint(uv, 1, ref derivatives, ref normal);
+                if (normal.Length < 1e-9) return false;
+                normal = normal.GetNormal();
+                if (!face.IsOrientToSurface) normal = -normal;
+                return true;
+            }
+            catch
+            {
+                return false;
+            }
+        }
+
+        private static List<Point3d> SampleCurve3D(Curve3d curve)
+        {
+            var pts = new List<Point3d>();
+            if (curve is LineSegment3d line)
+            {
+                pts.Add(line.StartPoint);
+                pts.Add(line.EndPoint);
+                return pts;
+            }
+
+            Interval span = curve.GetInterval();
+            double len = curve.GetLength(span.LowerBound, span.UpperBound, 0.01);
+
+            if (len <= 1e-6)
+            {
+                try { pts.Add(curve.StartPoint); pts.Add(curve.EndPoint); } catch { }
+                return pts;
+            }
+
+            int n = Math.Max(8, Math.Min(72, (int)(len / 40.0) + 8));
+            for (int i = 0; i <= n; i++)
+            {
+                try { pts.Add(curve.EvaluatePoint(span.LowerBound + (span.UpperBound - span.LowerBound) * i / n)); }
+                catch { }
+            }
+            return pts;
+        }
+
+        /// <summary>把真实边线按视图投影加入线段收集器；返回是否成功取到边线。</summary>
+        private static bool AddRealEdges(
+            LineBatch batch,
+            SteelStructureBuilder.SolidMemberPart part,
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> cache,
+            Func<Point3d, Point2d> proj,
+            Vector3d towardCamera)
+        {
+            if (part == null || cache == null || !cache.TryGetValue(part, out List<SolidEdgePoly> edges))
+                return false;
+
+            bool any = false;
+            foreach (SolidEdgePoly edge in edges)
+            {
+                // 背面剔除：一条拓扑边只要有一个相邻面朝向观察者就可见（前表面边或轮廓边）。
+                if (edge.FaceNormals != null && edge.FaceNormals.Count > 0)
+                {
+                    bool frontFacing = false;
+                    foreach (Vector3d normal in edge.FaceNormals)
+                    {
+                        if (normal.DotProduct(towardCamera) >= -0.02) { frontFacing = true; break; }
+                    }
+                    if (!frontFacing) continue;
+                }
+
+                var pts2 = new List<Point2d>(edge.Points.Count);
+                foreach (Point3d pt in edge.Points) pts2.Add(proj(pt));
+                batch.AddPolyline(pts2, false);
+                any = true;
+            }
+            return any;
+        }
+
         public static void GenerateDetailDrawingToNewDwgFile(
             SteelStructureParams p,
             string saveDwgPath,
@@ -374,71 +535,6 @@ namespace SteelStructureSuite.Services.Drawing
                 GenerateDetailDrawingSheet(newDb, p, Point3d.Origin, options);
                 SaveDatabaseToDwg(newDb, normalizedPath);
             }
-        }
-
-        private static readonly string[] SettingSheetNames = { "A1", "A2", "A3", "A4" };
-        private static readonly double[] SettingScaleValues =
-        {
-            1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 75.0, 100.0, 150.0, 200.0
-        };
-
-        /// <summary>
-        /// 读取上一次在“出图设置”中保存的选项，供单击出图直接使用（不再弹设置窗）。
-        /// </summary>
-        public static DrawingGenerationOptions LoadLastDrawingOptions(SteelStructureParams p)
-        {
-            var options = new DrawingGenerationOptions();
-            try
-            {
-                int sheetIdx = UserSettings.GetInt("Drawing.SheetSizeIndex", 1);
-                options.SheetSizeName = (sheetIdx >= 0 && sheetIdx < SettingSheetNames.Length)
-                    ? SettingSheetNames[sheetIdx]
-                    : "A2";
-
-                int scaleIdx = UserSettings.GetInt("Drawing.ScaleIndex", 0);
-                options.AutoScale = scaleIdx <= 0;
-                options.DrawingScale = (scaleIdx >= 1 && scaleIdx - 1 < SettingScaleValues.Length)
-                    ? SettingScaleValues[scaleIdx - 1]
-                    : 20.0;
-
-                options.IncludeFrontView = UserSettings.GetBool("Drawing.FrontView", true);
-                options.IncludeSideView = UserSettings.GetBool("Drawing.SideView", true);
-                options.IncludePlanView = UserSettings.GetBool("Drawing.PlanView", true);
-                options.IncludeIsoView = UserSettings.GetBool("Drawing.IsoView", true);
-                options.IncludeAutoDimensions = UserSettings.GetBool("Drawing.Dimensions", true);
-                options.IncludeLeaderAnnotations = UserSettings.GetBool("Drawing.Leaders", true);
-                options.IncludeEmbeddedBomTable = UserSettings.GetBool("Drawing.Bom", true);
-
-                options.OutputToNewDwgFile = UserSettings.GetBool("Drawing.OutputToNewDwg", false);
-                options.OpenNewDwgAfterSave = UserSettings.GetBool("Drawing.OpenAfterSave", true);
-                if (options.OutputToNewDwgFile && p != null)
-                {
-                    string folder = UserSettings.GetString("Drawing.LastDwgFolder", string.Empty);
-                    if (string.IsNullOrEmpty(folder))
-                        folder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
-                    string name = SafeFilePart(p.Tag) + "_" + SafeFilePart(p.StructureTypeDisplayName) + ".dwg";
-                    options.NewDwgFilePath = Path.Combine(folder, name);
-                }
-            }
-            catch
-            {
-                // 读取失败时沿用默认值，不影响出图。
-            }
-            return options;
-        }
-
-        private static string SafeFilePart(string text)
-        {
-            if (string.IsNullOrWhiteSpace(text)) return "详图";
-            var sb = new System.Text.StringBuilder(text.Length);
-            foreach (char ch in text)
-            {
-                if (char.IsControl(ch)) continue;
-                if ("< > : \"/ \\ | ? *".IndexOf(ch) >= 0) continue;
-                sb.Append(ch);
-            }
-            string result = sb.ToString().Trim().TrimEnd('.');
-            return result.Length == 0 ? "详图" : result;
         }
 
         private static void GetStandardSheetPaperMm(string sheetName, out double paperW, out double paperH)
@@ -612,6 +708,10 @@ namespace SteelStructureSuite.Services.Drawing
 
             Dictionary<string, int> roleToPartNo = MapRoleToPartNo(parts3d, billItems);
 
+            // 三维实体 → 真实边线缓存（每个构件只打散一次，四个视图共用）。
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> edgeCache =
+                BuildRealEdgeCache(parts3d);
+
             bool hasFront = options.IncludeFrontView;
             bool hasSide = options.IncludeSideView;
             bool hasPlan = options.IncludePlanView;
@@ -713,8 +813,9 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - frontH) * 0.5;
                         Point3d viewBase = new Point3d(frontX - frontBounds.MinX, slotY - frontBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, edgeCache, viewBase,
                             frontProj, pt => pt.Y, "正立面图",
+                            new Vector3d(0, -1, 0),
                             frontBounds.Width, frontBounds.Height,
                             isFrontView: true, isSideView: false, isPlanView: false,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
@@ -727,8 +828,9 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - sideH) * 0.5;
                         Point3d viewBase = new Point3d(sideX - sideBounds.MinX, slotY - sideBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, edgeCache, viewBase,
                             sideProj, pt => pt.X, "侧立面图",
+                            new Vector3d(1, 0, 0),
                             sideBounds.Width, sideBounds.Height,
                             isFrontView: false, isSideView: true, isPlanView: false,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
@@ -743,8 +845,9 @@ namespace SteelStructureSuite.Services.Drawing
                         if (planBottom < minPlanBottom) planBottom = minPlanBottom;
                         Point3d planBase = new Point3d(planLeft - planBounds.MinX, planBottom - planBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, planBase,
+                            tr, ms, p, parts3d, roleToPartNo, edgeCache, planBase,
                             planProj, pt => pt.Z, "平面图",
+                            new Vector3d(0, 0, 1),
                             planBounds.Width, planBounds.Height,
                             isFrontView: false, isSideView: false, isPlanView: true,
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
@@ -773,7 +876,7 @@ namespace SteelStructureSuite.Services.Drawing
 
                         Point3d isoBase = new Point3d(isoLeft - isoBounds.MinX, isoBottom - isoBounds.MinY, 0);
                         DrawIsometricHlrView(
-                            tr, ms, p, parts3d, bomRows, roleToPartNo, isoBase,
+                            tr, ms, p, parts3d, bomRows, roleToPartNo, edgeCache, isoBase,
                             options, simSunTextStyleId, textH);
                     }
 
@@ -1231,10 +1334,12 @@ namespace SteelStructureSuite.Services.Drawing
             SteelStructureParams p,
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             Dictionary<string, int> roleToPartNo,
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> edgeCache,
             Point3d viewBase,
             Func<Point3d, Point2d> proj2d,
             Func<Point3d, double> depthFunc,
             string viewTitle,
+            Vector3d towardCamera,
             double nominalW,
             double nominalH,
             bool isFrontView,
@@ -1331,7 +1436,7 @@ namespace SteelStructureSuite.Services.Drawing
                 if (cur.IsPlate && batch.Occluders.Count > 0 && HullCoveredRatio(cur.Hull, batch.Occluders) >= 0.92)
                     continue;
 
-                DrawOrthographicPart2D(batch, cur, proj2d);
+                DrawOrthographicPart2D(batch, cur, proj2d, edgeCache, towardCamera);
             }
 
             batch.Emit(tr, ms, viewBase, textH);
@@ -1370,7 +1475,9 @@ namespace SteelStructureSuite.Services.Drawing
         private static void DrawOrthographicPart2D(
             LineBatch batch,
             ProjectedPart2D projPart,
-            Func<Point3d, Point2d> proj2d)
+            Func<Point3d, Point2d> proj2d,
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> edgeCache,
+            Vector3d towardCamera)
         {
             var part = projPart.SourcePart;
             if (part == null)
@@ -1388,6 +1495,22 @@ namespace SteelStructureSuite.Services.Drawing
                     batch.Add(new Point2d(projPart.MinX, midY), new Point2d(projPart.MaxX, midY));
                 else
                     batch.Add(new Point2d(midX, projPart.MinY), new Point2d(midX, projPart.MaxY));
+                return;
+            }
+
+            bool isPipe = part.Section != null && part.Section.Shape == SectionShapeType.PipeTube;
+            if (isPipe && part.PathPoints != null && part.PathPoints.Count >= 2)
+            {
+                DrawSweptPathMember2D(batch, part, proj2d);
+                return;
+            }
+
+            // 优先使用实体打散后的真实边线（原来的外形），投影压平后逐段输出。
+            if (AddRealEdges(batch, part, edgeCache, proj2d, towardCamera))
+            {
+                // 圆管的素线（相切母线）不是真实棱线，用投影外轮廓补齐两条平滑母线。
+                if (isPipe)
+                    batch.AddPolyline(projPart.Hull, true);
                 return;
             }
 
@@ -1894,6 +2017,7 @@ namespace SteelStructureSuite.Services.Drawing
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             List<MemberPartBillItem> billItems,
             Dictionary<string, int> roleToPartNo,
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> edgeCache,
             Point3d isoBase,
             DrawingGenerationOptions options,
             ObjectId textStyleId,
@@ -1979,9 +2103,10 @@ namespace SteelStructureSuite.Services.Drawing
 
             // 三维模型 → 轴测投影 → 平面压平：由远到近逐件入列，最后统一合并落笔。
             var isoBatch = new LineBatch();
+            Vector3d isoCamera = new Vector3d(-1, -1, 1).GetNormal();
             foreach (IsoPart2D cur in isoParts.OrderBy(x => x.Depth))
             {
-                DrawIsoMember2D(isoBatch, cur, isoProj);
+                DrawIsoMember2D(isoBatch, cur, isoProj, edgeCache, isoCamera);
             }
             isoBatch.Emit(tr, ms, isoBase, textH);
 
@@ -2059,12 +2184,29 @@ namespace SteelStructureSuite.Services.Drawing
         private static void DrawIsoMember2D(
             LineBatch batch,
             IsoPart2D isoPart,
-            Func<Point3d, Point2d> isoProj)
+            Func<Point3d, Point2d> isoProj,
+            Dictionary<SteelStructureBuilder.SolidMemberPart, List<SolidEdgePoly>> edgeCache,
+            Vector3d towardCamera)
         {
             var part = isoPart.SourcePart;
             if (part == null)
             {
                 batch.AddPolyline(isoPart.Hull, true);
+                return;
+            }
+
+            bool isPipe = part.Section != null && part.Section.Shape == SectionShapeType.PipeTube;
+            if (isPipe && part.PathPoints != null && part.PathPoints.Count >= 2)
+            {
+                DrawSweptPathMember2D(batch, part, isoProj);
+                return;
+            }
+
+            // 真实边线投影（背面剔除），再补圆管的平滑外轮廓母线。
+            if (AddRealEdges(batch, part, edgeCache, isoProj, towardCamera))
+            {
+                if (isPipe)
+                    batch.AddPolyline(isoPart.Hull, true);
                 return;
             }
 

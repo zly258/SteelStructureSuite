@@ -32,7 +32,7 @@ namespace SteelStructureSuite.Views
 
 4. 材料统计与标准 A1~A4 图框详图
    - 材料统计 (SS_BOM)：导出双工作表 Excel (.xlsx) 或插入 CAD 表。
-   - 施工详图 (SS_DRAWING)：单击一个构件立即出图，自动沿用上次出图设置与图框位置；也可先预选多个构件后执行，合成一张组合详图。
+   - 施工详图 (SS_DRAWING)：仅支持单个构件。先预选一个构件或按提示单击拾取，校验为带参数的钢构件后弹出出图设置窗；当前图输出时还需拾取标准图框左下角插入点。
    - 出图设置 (SS_DRAWCFG)：设置图幅、比例、各视图、输出方式（当前图或新建 DWG）。
    - 批量转 DXF (SS_DWG2DXF)：多选 DWG，按当前 AutoCAD 支持的版本批量导出 DXF。
    - 合并图纸 (SS_DWGMERGE)：按模型空间范围把多张 DWG 或 DXF 横向或纵向排入一个新图纸，输出也可选 DWG 或 DXF。";
