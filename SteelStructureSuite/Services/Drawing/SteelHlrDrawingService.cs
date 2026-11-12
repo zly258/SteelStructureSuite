@@ -11,6 +11,7 @@ using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Services.Drawing
 {
@@ -37,6 +38,7 @@ namespace SteelStructureSuite.Services.Drawing
             public double MaxY;
             public double MinDepth;
             public double MaxDepth;
+            public bool ThinPlate;
             public List<Point2d> Hull = new List<Point2d>();
         }
 
@@ -76,6 +78,286 @@ namespace SteelStructureSuite.Services.Drawing
             public int Side; // 0 左列, 1 右列
         }
 
+        /// <summary>
+        /// 视图线段收集器：先收集一个视图的全部线段，统一处理后一次性落笔。
+        /// 作用：
+        /// 1. 合并共线重叠线段，消除同一位置反复叠线；
+        /// 2. 按“前方构件轮廓”逐段判断遮挡，被挡住的段落直接画成虚线；
+        /// 3. 去掉被可见线完全覆盖的重复隐藏线。
+        /// </summary>
+        private class LineBatch
+        {
+            private struct Seg
+            {
+                public Point2d A;
+                public Point2d B;
+                public bool Hidden;
+            }
+
+            private readonly List<Seg> _segments = new List<Seg>();
+
+            /// <summary>当前构件的遮挡轮廓（由近到远，只包含严格位于其前方的构件）。</summary>
+            public List<List<Point2d>> Occluders { get; } = new List<List<Point2d>>();
+
+            public void Add(Point2d a, Point2d b)
+            {
+                double dx = b.X - a.X, dy = b.Y - a.Y;
+                double len = Math.Sqrt(dx * dx + dy * dy);
+                if (len < 1e-6) return;
+
+                bool hidden = Occluders.Count > 0 && IsMostlyOccluded(a, b, len);
+                _segments.Add(new Seg { A = a, B = b, Hidden = hidden });
+            }
+
+            public void AddPolyline(IList<Point2d> pts, bool closed)
+            {
+                if (pts == null || pts.Count < 2) return;
+                for (int i = 0; i + 1 < pts.Count; i++)
+                    Add(pts[i], pts[i + 1]);
+                if (closed && pts.Count >= 3)
+                    Add(pts[pts.Count - 1], pts[0]);
+            }
+
+            private bool IsMostlyOccluded(Point2d a, Point2d b, double len)
+            {
+                int samples = Math.Max(4, Math.Min(24, (int)(len / 40.0) + 1));
+                int hits = 0;
+                for (int i = 0; i < samples; i++)
+                {
+                    double t = (i + 0.5) / samples;
+                    var pt = new Point2d(a.X + (b.X - a.X) * t, a.Y + (b.Y - a.Y) * t);
+                    foreach (List<Point2d> hull in Occluders)
+                    {
+                        if (PointInPolygon(pt, hull)) { hits++; break; }
+                    }
+                }
+                return hits >= samples * 0.6;
+            }
+
+            /// <summary>合并共线重叠线段后落笔。</summary>
+            public void Emit(Transaction tr, BlockTableRecord ms, Point3d basePt, double textH)
+            {
+                if (_segments.Count == 0) return;
+
+                // 合并容差固定为 1mm：只合并真正重合/共线的重复段，不吞掉翼缘厚度线这类 6~12mm 的真实特征。
+                double tol = 1.0;
+                List<Seg> visible = Merge(_segments.Where(s => !s.Hidden), tol);
+                List<Seg> hidden = Merge(_segments.Where(s => s.Hidden), tol);
+                hidden = RemoveCovered(hidden, visible, tol);
+
+                foreach (Seg seg in visible)
+                    EmitSegment(tr, ms, basePt, seg, LayerVisible);
+                foreach (Seg seg in hidden)
+                    EmitSegment(tr, ms, basePt, seg, LayerHidden);
+            }
+
+            private static List<Seg> Merge(IEnumerable<Seg> src, double tol)
+            {
+                var groups = new Dictionary<string, List<Tuple<double, double, Seg>>>(StringComparer.Ordinal);
+                foreach (Seg seg in src)
+                {
+                    double t0, t1;
+                    string key = LineKey(seg.A, seg.B, tol, out t0, out t1);
+                    if (!groups.TryGetValue(key, out List<Tuple<double, double, Seg>> list))
+                    {
+                        list = new List<Tuple<double, double, Seg>>();
+                        groups[key] = list;
+                    }
+                    list.Add(Tuple.Create(Math.Min(t0, t1), Math.Max(t0, t1), seg));
+                }
+
+                var result = new List<Seg>();
+                foreach (var kv in groups)
+                {
+                    List<Tuple<double, double, Seg>> list = kv.Value
+                        .OrderBy(x => x.Item1)
+                        .ToList();
+
+                    Seg rep = list[0].Item3;
+                    double start = list[0].Item1;
+                    double end = list[0].Item2;
+                    for (int i = 1; i < list.Count; i++)
+                    {
+                        if (list[i].Item1 <= end + tol)
+                        {
+                            end = Math.Max(end, list[i].Item2);
+                            continue;
+                        }
+                        result.Add(Rebuild(rep, start, end, kv.Key));
+                        rep = list[i].Item3;
+                        start = list[i].Item1;
+                        end = list[i].Item2;
+                    }
+                    result.Add(Rebuild(rep, start, end, kv.Key));
+                }
+                return result;
+            }
+
+            private static Seg Rebuild(Seg source, double t0, double t1, string key)
+            {
+                string[] parts = key.Split('|');
+                Point2d a, b;
+
+                if (parts[0] == "H")
+                {
+                    double y = source.A.Y;
+                    a = new Point2d(t0, y);
+                    b = new Point2d(t1, y);
+                }
+                else if (parts[0] == "V")
+                {
+                    double x = source.A.X;
+                    a = new Point2d(x, t0);
+                    b = new Point2d(x, t1);
+                }
+                else
+                {
+                    double nx = double.Parse(parts[1], CultureInfo.InvariantCulture);
+                    double ny = double.Parse(parts[2], CultureInfo.InvariantCulture);
+                    double off = nx * source.A.Y - ny * source.A.X;
+                    a = new Point2d(t0 * nx - off * ny, t0 * ny + off * nx);
+                    b = new Point2d(t1 * nx - off * ny, t1 * ny + off * nx);
+                }
+                return new Seg { A = a, B = b, Hidden = source.Hidden };
+            }
+
+            private static string LineKey(Point2d a, Point2d b, double tol, out double t0, out double t1)
+            {
+                double dx = b.X - a.X, dy = b.Y - a.Y;
+                double len = Math.Sqrt(dx * dx + dy * dy);
+                double bucket = tol * 2.0;
+
+                if (Math.Abs(dy) <= tol)
+                {
+                    t0 = Math.Min(a.X, b.X);
+                    t1 = Math.Max(a.X, b.X);
+                    double y = (a.Y + b.Y) * 0.5;
+                    return "H|" + Math.Round(y / bucket).ToString(CultureInfo.InvariantCulture);
+                }
+                if (Math.Abs(dx) <= tol)
+                {
+                    t0 = Math.Min(a.Y, b.Y);
+                    t1 = Math.Max(a.Y, b.Y);
+                    double x = (a.X + b.X) * 0.5;
+                    return "V|" + Math.Round(x / bucket).ToString(CultureInfo.InvariantCulture);
+                }
+
+                double nx = dx / len, ny = dy / len;
+                if (nx < -1e-9 || (Math.Abs(nx) <= 1e-9 && ny < 0))
+                {
+                    nx = -nx; ny = -ny;
+                    Point2d tmp = a; a = b; b = tmp;
+                }
+                double off = nx * a.Y - ny * a.X;
+                t0 = a.X * nx + a.Y * ny;
+                t1 = b.X * nx + b.Y * ny;
+                if (t0 > t1) { double tmp = t0; t0 = t1; t1 = tmp; }
+                return "D|" + Math.Round(nx, 4).ToString(CultureInfo.InvariantCulture) +
+                       "|" + Math.Round(ny, 4).ToString(CultureInfo.InvariantCulture) +
+                       "|" + Math.Round(off / bucket).ToString(CultureInfo.InvariantCulture);
+            }
+
+            private static List<Seg> RemoveCovered(List<Seg> hidden, List<Seg> visible, double tol)
+            {
+                if (hidden.Count == 0 || visible.Count == 0) return hidden;
+
+                var visGroups = new Dictionary<string, List<Tuple<double, double>>>(StringComparer.Ordinal);
+                foreach (Seg seg in visible)
+                {
+                    double t0, t1;
+                    string key = LineKey(seg.A, seg.B, tol, out t0, out t1);
+                    if (!visGroups.TryGetValue(key, out List<Tuple<double, double>> list))
+                    {
+                        list = new List<Tuple<double, double>>();
+                        visGroups[key] = list;
+                    }
+                    list.Add(Tuple.Create(Math.Min(t0, t1), Math.Max(t0, t1)));
+                }
+
+                var kept = new List<Seg>();
+                foreach (Seg seg in hidden)
+                {
+                    double t0, t1;
+                    string key = LineKey(seg.A, seg.B, tol, out t0, out t1);
+                    if (!visGroups.TryGetValue(key, out List<Tuple<double, double>> list))
+                    {
+                        kept.Add(seg);
+                        continue;
+                    }
+                    double s = Math.Min(t0, t1), e = Math.Max(t0, t1);
+                    bool covered = list.Any(v => v.Item1 - tol <= s && v.Item2 + tol >= e);
+                    if (!covered) kept.Add(seg);
+                }
+                return kept;
+            }
+
+            private static void EmitSegment(
+                Transaction tr,
+                BlockTableRecord ms,
+                Point3d basePt,
+                Seg seg,
+                string layer)
+            {
+                Line ln = new Line(
+                    new Point3d(basePt.X + seg.A.X, basePt.Y + seg.A.Y, 0),
+                    new Point3d(basePt.X + seg.B.X, basePt.Y + seg.B.Y, 0));
+                ln.SetDatabaseDefaults(ms.Database);
+                ln.Layer = layer;
+                ln.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
+                if (layer == LayerHidden)
+                {
+                    double len = Math.Max(ln.Length, 80.0);
+                    ln.LinetypeScale = Math.Max(20.0, len / 14.0);
+                }
+                ms.AppendEntity(ln);
+                tr.AddNewlyCreatedDBObject(ln, true);
+            }
+        }
+
+        private static bool PointInPolygon(Point2d pt, IList<Point2d> poly)
+        {
+            if (poly == null || poly.Count < 3) return false;
+            bool inside = false;
+            for (int i = 0, j = poly.Count - 1; i < poly.Count; j = i++)
+            {
+                if (((poly[i].Y > pt.Y) != (poly[j].Y > pt.Y)) &&
+                    (pt.X < (poly[j].X - poly[i].X) * (pt.Y - poly[i].Y) / (poly[j].Y - poly[i].Y) + poly[i].X))
+                {
+                    inside = !inside;
+                }
+            }
+            return inside;
+        }
+
+        /// <summary>估算一个轮廓有多大比例被遮挡：取顶点、边中点和形心作为采样点。</summary>
+        private static double HullCoveredRatio(IList<Point2d> hull, IList<List<Point2d>> occluders)
+        {
+            if (hull == null || hull.Count < 3 || occluders == null || occluders.Count == 0) return 0.0;
+
+            var samples = new List<Point2d>();
+            double cx = 0.0, cy = 0.0;
+            foreach (Point2d pt in hull) { samples.Add(pt); cx += pt.X; cy += pt.Y; }
+            cx /= hull.Count;
+            cy /= hull.Count;
+            samples.Add(new Point2d(cx, cy));
+            for (int i = 0; i < hull.Count; i++)
+            {
+                Point2d a = hull[i];
+                Point2d b = hull[(i + 1) % hull.Count];
+                samples.Add(new Point2d((a.X + b.X) * 0.5, (a.Y + b.Y) * 0.5));
+            }
+
+            int hit = 0;
+            foreach (Point2d pt in samples)
+            {
+                foreach (List<Point2d> hull2 in occluders)
+                {
+                    if (PointInPolygon(pt, hull2)) { hit++; break; }
+                }
+            }
+            return (double)hit / samples.Count;
+        }
+
         public static void GenerateDetailDrawingToNewDwgFile(
             SteelStructureParams p,
             string saveDwgPath,
@@ -92,6 +374,71 @@ namespace SteelStructureSuite.Services.Drawing
                 GenerateDetailDrawingSheet(newDb, p, Point3d.Origin, options);
                 SaveDatabaseToDwg(newDb, normalizedPath);
             }
+        }
+
+        private static readonly string[] SettingSheetNames = { "A1", "A2", "A3", "A4" };
+        private static readonly double[] SettingScaleValues =
+        {
+            1.0, 2.0, 5.0, 10.0, 15.0, 20.0, 25.0, 30.0, 40.0, 50.0, 75.0, 100.0, 150.0, 200.0
+        };
+
+        /// <summary>
+        /// 读取上一次在“出图设置”中保存的选项，供单击出图直接使用（不再弹设置窗）。
+        /// </summary>
+        public static DrawingGenerationOptions LoadLastDrawingOptions(SteelStructureParams p)
+        {
+            var options = new DrawingGenerationOptions();
+            try
+            {
+                int sheetIdx = UserSettings.GetInt("Drawing.SheetSizeIndex", 1);
+                options.SheetSizeName = (sheetIdx >= 0 && sheetIdx < SettingSheetNames.Length)
+                    ? SettingSheetNames[sheetIdx]
+                    : "A2";
+
+                int scaleIdx = UserSettings.GetInt("Drawing.ScaleIndex", 0);
+                options.AutoScale = scaleIdx <= 0;
+                options.DrawingScale = (scaleIdx >= 1 && scaleIdx - 1 < SettingScaleValues.Length)
+                    ? SettingScaleValues[scaleIdx - 1]
+                    : 20.0;
+
+                options.IncludeFrontView = UserSettings.GetBool("Drawing.FrontView", true);
+                options.IncludeSideView = UserSettings.GetBool("Drawing.SideView", true);
+                options.IncludePlanView = UserSettings.GetBool("Drawing.PlanView", true);
+                options.IncludeIsoView = UserSettings.GetBool("Drawing.IsoView", true);
+                options.IncludeAutoDimensions = UserSettings.GetBool("Drawing.Dimensions", true);
+                options.IncludeLeaderAnnotations = UserSettings.GetBool("Drawing.Leaders", true);
+                options.IncludeEmbeddedBomTable = UserSettings.GetBool("Drawing.Bom", true);
+
+                options.OutputToNewDwgFile = UserSettings.GetBool("Drawing.OutputToNewDwg", false);
+                options.OpenNewDwgAfterSave = UserSettings.GetBool("Drawing.OpenAfterSave", true);
+                if (options.OutputToNewDwgFile && p != null)
+                {
+                    string folder = UserSettings.GetString("Drawing.LastDwgFolder", string.Empty);
+                    if (string.IsNullOrEmpty(folder))
+                        folder = Environment.GetFolderPath(Environment.SpecialFolder.DesktopDirectory);
+                    string name = SafeFilePart(p.Tag) + "_" + SafeFilePart(p.StructureTypeDisplayName) + ".dwg";
+                    options.NewDwgFilePath = Path.Combine(folder, name);
+                }
+            }
+            catch
+            {
+                // 读取失败时沿用默认值，不影响出图。
+            }
+            return options;
+        }
+
+        private static string SafeFilePart(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return "详图";
+            var sb = new System.Text.StringBuilder(text.Length);
+            foreach (char ch in text)
+            {
+                if (char.IsControl(ch)) continue;
+                if ("< > : \"/ \\ | ? *".IndexOf(ch) >= 0) continue;
+                sb.Append(ch);
+            }
+            string result = sb.ToString().Trim().TrimEnd('.');
+            return result.Length == 0 ? "详图" : result;
         }
 
         private static void GetStandardSheetPaperMm(string sheetName, out double paperW, out double paperH)
@@ -923,6 +1270,9 @@ namespace SteelStructureSuite.Services.Drawing
                     double d1 = depthFunc(ext.MinPoint);
                     double d2 = depthFunc(ext.MaxPoint);
 
+                    // 板厚在图面上不足 0.22 字高时按单线符号表达，避免两条几乎重合的板边糊成一片。
+                    bool thinPlate = Math.Min(maxX - minX, maxY - minY) < 0.22 * textH;
+
                     minViewX = Math.Min(minViewX, minX);
                     maxViewX = Math.Max(maxViewX, maxX);
                     minViewY = Math.Min(minViewY, minY);
@@ -942,6 +1292,7 @@ namespace SteelStructureSuite.Services.Drawing
                         MaxY = maxY,
                         MinDepth = Math.Min(d1, d2),
                         MaxDepth = Math.Max(d1, d2),
+                        ThinPlate = part.IsPlate && thinPlate,
                         Hull = hull
                     });
                 }
@@ -954,39 +1305,36 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewY = 0; maxViewY = nominalH;
             }
 
-            // 二维工程符号出图：构件本体用真实截面/双线符号绘制，被钢板等实心件遮住的部分走虚线。
-            // 不依赖布局视口与 SOLPROF，任何图面位置都能稳定生成。
+            // 二维工程符号出图：构件本体用真实截面/双线符号绘制。
+            // 每个构件绘制前先登记"严格位于其前方的构件轮廓"，逐段判断遮挡并自动转虚线。
             var sorted = isPlanView
                 ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
                 : boxes.OrderBy(b => b.MinDepth).ToList();
 
+            var batch = new LineBatch();
             for (int i = 0; i < sorted.Count; i++)
             {
                 var cur = sorted[i];
-                bool isOccluded = false;
-                Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
 
+                batch.Occluders.Clear();
                 for (int j = 0; j < i; j++)
                 {
                     var front = sorted[j];
                     bool strictlyBehind = isPlanView
                         ? (front.MinDepth > cur.MaxDepth + 5.0)
                         : (front.MaxDepth < cur.MinDepth - 5.0);
-
-                    // 只有后方构件中心被前方实心钢板（如平台铺板）完全覆盖时才转为虚线
-                    if (strictlyBehind && front.IsPlate &&
-                        curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
-                        curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
-                    {
-                        isOccluded = true;
-                        break;
-                    }
+                    if (strictlyBehind && front.Hull != null && front.Hull.Count >= 3)
+                        batch.Occluders.Add(front.Hull);
                 }
 
-                DrawOrthographicPart2D(
-                    tr, ms, viewBase, cur, proj2d,
-                    isOccluded ? LayerHidden : LayerVisible);
+                // 完全被前方构件遮住的内部钢板不再出线，避免接头处堆叠无意义的矩形。
+                if (cur.IsPlate && batch.Occluders.Count > 0 && HullCoveredRatio(cur.Hull, batch.Occluders) >= 0.92)
+                    continue;
+
+                DrawOrthographicPart2D(batch, cur, proj2d);
             }
+
+            batch.Emit(tr, ms, viewBase, textH);
 
             GetDesignDimensionTicks(
                 p, minViewX, maxViewX, minViewY, maxViewY,
@@ -1020,17 +1368,26 @@ namespace SteelStructureSuite.Services.Drawing
         /// 绘制正投影单个构件：支持曲线路径扫掠构件、端视真实型钢截面（H/C/L/Box/Pipe）以及侧视翼缘厚度线
         /// </summary>
         private static void DrawOrthographicPart2D(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d viewBase,
+            LineBatch batch,
             ProjectedPart2D projPart,
-            Func<Point3d, Point2d> proj2d,
-            string layer)
+            Func<Point3d, Point2d> proj2d)
         {
             var part = projPart.SourcePart;
             if (part == null)
             {
-                DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+                batch.AddPolyline(projPart.Hull, true);
+                return;
+            }
+
+            // 薄板在视图里按单线符号表达（制图惯例），比画出两条几乎重合的板边更清晰。
+            if (projPart.ThinPlate)
+            {
+                double midX = (projPart.MinX + projPart.MaxX) * 0.5;
+                double midY = (projPart.MinY + projPart.MaxY) * 0.5;
+                if (projPart.MaxX - projPart.MinX >= projPart.MaxY - projPart.MinY)
+                    batch.Add(new Point2d(projPart.MinX, midY), new Point2d(projPart.MaxX, midY));
+                else
+                    batch.Add(new Point2d(midX, projPart.MinY), new Point2d(midX, projPart.MaxY));
                 return;
             }
 
@@ -1038,7 +1395,7 @@ namespace SteelStructureSuite.Services.Drawing
             if (part.Section != null && !part.IsPlate &&
                 part.PathPoints != null && part.PathPoints.Count >= 2)
             {
-                DrawSweptPathMember2D(tr, ms, viewBase, part, proj2d, layer);
+                DrawSweptPathMember2D(batch, part, proj2d);
                 return;
             }
 
@@ -1061,12 +1418,12 @@ namespace SteelStructureSuite.Services.Drawing
                         Point3d worldPt = part.StartPt + xDir * p2.X + yDir * p2.Y;
                         endProfile2d.Add(proj2d(worldPt));
                     }
-                    DrawClosedPolyline2D(tr, ms, viewBase, endProfile2d, layer);
+                    batch.AddPolyline(endProfile2d, true);
                     return;
                 }
 
                 // 侧视/斜视直杆：绘制外轮廓 + 翼缘厚度特征线（展现真实 H 型钢 / 槽钢双翼缘线）
-                DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+                batch.AddPolyline(projPart.Hull, true);
 
                 if (axis3d.Length > 20.0 && axis2d.Length > 20.0 &&
                     (part.Section.ShapeType == SectionShapeType.HBeam ||
@@ -1081,7 +1438,7 @@ namespace SteelStructureSuite.Services.Drawing
                         {
                             Point2d a = proj2d(part.StartPt + yDir * (sign * halfInner));
                             Point2d b = proj2d(part.EndPt + yDir * (sign * halfInner));
-                            AppendLine2D(tr, ms, viewBase, a.X, a.Y, b.X, b.Y, layer);
+                            batch.Add(a, b);
                         }
                     }
                 }
@@ -1089,16 +1446,13 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             // 3. 钢板与其它实心件
-            DrawClosedPolyline2D(tr, ms, viewBase, projPart.Hull, layer);
+            batch.AddPolyline(projPart.Hull, true);
         }
 
         private static void DrawSweptPathMember2D(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d basePt,
+            LineBatch batch,
             SteelStructureBuilder.SolidMemberPart part,
-            Func<Point3d, Point2d> proj2d,
-            string layer)
+            Func<Point3d, Point2d> proj2d)
         {
             IList<Point3d> path = part.PathPoints;
             if (path == null || path.Count < 2) return;
@@ -1126,13 +1480,13 @@ namespace SteelStructureSuite.Services.Drawing
                 rightEdge.Add(center2d[i] - n * halfR);
             }
 
-            DrawOpenPolyline2D(tr, ms, basePt, leftEdge, layer);
-            DrawOpenPolyline2D(tr, ms, basePt, rightEdge, layer);
+            batch.AddPolyline(leftEdge, false);
+            batch.AddPolyline(rightEdge, false);
             if (leftEdge.Count >= 2)
             {
-                AppendLine2D(tr, ms, basePt, leftEdge[0].X, leftEdge[0].Y, rightEdge[0].X, rightEdge[0].Y, layer);
+                batch.Add(leftEdge[0], rightEdge[0]);
                 int last = leftEdge.Count - 1;
-                AppendLine2D(tr, ms, basePt, leftEdge[last].X, leftEdge[last].Y, rightEdge[last].X, rightEdge[last].Y, layer);
+                batch.Add(leftEdge[last], rightEdge[last]);
             }
         }
 
@@ -1623,11 +1977,13 @@ namespace SteelStructureSuite.Services.Drawing
                 minIsoY = 0; maxIsoY = p.Height;
             }
 
-            // 三维模型 → 轴测投影 → 平面压平：由远到近逐件绘制，前方构件自然压住后方构件。
+            // 三维模型 → 轴测投影 → 平面压平：由远到近逐件入列，最后统一合并落笔。
+            var isoBatch = new LineBatch();
             foreach (IsoPart2D cur in isoParts.OrderBy(x => x.Depth))
             {
-                DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
+                DrawIsoMember2D(isoBatch, cur, isoProj);
             }
+            isoBatch.Emit(tr, ms, isoBase, textH);
 
             if (options.IncludeLeaderAnnotations && isoParts.Count > 0)
             {
@@ -1701,17 +2057,14 @@ namespace SteelStructureSuite.Services.Drawing
         /// 绘制轴测图中单个三维构件的外轮廓、端部截面及纵向三维棱线
         /// </summary>
         private static void DrawIsoMember2D(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d isoBase,
+            LineBatch batch,
             IsoPart2D isoPart,
-            Func<Point3d, Point2d> isoProj,
-            string layer)
+            Func<Point3d, Point2d> isoProj)
         {
             var part = isoPart.SourcePart;
             if (part == null)
             {
-                DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+                batch.AddPolyline(isoPart.Hull, true);
                 return;
             }
 
@@ -1719,7 +2072,7 @@ namespace SteelStructureSuite.Services.Drawing
             if (part.Section != null && !part.IsPlate &&
                 part.PathPoints != null && part.PathPoints.Count >= 2)
             {
-                DrawSweptPathMember2D(tr, ms, isoBase, part, isoProj, layer);
+                DrawSweptPathMember2D(batch, part, isoProj);
                 return;
             }
 
@@ -1727,7 +2080,7 @@ namespace SteelStructureSuite.Services.Drawing
             Vector3d axis = part.EndPt - part.StartPt;
             if (part.Section != null && !part.IsPlate && axis.Length > 1.0)
             {
-                DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+                batch.AddPolyline(isoPart.Hull, true);
 
                 // 圆钢管：轴测投影就是“两条外切母线 + 两端平滑圆弧”，只保留这一条纯净外轮廓。
                 // 不再产生任何棱柱母线、端面切片圆环或相切接缝。
@@ -1747,12 +2100,12 @@ namespace SteelStructureSuite.Services.Drawing
                 var endProfile = new List<Point2d>(outline.Count);
                 foreach (Point2d p2 in outline)
                     endProfile.Add(isoProj(nearEnd + xDir * p2.X + yDir * p2.Y));
-                DrawClosedPolyline2D(tr, ms, isoBase, endProfile, layer);
+                batch.AddPolyline(endProfile, true);
                 return;
             }
 
             // 3. 钢板与其它实心构件
-            DrawClosedPolyline2D(tr, ms, isoBase, isoPart.Hull, layer);
+            batch.AddPolyline(isoPart.Hull, true);
         }
 
         private static double TowardCameraDepth(Point3d pt) => -pt.X - pt.Y + pt.Z;
