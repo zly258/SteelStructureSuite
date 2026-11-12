@@ -34,7 +34,7 @@ namespace SteelStructureSuite.Views
    - 材料统计 (SS_BOM)：导出双工作表 Excel (.xlsx) 或插入 CAD 表。
    - 施工详图 (SS_DRAWING)：支持标准 A1~A4 图框；只在轴测图标注 #1, #2... 序号引线，平面与立面只标标准尺寸；支持输出到当前文件或单独新建 DWG 文件。
    - 批量转 DXF (SS_DWG2DXF)：多选 DWG，按当前 AutoCAD 支持的版本批量导出 DXF。
-   - 合并图纸 (SS_DWGMERGE)：按模型空间范围把多张 DWG 横向或纵向排入一个新图纸。";
+   - 合并图纸 (SS_DWGMERGE)：按模型空间范围把多张 DWG 或 DXF 横向或纵向排入一个新图纸，输出也可选 DWG 或 DXF。";
         }
 
         private void OnCloseClick(object sender, RoutedEventArgs e)

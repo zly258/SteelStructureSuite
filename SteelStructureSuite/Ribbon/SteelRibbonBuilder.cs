@@ -134,7 +134,7 @@ namespace SteelStructureSuite.Ribbon
 
             RibbonPanelSource filePanel = CreatePanel(tab, "图纸工具");
             filePanel.Items.Add(CreateLargeButton("批量转DXF", "SS_DWG2DXF ", "把多个 DWG 批量转成 DXF，可选择当前 AutoCAD 支持的 DXF 版本", "dxf"));
-            filePanel.Items.Add(CreateLargeButton("合并图纸", "SS_DWGMERGE ", "按模型空间范围把多个 DWG 横向或纵向合并成一个新图纸", "merge"));
+            filePanel.Items.Add(CreateLargeButton("合并图纸", "SS_DWGMERGE ", "按模型空间范围把多个 DWG 或 DXF 横向或纵向合并成一个新图纸", "merge"));
 
             RibbonPanelSource outPanel = CreatePanel(tab, "统计出图");
             outPanel.Items.Add(CreateLargeButton("材料统计", "SS_BOM ", "统计全图或框选钢结构材料，导出 Excel (.xlsx) 或插入 CAD 表", "bom"));

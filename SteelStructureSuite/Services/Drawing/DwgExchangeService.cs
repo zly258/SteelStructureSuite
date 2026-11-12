@@ -27,6 +27,11 @@ namespace SteelStructureSuite.Services.Drawing
         public string Key { get; }
         public string Label { get; }
         public DwgVersion Version { get; }
+
+        public override string ToString()
+        {
+            return Label ?? string.Empty;
+        }
     }
 
     public sealed class DwgFileResult
@@ -172,7 +177,7 @@ namespace SteelStructureSuite.Services.Drawing
             }
             if (string.IsNullOrWhiteSpace(outputPath))
             {
-                results.Add(new DwgFileResult { Message = "请指定输出 DWG" });
+                results.Add(new DwgFileResult { Message = "请指定输出图纸" });
                 return results;
             }
             if (gap < 0 || double.IsNaN(gap) || double.IsInfinity(gap))
@@ -234,8 +239,7 @@ namespace SteelStructureSuite.Services.Drawing
                                 using (var src = new Database(false, true))
                                 {
                                     HostApplicationServices.WorkingDatabase = src;
-                                    src.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, false, null);
-                                    src.CloseInput(true);
+                                    ReadSourceDrawing(src, path);
                                     HostApplicationServices.WorkingDatabase = dest;
                                     PlaceOne(src, dest, path, direction, gap, explode, ref cursor, result);
                                 }
@@ -256,7 +260,7 @@ namespace SteelStructureSuite.Services.Drawing
                         return results;
                     }
 
-                    dest.SaveAs(fullOut, DwgVersion.Current);
+                    SaveMergedDrawing(dest, fullOut);
                 }
             }
             finally
@@ -272,6 +276,34 @@ namespace SteelStructureSuite.Services.Drawing
             });
             WriteSummary(results);
             return results;
+        }
+
+
+        private static void ReadSourceDrawing(Database db, string path)
+        {
+            if (IsDxfPath(path))
+            {
+                string log = Path.Combine(Path.GetTempPath(), "sss-dxfin.log");
+                db.DxfIn(path, log);
+                return;
+            }
+            db.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, false, null);
+            db.CloseInput(true);
+        }
+
+        private static void SaveMergedDrawing(Database db, string path)
+        {
+            if (IsDxfPath(path))
+            {
+                db.DxfOut(path, DxfPrecision, DwgVersion.Current);
+                return;
+            }
+            db.SaveAs(path, DwgVersion.Current);
+        }
+
+        private static bool IsDxfPath(string path)
+        {
+            return path != null && path.EndsWith(".dxf", StringComparison.OrdinalIgnoreCase);
         }
 
         private static void PlaceOne(

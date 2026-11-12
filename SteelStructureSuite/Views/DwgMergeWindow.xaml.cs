@@ -36,8 +36,8 @@ namespace SteelStructureSuite.Views
         {
             var dlg = new OpenFileDialog
             {
-                Title = "选择要合并的 DWG",
-                Filter = "DWG 图纸 (*.dwg)|*.dwg",
+                Title = "选择要合并的图纸",
+                Filter = "图纸 (*.dwg;*.dxf)|*.dwg;*.dxf|DWG 图纸 (*.dwg)|*.dwg|DXF 图纸 (*.dxf)|*.dxf",
                 Multiselect = true,
                 CheckFileExists = true
             };
@@ -81,11 +81,14 @@ namespace SteelStructureSuite.Views
 
         private void OnBrowseOutputClick(object sender, RoutedEventArgs e)
         {
+            string currentName = string.IsNullOrWhiteSpace(TxtOutput.Text) ? "合并图纸.dwg" : Path.GetFileName(TxtOutput.Text);
+            bool dxf = currentName.EndsWith(".dxf", StringComparison.OrdinalIgnoreCase);
             var dlg = new SaveFileDialog
             {
-                Title = "合并后的 DWG",
-                Filter = "DWG 图纸 (*.dwg)|*.dwg",
-                FileName = string.IsNullOrWhiteSpace(TxtOutput.Text) ? "合并图纸.dwg" : Path.GetFileName(TxtOutput.Text),
+                Title = "合并后的图纸",
+                Filter = "DWG 图纸 (*.dwg)|*.dwg|DXF 图纸 (*.dxf)|*.dxf",
+                FilterIndex = dxf ? 2 : 1,
+                FileName = currentName,
                 AddExtension = true,
                 OverwritePrompt = false
             };
@@ -100,7 +103,7 @@ namespace SteelStructureSuite.Views
             foreach (DwgPathItem item in LstFiles.Items) files.Add(item.FullPath);
             if (files.Count == 0)
             {
-                TxtLog.Text = "请先添加 DWG 文件。";
+                TxtLog.Text = "请先添加 DWG 或 DXF 文件。";
                 return;
             }
 
@@ -114,10 +117,10 @@ namespace SteelStructureSuite.Views
             string output = TxtOutput.Text == null ? string.Empty : TxtOutput.Text.Trim();
             if (output.Length == 0)
             {
-                TxtLog.Text = "请指定输出 DWG。";
+                TxtLog.Text = "请指定输出图纸。";
                 return;
             }
-            if (!output.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase)) output += ".dwg";
+            if (!output.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase) && !output.EndsWith(".dxf", StringComparison.OrdinalIgnoreCase)) output += ".dwg";
             if (File.Exists(output))
             {
                 MessageBoxResult answer = MessageBox.Show(this, "输出文件已存在，是否覆盖？", "合并图纸", MessageBoxButton.YesNo, MessageBoxImage.Warning);

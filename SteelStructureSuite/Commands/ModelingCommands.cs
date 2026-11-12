@@ -362,9 +362,14 @@ namespace SteelStructureSuite.Commands
                 PromptPointResult ppr = ed.GetPoint("\n请在当前图面空白区域拾取标准图框左下角插入点: ");
                 if (ppr.Status != PromptStatus.OK) return;
 
-                using (DocumentLock dl = doc.LockDocument())
+                try
                 {
                     SteelHlrDrawingService.GenerateDetailDrawingSheet(db, picked, ppr.Value, cfgWin.Options);
+                }
+                catch (System.Exception ex)
+                {
+                    ed.WriteMessage("\n[SteelStructureSuite] 详图生成失败: " + ex.Message + "\n");
+                    return;
                 }
 
                 ed.WriteMessage($"\n[SteelStructureSuite] 已将 {picked.Count} 个构件生成到同一张 {cfgWin.Options.SheetSizeName} 详图。\n");

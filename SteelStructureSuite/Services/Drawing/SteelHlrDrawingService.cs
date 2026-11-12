@@ -295,8 +295,10 @@ namespace SteelStructureSuite.Services.Drawing
             ObjectId simSunTextStyleId = EnsureSimSunTextStyle(db);
             ObjectId simSunDimStyleId = EnsureSimSunDimStyle(db, simSunTextStyleId, textH);
 
+            Dictionary<string, AutoCadSolprof.SolprofView> profiles = null;
             try
             {
+                profiles = BuildSolprofViews(parts3d, hasFront, hasSide, hasPlan, hasIso);
                 using (Transaction tr = db.TransactionManager.StartTransaction())
                 {
                     BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
@@ -365,7 +367,7 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - frontH) * 0.5;
                         Point3d viewBase = new Point3d(frontX - frontBounds.MinX, slotY - frontBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Front.Key], viewBase,
                             frontProj, pt => pt.Y, "正立面图",
                             frontBounds.Width, frontBounds.Height,
                             isFrontView: true, isSideView: false, isPlanView: false,
@@ -379,7 +381,7 @@ namespace SteelStructureSuite.Services.Drawing
                         double slotY = orthoBottom + (orthoH - sideH) * 0.5;
                         Point3d viewBase = new Point3d(sideX - sideBounds.MinX, slotY - sideBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, viewBase,
+                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Side.Key], viewBase,
                             sideProj, pt => pt.X, "侧立面图",
                             sideBounds.Width, sideBounds.Height,
                             isFrontView: false, isSideView: true, isPlanView: false,
@@ -395,7 +397,7 @@ namespace SteelStructureSuite.Services.Drawing
                         if (planBottom < minPlanBottom) planBottom = minPlanBottom;
                         Point3d planBase = new Point3d(planLeft - planBounds.MinX, planBottom - planBounds.MinY, 0);
                         DrawOrthographicHlrView(
-                            tr, ms, p, parts3d, roleToPartNo, planBase,
+                            tr, ms, p, parts3d, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Plan.Key], planBase,
                             planProj, pt => pt.Z, "平面图",
                             planBounds.Width, planBounds.Height,
                             isFrontView: false, isSideView: false, isPlanView: true,
@@ -425,7 +427,7 @@ namespace SteelStructureSuite.Services.Drawing
 
                         Point3d isoBase = new Point3d(isoLeft - isoBounds.MinX, isoBottom - isoBounds.MinY, 0);
                         DrawIsometricHlrView(
-                            tr, ms, p, parts3d, billItems, roleToPartNo, isoBase,
+                            tr, ms, p, parts3d, billItems, roleToPartNo, profiles[AutoCadSolprof.ViewSpec.Isometric.Key], isoBase,
                             options, simSunTextStyleId, textH);
                     }
 
@@ -451,6 +453,11 @@ namespace SteelStructureSuite.Services.Drawing
             }
             finally
             {
+                if (profiles != null)
+                {
+                    foreach (AutoCadSolprof.SolprofView view in profiles.Values)
+                        view.Dispose();
+                }
                 foreach (var item in parts3d)
                 {
                     item.Solid?.Dispose();
@@ -460,9 +467,36 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static Point2d IsoProject(Point3d pt)
         {
-            const double cos30 = 0.8660254037844386;
-            return new Point2d((pt.X - pt.Y) * cos30, (pt.X + pt.Y) * 0.5 + pt.Z);
+            AutoCadSolprof.ViewSpec iso = AutoCadSolprof.ViewSpec.Isometric;
+            return new Point2d(
+                pt.X * iso.Right.X + pt.Y * iso.Right.Y + pt.Z * iso.Right.Z,
+                pt.X * iso.Up.X + pt.Y * iso.Up.Y + pt.Z * iso.Up.Z);
         }
+
+        private static Dictionary<string, AutoCadSolprof.SolprofView> BuildSolprofViews(
+            List<SteelStructureBuilder.SolidMemberPart> parts,
+            bool front,
+            bool side,
+            bool plan,
+            bool iso)
+        {
+            var specs = new List<AutoCadSolprof.ViewSpec>();
+            if (front) specs.Add(AutoCadSolprof.ViewSpec.Front);
+            if (side) specs.Add(AutoCadSolprof.ViewSpec.Side);
+            if (plan) specs.Add(AutoCadSolprof.ViewSpec.Plan);
+            if (iso) specs.Add(AutoCadSolprof.ViewSpec.Isometric);
+            if (specs.Count == 0)
+                return new Dictionary<string, AutoCadSolprof.SolprofView>();
+
+            var solids = new List<Solid3d>();
+            foreach (SteelStructureBuilder.SolidMemberPart part in parts)
+            {
+                if (part?.Solid != null && !part.Solid.IsDisposed)
+                    solids.Add(part.Solid);
+            }
+            return AutoCadSolprof.Project(solids, specs);
+        }
+
 
         private static double SelectBestScale(
             DrawingGenerationOptions options,
@@ -791,6 +825,7 @@ namespace SteelStructureSuite.Services.Drawing
             SteelStructureParams p,
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             Dictionary<string, int> roleToPartNo,
+            AutoCadSolprof.SolprofView profile,
             Point3d viewBase,
             Func<Point3d, Point2d> proj2d,
             Func<Point3d, double> depthFunc,
@@ -861,62 +896,20 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewY = 0; maxViewY = nominalH;
             }
 
-            // 真正的消隐（HLR）：沿视线方向对每条真实棱线做射线求交，区分可见实线与隐藏虚线。
-            // 视图法向由视图平面的“右 × 上”确定，保证消隐结果与投影方向严格一致：
-            //   正立面 (x,z)：右=X 上=Z → 观察者在 -Y 一侧
-            //   侧立面 (y,z)：右=Y 上=Z → 观察者在 +X 一侧
-            //   平面图 (x,y)：右=X 上=Y → 自上而下俯视
-            Vector3d viewNormal = isFrontView
-                ? new Vector3d(0, -1, 0)
-                : isSideView
-                    ? new Vector3d(1, 0, 0)
-                    : new Vector3d(0, 0, 1);
+            if (profile == null || !profile.HasGeometry)
+                throw new InvalidOperationException(viewTitle + "：AutoCAD SOLPROF 没有生成轮廓线。");
+
+            if (profile.TryGetBounds(out double profileMinX, out double profileMaxX, out double profileMinY, out double profileMaxY))
+            {
+                minViewX = profileMinX;
+                maxViewX = profileMaxX;
+                minViewY = profileMinY;
+                maxViewY = profileMaxY;
+            }
 
             double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
-            HlrEngine.ViewResult hlr = HlrEngine.Compute(parts3d, proj2d, viewNormal, 0.50 * paperScale);
+            profile.Draw(tr, ms, viewBase, LayerVisible, LayerHidden, Math.Max(8.0, paperScale * 6.0));
 
-            if (hlr.HasGeometry)
-            {
-                minViewX = hlr.MinX; maxViewX = hlr.MaxX;
-                minViewY = hlr.MinY; maxViewY = hlr.MaxY;
-                DrawHlrSegments(tr, ms, viewBase, hlr, paperScale);
-            }
-            else
-            {
-                // 极端情况下（例如构件实体缺失）退回轮廓投影，保证图面不为空。
-                var sorted = isPlanView
-                    ? boxes.OrderByDescending(b => b.MaxDepth).ToList()
-                    : boxes.OrderBy(b => b.MinDepth).ToList();
-
-                for (int i = 0; i < sorted.Count; i++)
-                {
-                    var cur = sorted[i];
-                    bool isOccluded = false;
-                    Point2d curMid = new Point2d((cur.MinX + cur.MaxX) * 0.5, (cur.MinY + cur.MaxY) * 0.5);
-
-                    for (int j = 0; j < i; j++)
-                    {
-                        var front = sorted[j];
-                        bool strictlyBehind = isPlanView
-                            ? (front.MinDepth > cur.MaxDepth + 5.0)
-                            : (front.MaxDepth < cur.MinDepth - 5.0);
-
-                        // 只有当后方构件中心被前方实心钢板（如平台铺板）完全覆盖，或与前方完全同位置构件重叠时才转为虚线
-                        if (strictlyBehind && front.IsPlate &&
-                            curMid.X > front.MinX + 10.0 && curMid.X < front.MaxX - 10.0 &&
-                            curMid.Y > front.MinY + 10.0 && curMid.Y < front.MaxY - 10.0)
-                        {
-                            isOccluded = true;
-                            break;
-                        }
-                    }
-
-                    string targetLayer = isOccluded ? LayerHidden : LayerVisible;
-                    DrawOrthographicPart2D(tr, ms, viewBase, cur, proj2d, targetLayer);
-                }
-            }
-
-            // 获取结构精确设计轴线坐标（用于绘制中心轴线与标准工程尺寸标注）
             GetDesignDimensionTicks(
                 p, minViewX, maxViewX, minViewY, maxViewY,
                 isFrontView, isSideView, isPlanView, overallOnly,
@@ -1469,6 +1462,7 @@ namespace SteelStructureSuite.Services.Drawing
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             List<MemberPartBillItem> billItems,
             Dictionary<string, int> roleToPartNo,
+            AutoCadSolprof.SolprofView profile,
             Point3d isoBase,
             DrawingGenerationOptions options,
             ObjectId textStyleId,
@@ -1539,29 +1533,19 @@ namespace SteelStructureSuite.Services.Drawing
                 minIsoX = 0; maxIsoX = p.Span;
                 minIsoY = 0; maxIsoY = p.Height;
             }
-            else
+            if (profile == null || !profile.HasGeometry)
+                throw new InvalidOperationException("轴测图：AutoCAD SOLPROF 没有生成轮廓线。");
+
+            double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
+            profile.Draw(tr, ms, isoBase, LayerVisible, LayerHidden, Math.Max(8.0, paperScale * 6.0));
+            if (profile.TryGetBounds(out double profileMinX, out double profileMaxX, out double profileMinY, out double profileMaxY))
             {
-                // 轴测图同样走真正的消隐流程：西南等轴测的观察者位于 (-X,-Y,+Z) 一侧。
-                Vector3d isoNormal = new Vector3d(-1, -1, 1).GetNormal();
-                double paperScale = textH > 1.0 ? textH / 3.5 : 1.0;
-                HlrEngine.ViewResult isoHlr = HlrEngine.Compute(parts3d, isoProj, isoNormal, 0.50 * paperScale);
-                if (isoHlr.HasGeometry)
-                {
-                    DrawHlrSegments(tr, ms, isoBase, isoHlr, paperScale);
-                    minIsoX = isoHlr.MinX; maxIsoX = isoHlr.MaxX;
-                    minIsoY = isoHlr.MinY; maxIsoY = isoHlr.MaxY;
-                }
-                else
-                {
-                    var sortedIso = isoParts.OrderBy(x => x.Depth).ToList();
-                    foreach (IsoPart2D cur in sortedIso)
-                    {
-                        DrawIsoMember2D(tr, ms, isoBase, cur, isoProj, LayerVisible);
-                    }
-                }
+                minIsoX = profileMinX;
+                maxIsoX = profileMaxX;
+                minIsoY = profileMinY;
+                maxIsoY = profileMaxY;
             }
 
-            // 严格为材料表中的每一个件号 (#1..#N) 生成左右水平引线，绝不向图框顶部发射竖向引线
             if (options.IncludeLeaderAnnotations && isoParts.Count > 0)
             {
                 var leaderReqs = new List<LeaderRequest>();
@@ -2082,146 +2066,6 @@ namespace SteelStructureSuite.Services.Drawing
             }
             ms.AppendEntity(ln);
             tr.AddNewlyCreatedDBObject(ln, true);
-        }
-
-        /// <summary>
-        /// 绘制消隐结果。可见线用实线；隐藏线先按端点串成连续多段线再画虚线，
-        /// 避免每小段各自起笔，虚线花成碎点。
-        /// </summary>
-        private static void DrawHlrSegments(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d basePt,
-            HlrEngine.ViewResult hlr,
-            double paperScale)
-        {
-            if (hlr == null) return;
-            double lts = Math.Max(8.0, paperScale * 6.0);
-            var hidden = new List<HlrEngine.Segment2D>();
-            foreach (HlrEngine.Segment2D seg in hlr.Segments)
-            {
-                if (seg == null) continue;
-                if (seg.Visible)
-                {
-                    AppendLine2D(tr, ms, basePt, seg.A.X, seg.A.Y, seg.B.X, seg.B.Y, LayerVisible);
-                }
-                else
-                {
-                    hidden.Add(seg);
-                }
-            }
-
-            foreach (List<Point2d> path in ChainHiddenSegments(hidden, 2.0))
-            {
-                AppendHiddenPath(tr, ms, basePt, path, lts);
-            }
-        }
-
-        /// <summary>把首尾相接的隐藏线段串成路径。三岔及以上的接头断开，不把丁字接画成一条虚线。</summary>
-        private static List<List<Point2d>> ChainHiddenSegments(List<HlrEngine.Segment2D> segs, double join)
-        {
-            var paths = new List<List<Point2d>>();
-            int n = segs.Count;
-            if (n == 0) return paths;
-            var used = new bool[n];
-            double join2 = join * join;
-
-            List<int> Touching(Point2d pt)
-            {
-                var hits = new List<int>();
-                for (int i = 0; i < n; i++)
-                {
-                    if (used[i]) continue;
-                    if (Dist2(segs[i].A, pt) <= join2 || Dist2(segs[i].B, pt) <= join2)
-                        hits.Add(i);
-                }
-                return hits;
-            }
-
-            void Extend(List<Point2d> pts, bool atFront)
-            {
-                while (true)
-                {
-                    Point2d end = atFront ? pts[0] : pts[pts.Count - 1];
-                    List<int> hits = Touching(end);
-                    if (hits.Count != 1) break;
-                    int j = hits[0];
-                    used[j] = true;
-                    bool aClose = Dist2(segs[j].A, end) <= join2;
-                    Point2d add = aClose ? segs[j].B : segs[j].A;
-                    if (atFront) pts.Insert(0, add);
-                    else pts.Add(add);
-                }
-            }
-
-            for (int i = 0; i < n; i++)
-            {
-                if (used[i]) continue;
-                used[i] = true;
-                var pts = new List<Point2d> { segs[i].A, segs[i].B };
-                Extend(pts, true);
-                Extend(pts, false);
-                if (pts.Count >= 2) paths.Add(pts);
-            }
-            return paths;
-        }
-
-        private static double Dist2(Point2d a, Point2d b)
-        {
-            double dx = a.X - b.X;
-            double dy = a.Y - b.Y;
-            return dx * dx + dy * dy;
-        }
-
-        private static void AppendHiddenPath(
-            Transaction tr,
-            BlockTableRecord ms,
-            Point3d basePt,
-            List<Point2d> pts,
-            double linetypeScale)
-        {
-            if (pts == null || pts.Count < 2) return;
-            bool closed = false;
-            if (pts.Count >= 4 && Dist2(pts[0], pts[pts.Count - 1]) <= 4.0)
-            {
-                pts.RemoveAt(pts.Count - 1);
-                closed = true;
-            }
-            if (pts.Count == 2 && !closed)
-            {
-                AppendLine2D(tr, ms, basePt, pts[0].X, pts[0].Y, pts[1].X, pts[1].Y, LayerHidden, linetypeScale);
-                return;
-            }
-
-            Autodesk.AutoCAD.DatabaseServices.Polyline pl = new Autodesk.AutoCAD.DatabaseServices.Polyline();
-            pl.SetDatabaseDefaults(ms.Database);
-            int added = 0;
-            for (int i = 0; i < pts.Count; i++)
-            {
-                Point2d p = new Point2d(basePt.X + pts[i].X, basePt.Y + pts[i].Y);
-                if (added > 0)
-                {
-                    Point2d prev = pl.GetPoint2dAt(added - 1);
-                    double dx = prev.X - p.X;
-                    double dy = prev.Y - p.Y;
-                    if (dx * dx + dy * dy < 0.25) continue;
-                }
-                pl.AddVertexAt(added, p, 0, 0, 0);
-                added++;
-            }
-            if (added < 2)
-            {
-                pl.Dispose();
-                return;
-            }
-
-            pl.Closed = closed && added >= 3;
-            pl.Plinegen = true;
-            pl.Layer = LayerHidden;
-            pl.Color = Color.FromColorIndex(ColorMethod.ByLayer, 256);
-            pl.LinetypeScale = linetypeScale;
-            ms.AppendEntity(pl);
-            tr.AddNewlyCreatedDBObject(pl, true);
         }
 
         private static void AppendLinearDim(

@@ -73,7 +73,13 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <TextBlock Grid.Column="0" Text="DXF 版本" Style="{StaticResource Text.Label}" Margin="0,0,8,0" />
-            <ComboBox x:Name="CmbVersion" Grid.Column="1" DisplayMemberPath="Label" />
+            <ComboBox x:Name="CmbVersion" Grid.Column="1">
+                <ComboBox.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Label}" ToolTip="{Binding Label}" TextTrimming="CharacterEllipsis" />
+                    </DataTemplate>
+                </ComboBox.ItemTemplate>
+            </ComboBox>
             <CheckBox x:Name="ChkOverwrite" Grid.Column="2" Content="覆盖已有 DXF" VerticalAlignment="Center" Margin="12,0,0,0" />
         </Grid>
 

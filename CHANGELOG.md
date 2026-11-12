@@ -3,7 +3,8 @@
 本文件记录 SteelStructureSuite 的重要变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
 ## [未发布]
-- 消隐出图减少杂线：圆管只留轮廓，缓弯扫掠不再画中间切片；按图纸比例合并过近的平行线，隐藏线连成连续虚线。
+- 修复批量转 DXF 的版本下拉框关闭后显示类型名。合并图纸可同时加入 DWG 与 DXF，并按扩展名输出 DWG 或 DXF。
+- 真实消隐出图（HLR）：采用 AutoCAD 原生 SOLPROF（AsdkHlrEngine）消隐引擎，彻底废弃自写射线消隐。自动消除切线（Delete tangential edges），钢管与圆柱只保留真实外轮廓，彻底解决杂线过多和圆管细分棱问题。
 - 去掉实体/线条显示模式和按模式转换。新建构件始终生成三维实体。
 - 截面记忆按构件类型分开，避免互相串用。新增 `SS_RESETSETTINGS` 清除界面记忆。
 - 弧形型钢改为选择圆弧 / 圆 / 圆弧多段线，螺旋型钢改为选择螺旋线；截面沿整条曲线路径连续扫掠，并保存曲线起始坐标系以支持夹点编辑。

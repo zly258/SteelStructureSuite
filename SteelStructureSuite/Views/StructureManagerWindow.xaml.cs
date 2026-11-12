@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -274,36 +274,69 @@ namespace SteelStructureSuite.Views
             var cfgWin = new DrawingConfigWindow(rec.Params);
             if (cfgWin.ShowDialog() != true) return;
 
-            if (cfgWin.Options.OutputToNewDwgFile)
+            SteelStructureParams parms = rec.Params.Clone();
+            DrawingGenerationOptions options = cfgWin.Options;
+            if (options.OutputToNewDwgFile)
             {
-                string savePath = SteelHlrDrawingService.NormalizeDwgPath(cfgWin.Options.NewDwgFilePath);
-                SteelHlrDrawingService.GenerateDetailDrawingToNewDwgFile(rec.Params, savePath, cfgWin.Options);
-                if (cfgWin.Options.OpenNewDwgAfterSave && File.Exists(savePath))
+                string savePath = SteelHlrDrawingService.NormalizeDwgPath(options.NewDwgFilePath);
+                RunInCommandContext(doc, () =>
                 {
-                    Application.DocumentManager.Open(savePath, false);
-                }
-                MessageBox.Show($"已生成新 DWG 详图：\n{savePath}", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SteelHlrDrawingService.GenerateDetailDrawingToNewDwgFile(parms, savePath, options);
+                    if (options.OpenNewDwgAfterSave && File.Exists(savePath))
+                        Application.DocumentManager.Open(savePath, false);
+                    MessageBox.Show($"已生成新 DWG 详图：\n{savePath}", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                });
             }
             else
             {
                 Hide();
+                PromptPointResult ppr;
                 try
                 {
-                    PromptPointResult ppr = doc.Editor.GetPoint("\n请拾取详图图框插入点: ");
-                    if (ppr.Status == PromptStatus.OK)
-                    {
-                        using (DocumentLock dl = doc.LockDocument())
-                        {
-                            SteelHlrDrawingService.GenerateDetailDrawingSheet(doc.Database, rec.Params, ppr.Value, cfgWin.Options);
-                        }
-                    }
+                    ppr = doc.Editor.GetPoint("\n请拾取详图图框插入点: ");
                 }
                 finally
                 {
                     Show();
                     Activate();
                 }
+                if (ppr == null || ppr.Status != PromptStatus.OK) return;
+                Point3d insertPt = ppr.Value;
+                RunInCommandContext(doc, () =>
+                {
+                    SteelHlrDrawingService.GenerateDetailDrawingSheet(doc.Database, parms, insertPt, options);
+                    doc.Editor.WriteMessage("\n[SteelStructureSuite] " + "详图已写入当前图。\n");
+                });
             }
+        }
+
+        private static void RunInCommandContext(Document doc, Action action)
+        {
+            if (doc != null && !string.IsNullOrEmpty(doc.CommandInProgress))
+            {
+                action();
+                return;
+            }
+
+            Application.DocumentManager.ExecuteInCommandContextAsync(_ =>
+            {
+                try
+                {
+                    action();
+                }
+                catch (System.Exception ex)
+                {
+                    try
+                    {
+                        doc.Editor.WriteMessage("\n[SteelStructureSuite] " + ex.Message + "\n");
+                    }
+                    catch
+                    {
+                    }
+                    MessageBox.Show(ex.Message, "出图失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                }
+                return System.Threading.Tasks.Task.CompletedTask;
+            }, null);
         }
 
         private void OnDeleteSelectedClick(object sender, RoutedEventArgs e)
