@@ -73,7 +73,7 @@ namespace SteelStructureSuite.Services.Drawing
         {
             public Point3d AnchorPt;
             public string LabelText;
-            public int Side; // 0 左水平引线, 1 右水平引线（严禁向图框上方发射竖向引线）
+            public int Side; // 0 左列, 1 右列
         }
 
         public static void GenerateDetailDrawingToNewDwgFile(
@@ -258,11 +258,11 @@ namespace SteelStructureSuite.Services.Drawing
                 .ThenBy(x => x.PartNo)
                 .ThenBy(x => x.PartRole ?? string.Empty, StringComparer.OrdinalIgnoreCase)
                 .ToList();
-            if (groupSheet)
-            {
-                for (int i = 0; i < billItems.Count; i++)
-                    billItems[i].PartNo = i + 1;
-            }
+
+            // 相同“截面规格 + 材质 + 单长”的零件合并成一行并重新连续编号（不再显示部位）。
+            // 合并后的件号会回写到源明细，轴测图引线据此一一对应。
+            List<MemberPartBillItem> bomRows = MergeBillItems(billItems);
+
             Dictionary<string, int> roleToPartNo = MapRoleToPartNo(parts3d, billItems);
 
             bool hasFront = options.IncludeFrontView;
@@ -281,7 +281,7 @@ namespace SteelStructureSuite.Services.Drawing
             ViewBounds planBounds = hasPlan ? ComputeProjectedBounds(parts3d, planProj) : new ViewBounds();
             ViewBounds isoBounds = hasIso ? ComputeProjectedBounds(parts3d, isoProj) : new ViewBounds();
 
-            double scale = SelectBestScale(options, paperWMm, paperHMm, billItems.Count,
+            double scale = SelectBestScale(options, paperWMm, paperHMm, bomRows.Count,
                 hasFront, frontBounds, hasSide, sideBounds, hasPlan, planBounds, hasIso, isoBounds, hasBom);
 
             // 严格执行：字体宋体 3.5 x 0.8（字高 = 3.5 * scale，宽度因子 = 0.8）
@@ -321,7 +321,7 @@ namespace SteelStructureSuite.Services.Drawing
                     double titleTop = innerY0 + titleH;
                     double bomRowH = textH * 2.05;
                     double bomHeaderH = textH * 2.45;
-                    double bomH = hasBom ? bomHeaderH + (billItems.Count + 2) * bomRowH : 0.0;
+                    double bomH = hasBom ? bomHeaderH + (bomRows.Count + 2) * bomRowH : 0.0;
                     double rightTableTop = titleTop + bomH;
 
                     double frontW = hasFront ? frontBounds.Width : 0.0;
@@ -426,7 +426,7 @@ namespace SteelStructureSuite.Services.Drawing
 
                         Point3d isoBase = new Point3d(isoLeft - isoBounds.MinX, isoBottom - isoBounds.MinY, 0);
                         DrawIsometricHlrView(
-                            tr, ms, p, parts3d, billItems, roleToPartNo, isoBase,
+                            tr, ms, p, parts3d, bomRows, roleToPartNo, isoBase,
                             options, simSunTextStyleId, textH);
                     }
 
@@ -437,12 +437,12 @@ namespace SteelStructureSuite.Services.Drawing
                         frameW, frameH, borderLeft, borderOther,
                         simSunTextStyleId, textH, scale, sheetCaption);
 
-                    // 标题栏正上方：零缝隙、左右边框 100% 共线对齐的国标构件材料明细表（件号 #1, #2... 与轴测图引线一一对应）
+                    // 标题栏正上方：零缝隙、左右边框 100% 共线对齐的国标构件材料明细表（件号 1, 2... 与轴测图引线一一对应）
                     if (hasBom)
                     {
                         Point3d bomBottomLeft = new Point3d(innerX1 - titleW, titleTop, 0);
                         AppendDetailedPartBomTable(
-                            tr, ms, p, billItems,
+                            tr, ms, p, bomRows,
                             bomBottomLeft, titleW, bomRowH, bomHeaderH,
                             simSunTextStyleId, textH);
                     }
@@ -730,6 +730,51 @@ namespace SteelStructureSuite.Services.Drawing
             return parts;
         }
 
+        /// <summary>
+        /// 把“截面规格 + 材质 + 单长”完全相同的零件合并为一行：数量、重量累加，
+        /// 并重新连续编号。合并后的件号会同步回写到源明细，供轴测图引线映射。
+        /// </summary>
+        private static List<MemberPartBillItem> MergeBillItems(List<MemberPartBillItem> source)
+        {
+            var rows = new List<MemberPartBillItem>();
+            if (source == null || source.Count == 0) return rows;
+
+            Func<MemberPartBillItem, string> keyOf = x =>
+                (x.SectionName ?? string.Empty).Trim().ToUpperInvariant() + "|" +
+                (x.Material ?? string.Empty).Trim().ToUpperInvariant() + "|" +
+                Math.Round(x.SingleLengthMm, 0).ToString("0", CultureInfo.InvariantCulture);
+
+            var groups = source.GroupBy(keyOf, StringComparer.Ordinal).ToList();
+            for (int i = 0; i < groups.Count; i++)
+            {
+                List<MemberPartBillItem> group = groups[i].ToList();
+                MemberPartBillItem first = group[0];
+                int partNo = i + 1;
+
+                rows.Add(new MemberPartBillItem
+                {
+                    ParentTag = first.ParentTag,
+                    PartNo = partNo,
+                    PartRole = null,
+                    SectionName = first.SectionName,
+                    ShapeTypeName = first.ShapeTypeName,
+                    Material = first.Material,
+                    Count = group.Sum(x => x.Count),
+                    SingleLengthMm = Math.Round(first.SingleLengthMm, 0),
+                    UnitWeightKgPerM = first.UnitWeightKgPerM,
+                    TotalWeightKg = Math.Round(group.Sum(x => x.TotalWeightKg), 2),
+                    TotalSurfaceAreaM2 = Math.Round(group.Sum(x => x.TotalSurfaceAreaM2), 2)
+                });
+
+                foreach (MemberPartBillItem item in group)
+                {
+                    item.PartNo = partNo;
+                }
+            }
+
+            return rows;
+        }
+
         private static Dictionary<string, int> MapRoleToPartNo(
             List<SteelStructureBuilder.SolidMemberPart> parts3d,
             List<MemberPartBillItem> billItems)
@@ -770,6 +815,17 @@ namespace SteelStructureSuite.Services.Drawing
                     score += CategoryScore(part.RoleName, b.PartRole);
                     if (string.Equals(b.SectionName, part.SectionName, StringComparison.OrdinalIgnoreCase)) score += 3;
 
+                    // 同一截面可能有多种下料长度，按实测长度再校正一次，避免合并后件号串行。
+                    if (!part.IsPlate && b.SingleLengthMm > 1.0)
+                    {
+                        double partLen = EstimatePartLengthMm(part);
+                        if (partLen > 1.0 &&
+                            Math.Abs(partLen - b.SingleLengthMm) <= Math.Max(5.0, partLen * 0.02))
+                        {
+                            score += 6;
+                        }
+                    }
+
                     if (score > bestScore)
                     {
                         bestScore = score;
@@ -784,6 +840,19 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             return dict;
+        }
+
+        private static double EstimatePartLengthMm(SteelStructureBuilder.SolidMemberPart part)
+        {
+            if (part == null) return 0.0;
+            if (part.PathPoints != null && part.PathPoints.Count >= 2)
+            {
+                double sum = 0.0;
+                for (int i = 1; i < part.PathPoints.Count; i++)
+                    sum += part.PathPoints[i].DistanceTo(part.PathPoints[i - 1]);
+                return sum;
+            }
+            return part.StartPt.DistanceTo(part.EndPt);
         }
 
         private static int CategoryScore(string partRole, string billRole)
@@ -1462,7 +1531,7 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// 西南等轴测三维特征图：全实线清晰展现三维棱边与曲线路径，且仅在左右两侧标注水平件号引线 (#1, #2...)，与材料表 100% 对应！
+        /// 西南等轴测三维特征图：全实线清晰展现三维棱边与曲线路径，且仅在左右两侧标注水平件号引线 (1, 2...)，与材料表 100% 对应！
         /// </summary>
         private static void DrawIsometricHlrView(
             Transaction tr,
@@ -1602,7 +1671,7 @@ namespace SteelStructureSuite.Services.Drawing
                     leaderReqs.Add(new LeaderRequest
                     {
                         AnchorPt = new Point3d(isoBase.X + rep.Anchor2D.X, isoBase.Y + rep.Anchor2D.Y, 0),
-                        LabelText = $"#{partNo}",
+                        LabelText = partNo.ToString(CultureInfo.InvariantCulture),
                         Side = side
                     });
                 }
@@ -1713,9 +1782,8 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// Places isometric part-number balloons on a ring around the view.
-        /// Slots are evenly spaced and matched in angular order so leaders do not cross.
-        /// The downward arc stays open for the view title.
+        /// 件号引线按左右两列排布：锚点位于视图中心左侧的排到左列，右侧的排到右列。
+        /// 每列自上而下等间距排列，且列内顺序与锚点上下顺序严格一致，保证引线互不交叉。
         /// </summary>
         private static void PlaceCollisionFreeLeaders(
             Transaction tr,
@@ -1730,119 +1798,74 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (requests == null || requests.Count == 0) return;
 
-            int n = requests.Count;
+            List<LeaderRequest> valid = requests
+                .Where(x => x != null && !string.IsNullOrEmpty(x.LabelText))
+                .ToList();
+            if (valid.Count == 0) return;
+
             double cx = (viewMinX + viewMaxX) * 0.5;
-            double cy = (viewMinY + viewMaxY) * 0.5;
-            double hx = Math.Max((viewMaxX - viewMinX) * 0.5, textH);
-            double hy = Math.Max((viewMaxY - viewMinY) * 0.5, textH);
+            List<LeaderRequest> left = valid
+                .Where(x => x.AnchorPt.X < cx)
+                .OrderByDescending(x => x.AnchorPt.Y)
+                .ThenBy(x => x.AnchorPt.X)
+                .ToList();
+            List<LeaderRequest> right = valid
+                .Where(x => x.AnchorPt.X >= cx)
+                .OrderByDescending(x => x.AnchorPt.Y)
+                .ThenBy(x => x.AnchorPt.X)
+                .ToList();
 
-            double textW = 2.2 * textH;
-            foreach (LeaderRequest req in requests)
-            {
-                if (req == null || string.IsNullOrEmpty(req.LabelText)) continue;
-                textW = Math.Max(textW, EstimateSimSunTextWidth(req.LabelText, textH));
-            }
-
-            double forbid = 0.90;
-            double arc = Math.PI * 2.0 - forbid * 2.0;
-            double startAng = -Math.PI / 2.0 + forbid;
-            int rings = n > 14 ? 2 : 1;
-            double step = arc / Math.Max(1, n);
-            double sameStep = step * rings;
-            double chordNeed = textW + 0.9 * textH;
-            double rNeed = n <= 2
-                ? hx + 2.8 * textH
-                : chordNeed / (2.0 * Math.Sin(Math.Max(0.16, sameStep * 0.5)));
-            double extra = rNeed - Math.Min(hx, hy);
-            if (double.IsNaN(extra) || extra < 2.6 * textH) extra = 2.6 * textH;
-            if (extra > 7.4 * textH) extra = 7.4 * textH;
-
-            double rx0 = hx + extra;
-            double ry0 = hy + Math.Min(2.6 * textH, extra);
-            double rx1 = rx0 + 3.5 * textH;
-            double ry1 = ry0 + 2.3 * textH;
-
-            var ordered = new List<Tuple<LeaderRequest, double>>();
-            foreach (LeaderRequest req in requests)
-            {
-                if (req == null) continue;
-                double key = UnwrapLeaderAngle(
-                    Math.Atan2(req.AnchorPt.Y - cy, req.AnchorPt.X - cx), startAng, arc);
-                ordered.Add(Tuple.Create(req, key));
-            }
-            ordered = ordered.OrderBy(x => x.Item2).ThenBy(x => x.Item1.AnchorPt.X).ToList();
-            n = ordered.Count;
-            if (n == 0) return;
-
-            for (int i = 0; i < n; i++)
-            {
-                double ang = n == 1 ? startAng + ordered[0].Item2 : startAng + arc * (i + 0.5) / n;
-                int ring = (rings == 2 && (i % 2 == 1)) ? 1 : 0;
-                DrawRingLeader(
-                    tr, ms, ordered[i].Item1, cx, cy,
-                    ring == 0 ? rx0 : rx1,
-                    ring == 0 ? ry0 : ry1,
-                    ang, textStyleId, textH);
-            }
+            PlaceLeaderColumn(tr, ms, left, viewMinX - 3.2 * textH, viewMinY, viewMaxY, true, textStyleId, textH);
+            PlaceLeaderColumn(tr, ms, right, viewMaxX + 3.2 * textH, viewMinY, viewMaxY, false, textStyleId, textH);
         }
 
-        private static double UnwrapLeaderAngle(double angle, double startAng, double arc)
-        {
-            double d = angle - startAng;
-            double twoPi = Math.PI * 2.0;
-            while (d < 0) d += twoPi;
-            while (d >= twoPi) d -= twoPi;
-            if (d > arc)
-            {
-                double into = d - arc;
-                double back = twoPi - d;
-                d = into <= back ? arc : 0.0;
-            }
-            return d;
-        }
-
-        private static void DrawRingLeader(
+        private static void PlaceLeaderColumn(
             Transaction tr,
             BlockTableRecord ms,
-            LeaderRequest req,
-            double cx,
-            double cy,
-            double rx,
-            double ry,
-            double ang,
+            List<LeaderRequest> items,
+            double labelX,
+            double viewMinY,
+            double viewMaxY,
+            bool toLeft,
             ObjectId textStyleId,
             double textH)
         {
-            if (req == null || string.IsNullOrEmpty(req.LabelText)) return;
-            double cos = Math.Cos(ang);
-            double sin = Math.Sin(ang);
-            var elbow = new Point3d(cx + rx * cos, cy + ry * sin, 0);
-            double dir = cos >= 0.0 ? 1.0 : -1.0;
-            double tick = 0.95 * textH;
-            var tip = new Point3d(elbow.X + dir * tick, elbow.Y, 0);
-            double labelW = Math.Max(EstimateSimSunTextWidth(req.LabelText, textH), 2.1 * textH);
-            Point3d textPos = dir > 0
-                ? new Point3d(tip.X + 0.22 * textH, tip.Y - 0.35 * textH, 0)
-                : new Point3d(tip.X - labelW - 0.22 * textH, tip.Y - 0.35 * textH, 0);
+            if (items == null || items.Count == 0) return;
 
-            Point3d anchor = req.AnchorPt;
-            if (anchor.DistanceTo(elbow) < 0.45 * textH)
-                elbow = new Point3d(anchor.X + cos * 1.2 * textH, anchor.Y + sin * 1.2 * textH, 0);
+            double minSpacing = 2.2 * textH;
+            double band = Math.Max(viewMaxY - viewMinY - 1.6 * textH, minSpacing);
+            double spacing = items.Count > 1
+                ? Math.Max(minSpacing, band / (items.Count - 1))
+                : 0.0;
+            double centerY = (viewMinY + viewMaxY) * 0.5;
+            double startY = centerY + spacing * (items.Count - 1) * 0.5;
 
-            using (Leader ld = new Leader())
+            double shelfX = labelX + (toLeft ? -0.4 * textH : 0.4 * textH);
+            double elbowX = labelX + (toLeft ? 2.4 * textH : -2.4 * textH);
+
+            for (int i = 0; i < items.Count; i++)
             {
-                ld.SetDatabaseDefaults();
-                ld.Layer = LayerDim;
-                ld.AppendVertex(anchor);
-                ld.AppendVertex(elbow);
-                if (elbow.DistanceTo(tip) > 0.2 * textH)
-                    ld.AppendVertex(tip);
-                ld.HasArrowHead = true;
-                ld.Dimasz = textH * 0.70;
-                ms.AppendEntity(ld);
-                tr.AddNewlyCreatedDBObject(ld, true);
+                LeaderRequest req = items[i];
+                double y = startY - spacing * i;
+                double labelW = Math.Max(EstimateSimSunTextWidth(req.LabelText, textH), 1.6 * textH);
+                Point3d textPos = toLeft
+                    ? new Point3d(shelfX - 0.4 * textH - labelW, y - 0.35 * textH, 0)
+                    : new Point3d(shelfX + 0.4 * textH, y - 0.35 * textH, 0);
+
+                using (Leader ld = new Leader())
+                {
+                    ld.SetDatabaseDefaults();
+                    ld.Layer = LayerDim;
+                    ld.AppendVertex(req.AnchorPt);
+                    ld.AppendVertex(new Point3d(elbowX, y, 0));
+                    ld.AppendVertex(new Point3d(shelfX, y, 0));
+                    ld.HasArrowHead = true;
+                    ld.Dimasz = textH * 0.70;
+                    ms.AppendEntity(ld);
+                    tr.AddNewlyCreatedDBObject(ld, true);
+                }
+                AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
             }
-            AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
         }
 
         /// <summary>
@@ -1878,8 +1901,8 @@ namespace SteelStructureSuite.Services.Drawing
                 $"材料明细表 ({p.Tag})",
                 textStyleId, textH * 1.05, LayerFrame);
 
-            // 各列宽度比例（总和严格等于 1.00）
-            double[] ratios = { 0.09, 0.21, 0.26, 0.11, 0.09, 0.11, 0.13 };
+            // 各列宽度比例（总和严格等于 1.00）：件号 / 截面规格 / 材质 / 数量 / 单长 / 重(kg)
+            double[] ratios = { 0.07, 0.35, 0.13, 0.10, 0.15, 0.20 };
             double[] colX = new double[ratios.Length + 1];
             colX[0] = 0.0;
             for (int c = 0; c < ratios.Length; c++)
@@ -1902,7 +1925,7 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             // 表头行（位于 gridH - rowH .. gridH）
-            string[] headers = { "件号", "部位", "截面规格", "材质", "数量", "单长", "重(kg)" };
+            string[] headers = { "件号", "截面规格", "材质", "数量", "单长", "重(kg)" };
             double headerCenterY = bottomLeft.Y + gridH - rowH * 0.5;
             for (int c = 0; c < headers.Length; c++)
             {
@@ -1918,8 +1941,7 @@ namespace SteelStructureSuite.Services.Drawing
                 double rowCenterY = bottomLeft.Y + (gridRows - 1 - i) * rowH - rowH * 0.5;
                 string[] vals =
                 {
-                    $"#{item.PartNo}",
-                    item.PartRole ?? string.Empty,
+                    item.PartNo.ToString(CultureInfo.InvariantCulture),
                     item.SectionName ?? string.Empty,
                     item.Material ?? string.Empty,
                     item.Count.ToString(CultureInfo.InvariantCulture),
@@ -1943,11 +1965,11 @@ namespace SteelStructureSuite.Services.Drawing
                 "合计", textStyleId, textH, LayerFrame);
             AppendCenteredSimSunText(
                 tr, ms,
-                new Point3d(bottomLeft.X + (colX[2] + colX[3]) * 0.5, totalRowCenterY, 0),
+                new Point3d(bottomLeft.X + (colX[1] + colX[2]) * 0.5, totalRowCenterY, 0),
                 $"总重: {sumKg:0.00} kg", textStyleId, textH * 0.96, LayerFrame);
             AppendCenteredSimSunText(
                 tr, ms,
-                new Point3d(bottomLeft.X + (colX[6] + colX[7]) * 0.5, totalRowCenterY, 0),
+                new Point3d(bottomLeft.X + (colX[5] + colX[6]) * 0.5, totalRowCenterY, 0),
                 sumKg.ToString("0.00", CultureInfo.InvariantCulture), textStyleId, textH * 0.96, LayerFrame);
         }
 

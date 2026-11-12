@@ -75,7 +75,7 @@ namespace SteelStructureSuite.Services.Takeoff
                 .GroupBy(i => new { i.SectionName, i.ShapeTypeName, i.Material, i.UnitWeightKgPerM })
                 .Select(g => new SectionSummaryRow
                 {
-                    PartNoRange = string.Join(",", g.Select(x => "#" + x.PartNo).Distinct()),
+                    PartNoRange = string.Join(",", g.Select(x => x.PartNo.ToString(CultureInfo.InvariantCulture)).Distinct()),
                     SectionName = g.Key.SectionName,
                     ShapeTypeName = g.Key.ShapeTypeName,
                     Material = g.Key.Material,
@@ -187,7 +187,7 @@ namespace SteelStructureSuite.Services.Takeoff
                     string[] vals =
                     {
                         item.ParentTag ?? string.Empty,
-                        $"#{item.PartNo}",
+                        item.PartNo.ToString(CultureInfo.InvariantCulture),
                         item.PartRole ?? string.Empty,
                         item.SectionName ?? string.Empty,
                         item.Material ?? string.Empty,
@@ -301,7 +301,7 @@ namespace SteelStructureSuite.Services.Takeoff
                     string[] vals =
                     {
                         r.Index.ToString(),
-                        r.PartNoRange ?? ("#" + r.Index),
+                        r.PartNoRange ?? r.Index.ToString(CultureInfo.InvariantCulture),
                         r.SectionName,
                         r.ShapeTypeName,
                         r.Material,
