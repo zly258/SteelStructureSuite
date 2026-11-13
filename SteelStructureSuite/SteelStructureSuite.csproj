@@ -54,11 +54,13 @@
     <Compile Include="Services\Interaction\SteelPlacementJig.cs" />
     <Compile Include="Services\Interaction\SteelGripOverrule.cs" />
     <Compile Include="Services\Interaction\SteelContextMenu.cs" />
+    <Compile Include="Services\Interaction\MainThreadDispatcher.cs" />
     <Compile Include="Services\Takeoff\MaterialTakeoffService.cs" />
     <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
     <Compile Include="Services\Settings\UserSettings.cs" />
     <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
     <Compile Include="Services\Drawing\DwgExchangeService.cs" />
+    <Compile Include="Services\Drawing\DxfOutOfProcessConverter.cs" />
 
     <!-- 5. Ribbon (顶部功能区构建器) -->
     <Compile Include="Ribbon\SteelRibbonBuilder.cs" />

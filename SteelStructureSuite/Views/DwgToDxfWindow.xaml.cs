@@ -7,8 +7,10 @@ using System.Text;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
+using Autodesk.AutoCAD.DatabaseServices;
 using Microsoft.Win32;
 using SteelStructureSuite.Services.Drawing;
+using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
@@ -29,9 +31,15 @@ namespace SteelStructureSuite.Views
 
     public partial class DwgToDxfWindow : Window
     {
+        // 保留窗口引用，避免非模态窗口被 GC 回收。
+        private static readonly List<WeakReference> _alive = new List<WeakReference>();
+
+        private bool _closed;
+
         public DwgToDxfWindow()
         {
             InitializeComponent();
+            _alive.Add(new WeakReference(this));
             foreach (DxfVersionChoice choice in DwgExchangeService.GetSupportedDxfVersions())
                 CmbVersion.Items.Add(choice);
 
@@ -47,9 +55,11 @@ namespace SteelStructureSuite.Views
 
             TxtOutput.Text = UserSettings.GetString("Dxf.OutputDir", "");
             ChkOverwrite.IsChecked = UserSettings.GetBool("Dxf.Overwrite", false);
+            UpdateFileCount();
             UserSettings.RestoreWindowState(this, "DwgToDxfWindow");
             Closed += (s, e) =>
             {
+                _closed = true;
                 SaveSettings();
                 UserSettings.SaveWindowState(this, "DwgToDxfWindow");
             };
@@ -83,9 +93,14 @@ namespace SteelStructureSuite.Views
             LstFiles.Items.RemoveAt(index);
             if (LstFiles.Items.Count > 0)
                 LstFiles.SelectedIndex = Math.Min(index, LstFiles.Items.Count - 1);
+            UpdateFileCount();
         }
 
-        private void OnClearClick(object sender, RoutedEventArgs e) => LstFiles.Items.Clear();
+        private void OnClearClick(object sender, RoutedEventArgs e)
+        {
+            LstFiles.Items.Clear();
+            UpdateFileCount();
+        }
 
         private void OnUpClick(object sender, RoutedEventArgs e) => MoveSelected(-1);
 
@@ -136,21 +151,79 @@ namespace SteelStructureSuite.Views
 
             SaveSettings();
             BtnRun.IsEnabled = false;
-            Mouse.OverrideCursor = Cursors.Wait;
+            TxtLog.Text = "正在转换，请稍候…";
+            // 界面状态必须在窗口线程上读取，不能留到后台线程里取。
+            bool overwrite = ChkOverwrite.IsChecked == true;
+            string versionToken = DxfOutOfProcessConverter.GetVersionToken(choice.Key);
+
+            // 转换全部走独立的核心控制台进程，不再操作当前 CAD 的数据库，
+            // 因此可以放在后台线程上跑，CAD 界面不会卡住。
             try
             {
-                List<DwgFileResult> results = DwgExchangeService.ConvertToDxf(
-                    files, dir, choice.Version, ChkOverwrite.IsChecked == true);
-                TxtLog.Text = FormatLog(results);
+                var worker = new System.Threading.Thread(
+                    () => RunConvert(files, dir, versionToken, overwrite));
+                worker.IsBackground = true;
+                worker.Start();
             }
             catch (Exception ex)
             {
-                TxtLog.Text = ex.Message;
-            }
-            finally
-            {
-                Mouse.OverrideCursor = null;
                 BtnRun.IsEnabled = true;
+                TxtLog.Text = "无法启动转换：" + ex.Message;
+            }
+        }
+
+        /// <summary>后台线程上的批量转换作业。</summary>
+        private void RunConvert(List<string> files, string dir, string versionToken, bool overwrite)
+        {
+            string log;
+            List<DwgFileResult> results = null;
+            try
+            {
+                results = DwgExchangeService.ConvertToDxf(files, dir, versionToken, overwrite, OnProgress);
+                log = FormatLog(results);
+            }
+            catch (Exception ex)
+            {
+                log = "转换失败：" + ex.Message;
+            }
+
+            PostToUi(() =>
+            {
+                TxtLog.Text = log;
+                BtnRun.IsEnabled = true;
+            });
+
+            // 命令行汇总必须在 AutoCAD 主线程上打印。
+            if (results == null) return;
+            try
+            {
+                MainThreadDispatcher.Post(() => DwgExchangeService.WriteSummary(results));
+            }
+            catch (Exception)
+            {
+            }
+        }
+
+        /// <summary>把单文件进度回填到日志区。</summary>
+        private void OnProgress(string line)
+        {
+            PostToUi(() =>
+            {
+                TxtLog.AppendText(line + Environment.NewLine);
+                TxtLog.ScrollToEnd();
+            });
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (_closed) return;
+            try
+            {
+                Dispatcher.Invoke(action);
+            }
+            catch (Exception)
+            {
+                // 窗口已关闭时忽略回填。
             }
         }
 
@@ -170,6 +243,12 @@ namespace SteelStructureSuite.Views
                 if (!known.Add(full)) continue;
                 LstFiles.Items.Add(new DwgPathItem(full));
             }
+            UpdateFileCount();
+        }
+
+        private void UpdateFileCount()
+        {
+            TxtFileCount.Text = LstFiles.Items.Count.ToString(CultureInfo.CurrentCulture);
         }
 
         private void MoveSelected(int delta)
@@ -204,6 +283,8 @@ namespace SteelStructureSuite.Views
         {
             var sb = new StringBuilder();
             int ok = 0;
+            int skipped = 0;
+            int failed = 0;
             int total = 0;
             if (results != null)
             {
@@ -213,16 +294,25 @@ namespace SteelStructureSuite.Views
                     if (!summary)
                     {
                         total++;
-                        if (item.Success) ok++;
+                        if (item.Skipped) skipped++;
+                        else if (item.Success) ok++;
+                        else failed++;
                     }
                     string name = string.IsNullOrEmpty(item.SourcePath) ? item.OutputPath : Path.GetFileName(item.SourcePath);
-                    sb.Append(item.Success ? "成功  " : "失败  ");
+                    sb.Append(item.Skipped ? "跳过  " : item.Success ? "成功  " : "失败  ");
                     if (!string.IsNullOrEmpty(name)) sb.Append(name).Append("  ");
                     sb.Append(item.Message ?? string.Empty);
                     sb.AppendLine();
                 }
             }
-            sb.Insert(0, string.Format(CultureInfo.InvariantCulture, "完成 {0} / {1}{2}", ok, total, Environment.NewLine));
+            sb.Insert(0, string.Format(
+                CultureInfo.InvariantCulture,
+                "完成 成功 {0} / 跳过 {1} / 失败 {2}（共 {3}）{4}",
+                ok,
+                skipped,
+                failed,
+                total,
+                Environment.NewLine));
             return sb.ToString();
         }
     }

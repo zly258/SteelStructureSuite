@@ -1,5 +1,6 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
+using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Views;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
@@ -13,7 +14,9 @@ namespace SteelStructureSuite.Commands
         public void ConvertDwgToDxf()
         {
             if (Application.DocumentManager.MdiActiveDocument == null) return;
-            Application.ShowModalWindow(new DwgToDxfWindow());
+            // 非模态窗口：转换作业由 MainThreadDispatcher 排到 AutoCAD 主线程执行，
+            // 窗口只负责收集参数与显示日志，避免在 WPF 线程上操作 AutoCAD 数据库。
+            Application.ShowModelessWindow(new DwgToDxfWindow());
         }
 
         [CommandMethod("SS_DWGMERGE", CommandFlags.Modal)]
@@ -21,9 +24,17 @@ namespace SteelStructureSuite.Commands
         {
             if (Application.DocumentManager.MdiActiveDocument == null) return;
             var window = new DwgMergeWindow();
-            Application.ShowModalWindow(window);
-            if (window.OpenWhenClosed && !string.IsNullOrEmpty(window.SavedPath) && System.IO.File.Exists(window.SavedPath))
-                Application.DocumentManager.Open(window.SavedPath, false);
+            Application.ShowModelessWindow(window);
+        }
+
+        /// <summary>
+        /// 内部命令：执行 MainThreadDispatcher 队列里的 CAD 作业。
+        /// 由窗口通过 SendStringToExecute 触发，保证在 AutoCAD 主线程上运行。
+        /// </summary>
+        [CommandMethod("SS_INTERNAL_RUN", CommandFlags.Modal)]
+        public void RunPendingTasks()
+        {
+            MainThreadDispatcher.RunPending();
         }
     }
 }

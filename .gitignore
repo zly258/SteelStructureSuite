@@ -132,4 +132,6 @@ $RECYCLE.BIN/
 
 # 本地构建校验产物
 _buildcheck/
+_tmp_accore/
+_tmp_refl/
 

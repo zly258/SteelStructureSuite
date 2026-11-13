@@ -139,7 +139,6 @@ namespace SteelStructureSuite.Ribbon
             RibbonPanelSource outPanel = CreatePanel(tab, "统计出图");
             outPanel.Items.Add(CreateLargeButton("材料统计", "SS_BOM ", "统计全图或框选钢结构材料，导出 Excel (.xlsx) 或插入 CAD 表", "bom"));
             outPanel.Items.Add(CreateLargeButton("施工详图", "SS_DRAWING ", "生成标准 A1~A4 图框消隐详图（支持当前文件或新建独立 DWG）", "drawing"));
-            outPanel.Items.Add(CreateSmallButton("出图设置", "SS_DRAWCFG ", "设置图幅、比例、视图与输出方式；单击出图时自动沿用上次设置", "drawing"));
             outPanel.Items.Add(CreateLargeButton("使用说明", "SS_HELP ", "查看插件完整功能与命令使用说明", "help"));
             outPanel.Items.Add(CreateLargeButton("关于", "SS_ABOUT ", "查看版本、版权与 MIT 许可证信息", "about"));
 

@@ -3,30 +3,46 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Windows;
-using System.Windows.Input;
+using Autodesk.AutoCAD.ApplicationServices;
 using Microsoft.Win32;
 using SteelStructureSuite.Services.Drawing;
+using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Settings;
+using Application = Autodesk.AutoCAD.ApplicationServices.Application;
+
 namespace SteelStructureSuite.Views
 {
     public partial class DwgMergeWindow : Window
     {
+        // 保留窗口引用，避免非模态窗口被 GC 回收。
+        private static readonly List<WeakReference> _alive = new List<WeakReference>();
+
+        private bool _closed;
+        private bool _running;
+
         public string SavedPath { get; private set; }
         public bool OpenWhenClosed { get; private set; }
 
         public DwgMergeWindow()
         {
             InitializeComponent();
+            _alive.Add(new WeakReference(this));
+
             bool vertical = UserSettings.GetString("Merge.Direction", "H") == "V";
             RadVertical.IsChecked = vertical;
             RadHorizontal.IsChecked = !vertical;
             TxtGap.Text = UserSettings.GetDouble("Merge.Gap", 0).ToString("0.###", CultureInfo.CurrentCulture);
             ChkExplode.IsChecked = UserSettings.GetBool("Merge.Explode", false);
-            ChkOpen.IsChecked = UserSettings.GetBool("Merge.OpenAfter", true);
+            // 用新的设置键，避开旧版本存下的「默认打开」，
+            // 合并结果是否自动打开现在默认关闭。
+            ChkOpen.IsChecked = UserSettings.GetBool("Merge.OpenAfterV2", false);
             TxtOutput.Text = UserSettings.GetString("Merge.OutputPath", "");
+            UpdateFileCount();
+
             UserSettings.RestoreWindowState(this, "DwgMergeWindow");
             Closed += (s, e) =>
             {
+                _closed = true;
                 SaveSettings();
                 UserSettings.SaveWindowState(this, "DwgMergeWindow");
             };
@@ -36,7 +52,7 @@ namespace SteelStructureSuite.Views
         {
             var dlg = new OpenFileDialog
             {
-                Title = "选择要合并的图纸",
+                Title = "选择要合并的图纸（DWG 或 DXF）",
                 Filter = "图纸 (*.dwg;*.dxf)|*.dwg;*.dxf|DWG 图纸 (*.dwg)|*.dwg|DXF 图纸 (*.dxf)|*.dxf",
                 Multiselect = true,
                 CheckFileExists = true
@@ -59,9 +75,8 @@ namespace SteelStructureSuite.Views
             {
                 string folder = Path.GetDirectoryName(dlg.FileNames[0]);
                 if (!string.IsNullOrEmpty(folder)) UserSettings.SetString("Merge.SourceDir", folder);
-                if (string.IsNullOrWhiteSpace(TxtOutput.Text))
-                    TxtOutput.Text = Path.Combine(folder ?? string.Empty, "合并图纸.dwg");
             }
+            UpdateFileCount();
         }
 
         private void OnRemoveClick(object sender, RoutedEventArgs e)
@@ -71,9 +86,14 @@ namespace SteelStructureSuite.Views
             LstFiles.Items.RemoveAt(index);
             if (LstFiles.Items.Count > 0)
                 LstFiles.SelectedIndex = Math.Min(index, LstFiles.Items.Count - 1);
+            UpdateFileCount();
         }
 
-        private void OnClearClick(object sender, RoutedEventArgs e) => LstFiles.Items.Clear();
+        private void OnClearClick(object sender, RoutedEventArgs e)
+        {
+            LstFiles.Items.Clear();
+            UpdateFileCount();
+        }
 
         private void OnUpClick(object sender, RoutedEventArgs e) => MoveSelected(-1);
 
@@ -97,8 +117,14 @@ namespace SteelStructureSuite.Views
             if (dlg.ShowDialog(this) == true) TxtOutput.Text = dlg.FileName;
         }
 
+        /// <summary>
+        /// 只收集参数，不在窗口线程上碰 AutoCAD 数据库。
+        /// 合并动作交给 AutoCAD 主线程执行（数据库对象只能在主线程创建与释放）。
+        /// </summary>
         private void OnMergeClick(object sender, RoutedEventArgs e)
         {
+            if (_running) return;
+
             var files = new List<string>();
             foreach (DwgPathItem item in LstFiles.Items) files.Add(item.FullPath);
             if (files.Count == 0)
@@ -117,10 +143,21 @@ namespace SteelStructureSuite.Views
             string output = TxtOutput.Text == null ? string.Empty : TxtOutput.Text.Trim();
             if (output.Length == 0)
             {
-                TxtLog.Text = "请指定输出图纸。";
+                TxtLog.Text = "请指定输出文件名，例如「合并图纸.dwg」或「合并图纸.dxf」。";
                 return;
             }
-            if (!output.EndsWith(".dwg", StringComparison.OrdinalIgnoreCase) && !output.EndsWith(".dxf", StringComparison.OrdinalIgnoreCase)) output += ".dwg";
+            string ext = Path.GetExtension(output);
+            if (!ext.Equals(".dwg", StringComparison.OrdinalIgnoreCase) && !ext.Equals(".dxf", StringComparison.OrdinalIgnoreCase))
+            {
+                TxtLog.Text = "输出文件必须是 .dwg 或 .dxf 格式，请显式指定扩展名。";
+                return;
+            }
+            // 只给文件名时，落到第一个源文件所在目录。
+            if (string.IsNullOrEmpty(Path.GetDirectoryName(output)))
+            {
+                string sourceDir = Path.GetDirectoryName(files[0]);
+                if (!string.IsNullOrEmpty(sourceDir)) output = Path.Combine(sourceDir, output);
+            }
             if (File.Exists(output))
             {
                 MessageBoxResult answer = MessageBox.Show(this, "输出文件已存在，是否覆盖？", "合并图纸", MessageBoxButton.YesNo, MessageBoxImage.Warning);
@@ -128,31 +165,84 @@ namespace SteelStructureSuite.Views
             }
 
             SaveSettings();
+
+            var direction = RadVertical.IsChecked == true ? DwgMergeDirection.Vertical : DwgMergeDirection.Horizontal;
+            bool explode = ChkExplode.IsChecked == true;
+            bool openAfter = ChkOpen.IsChecked == true;
+
+            _running = true;
             BtnRun.IsEnabled = false;
-            Mouse.OverrideCursor = Cursors.Wait;
+            TxtLog.Text = "正在合并，请稍候…";
+
             try
             {
-                var direction = RadVertical.IsChecked == true ? DwgMergeDirection.Vertical : DwgMergeDirection.Horizontal;
+                MainThreadDispatcher.Post(() => RunMerge(files, output, direction, gap, explode, openAfter));
+            }
+            catch (System.Exception ex)
+            {
+                _running = false;
+                BtnRun.IsEnabled = true;
+                TxtLog.Text = "无法启动合并：" + ex.Message;
+            }
+        }
+
+        /// <summary>运行在 AutoCAD 主线程上的合并作业。</summary>
+        private void RunMerge(
+            List<string> files,
+            string output,
+            DwgMergeDirection direction,
+            double gap,
+            bool explode,
+            bool openAfter)
+        {
+            string log;
+            bool merged = false;
+            try
+            {
                 List<DwgFileResult> results = DwgExchangeService.MergeDrawings(
-                    files, output, direction, gap, ChkExplode.IsChecked == true);
-                TxtLog.Text = DwgToDxfWindow.FormatLog(results);
+                    files, output, direction, gap, explode);
+                log = DwgToDxfWindow.FormatLog(results);
                 foreach (DwgFileResult item in results)
                 {
                     if (item.Success && item.Message != null && item.Message.StartsWith("已合并", StringComparison.Ordinal))
                     {
+                        merged = true;
                         SavedPath = output;
-                        OpenWhenClosed = ChkOpen.IsChecked == true;
+                        OpenWhenClosed = openAfter;
                     }
                 }
             }
-            catch (Exception ex)
+            catch (System.Exception ex)
             {
-                TxtLog.Text = ex.Message;
+                log = "合并失败：" + ex.Message;
             }
-            finally
+
+            PostToUi(() =>
             {
-                Mouse.OverrideCursor = null;
+                TxtLog.Text = log;
                 BtnRun.IsEnabled = true;
+                _running = false;
+            });
+
+            if (!merged || !openAfter) return;
+            if (!File.Exists(output)) return;
+            var info = new FileInfo(output);
+            if (!info.Exists || info.Length <= 0) return;
+
+            try
+            {
+                Application.DocumentManager.Open(output, false);
+            }
+            catch (System.Exception ex)
+            {
+                try
+                {
+                    Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
+                        "\n[SteelStructureSuite] 合并完成，但打开输出图纸失败：" + ex.Message + "\n");
+                }
+                catch (System.Exception)
+                {
+                }
             }
         }
 
@@ -169,13 +259,31 @@ namespace SteelStructureSuite.Views
             LstFiles.SelectedIndex = next;
         }
 
+        private void UpdateFileCount()
+        {
+            TxtFileCount.Text = LstFiles.Items.Count.ToString(CultureInfo.CurrentCulture);
+        }
+
+        private void PostToUi(Action action)
+        {
+            if (_closed) return;
+            try
+            {
+                Dispatcher.Invoke(action);
+            }
+            catch (System.Exception)
+            {
+                // 窗口已关闭时忽略回填。
+            }
+        }
+
         private void SaveSettings()
         {
             UserSettings.SetString("Merge.Direction", RadVertical.IsChecked == true ? "V" : "H");
             double gap;
             if (TryParseGap(TxtGap.Text, out gap)) UserSettings.SetDouble("Merge.Gap", gap);
             UserSettings.SetBool("Merge.Explode", ChkExplode.IsChecked == true);
-            UserSettings.SetBool("Merge.OpenAfter", ChkOpen.IsChecked == true);
+            UserSettings.SetBool("Merge.OpenAfterV2", ChkOpen.IsChecked == true);
             UserSettings.SetString("Merge.OutputPath", TxtOutput.Text == null ? string.Empty : TxtOutput.Text.Trim());
             UserSettings.Save();
         }

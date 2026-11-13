@@ -39,19 +39,23 @@ namespace SteelStructureSuite.Services.Drawing
         public string SourcePath { get; set; }
         public string OutputPath { get; set; }
         public bool Success { get; set; }
+        /// <summary>true = 不是失败，而是主动跳过（例如目标文件已存在）。</summary>
+        public bool Skipped { get; set; }
         public string Message { get; set; }
     }
 
     /// <summary>
     /// 批量 DWG 转 DXF，以及按模型空间范围把多张 DWG 横向或纵向合并到新图。
+    ///
+    /// 线程约定：本类所有方法都必须在 AutoCAD 主线程上调用。
+    /// 数据库对象的创建与释放离开主线程会触发原生访问冲突，
+    /// 因此界面层只能收集参数，实际作业由 MainThreadDispatcher 调度。
     /// </summary>
     public static class DwgExchangeService
     {
-        private const int DxfPrecision = 16;
-
         private static readonly string[] VersionKeys =
         {
-            "AC1009", "AC1015", "AC1800", "AC1021", "AC1024", "AC1027", "AC1032"
+            "AC1009", "AC1015", "AC1018", "AC1021", "AC1024", "AC1027", "AC1032"
         };
 
         private static readonly string[] VersionLabels =
@@ -88,8 +92,9 @@ namespace SteelStructureSuite.Services.Drawing
         public static List<DwgFileResult> ConvertToDxf(
             IList<string> sourceFiles,
             string outputDirectory,
-            DwgVersion version,
-            bool overwrite)
+            string versionToken,
+            bool overwrite,
+            Action<string> progress = null)
         {
             var results = new List<DwgFileResult>();
             if (sourceFiles == null) return results;
@@ -114,52 +119,112 @@ namespace SteelStructureSuite.Services.Drawing
                     {
                         if (!overwrite)
                         {
-                            result.Message = "目标已存在，已跳过";
+                            result.Skipped = true;
+                            result.Message = "目标已存在，未覆盖";
                             results.Add(result);
                             continue;
                         }
                         File.Delete(outPath);
                     }
 
+                    // 优先在独立的核心控制台进程里导出：
+                    // 含 AEC 对象的图纸在当前 CAD 进程内做 DxfOut 会让 aecbase.dbx
+                    // 抛 c0000027 未处理异常，把整个 CAD 带崩；子进程里异常只影响该文件。
+                    string source = path;
+                    string tempCopy = null;
                     Document open = FindOpenDocument(path);
                     if (open != null)
                     {
-                        using (open.LockDocument())
+                        // 图纸正在 AutoCAD 里打开：先存一份临时副本，
+                        // 这样未保存的修改也能导出，同时不在当前进程里做 DXF 写出。
+                        tempCopy = Path.Combine(
+                            Path.GetTempPath(),
+                            "sss-copy-" + Guid.NewGuid().ToString("N").Substring(0, 8) + ".dwg");
+                        try
                         {
-                            open.Database.DxfOut(outPath, DxfPrecision, version);
+                            using (open.LockDocument())
+                            {
+                                open.Database.SaveAs(tempCopy, true, DwgVersion.Current, open.Database.SecurityParameters);
+                            }
+                            source = tempCopy;
                         }
-                    }
-                    else
-                    {
-                        Database previous = HostApplicationServices.WorkingDatabase;
-                        using (var db = new Database(false, true))
+                        catch (System.Exception ex)
                         {
-                            try
-                            {
-                                HostApplicationServices.WorkingDatabase = db;
-                                db.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, false, null);
-                                db.CloseInput(true);
-                                db.DxfOut(outPath, DxfPrecision, version);
-                            }
-                            finally
-                            {
-                                HostApplicationServices.WorkingDatabase = previous;
-                            }
+                            result.Message = "无法复制正在打开的图纸：" + ex.Message;
+                            results.Add(result);
+                            continue;
                         }
                     }
 
+                    if (IsDxfPath(path))
+                    {
+                        result.Message = "已经是 DXF 文件，无需转换";
+                        results.Add(result);
+                        TryDelete(tempCopy);
+                        continue;
+                    }
+
+                    string error = DxfOutOfProcessConverter.Convert(
+                        source, outPath, versionToken);
+                    TryDelete(tempCopy);
+                    if (error != null)
+                    {
+                        result.Message = error;
+                        results.Add(result);
+                        continue;
+                    }
+
                     result.Success = true;
-                    result.Message = "已写出";
+                    result.Message = "已写出（核心控制台）";
+                    if (progress != null)
+                    {
+                        try { progress("成功  " + Path.GetFileName(path) + "  已写出"); }
+                        catch (System.Exception) { }
+                    }
                 }
                 catch (System.Exception ex)
                 {
-                    result.Message = ex.Message;
+                    result.Message = ex.GetType().Name + ": " + ex.Message;
+                    if (progress != null)
+                    {
+                        try { progress("失败  " + Path.GetFileName(path) + "  " + result.Message); }
+                        catch (System.Exception) { }
+                    }
                 }
                 results.Add(result);
             }
 
-            WriteSummary(results);
             return results;
+        }
+
+        /// <summary>把处理结果打印到命令行，必须在 AutoCAD 主线程上调用。</summary>
+        public static void WriteSummary(IList<DwgFileResult> results)
+        {
+            if (results == null) return;
+            try
+            {
+                int ok = 0;
+                int skipped = 0;
+                int failed = 0;
+                foreach (DwgFileResult item in results)
+                {
+                    if (item.Skipped) skipped++;
+                    else if (item.Success) ok++;
+                    else failed++;
+                }
+                Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
+                    string.Format(
+                        CultureInfo.InvariantCulture,
+                        "\n[SteelStructureSuite] 图纸处理完成：成功 {0} / 跳过 {1} / 失败 {2}（共 {3}）。\n",
+                        ok,
+                        skipped,
+                        failed,
+                        results.Count));
+            }
+            catch (System.Exception)
+            {
+                // 命令行不可用时忽略。
+            }
         }
 
         public static List<DwgFileResult> MergeDrawings(
@@ -206,6 +271,10 @@ namespace SteelStructureSuite.Services.Drawing
             if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
 
             Database previous = HostApplicationServices.WorkingDatabase;
+            // 源数据库与 WBLOCK 出来的临时库必须活到目标文件写完为止：
+            // Database.Insert 只是登记引用，源库提前释放会让写出的 DWG 指向
+            // 已释放的原生内存，AutoCAD 打开时会直接访问冲突。
+            var keepAlive = new List<Database>();
             int placed = 0;
             try
             {
@@ -231,17 +300,24 @@ namespace SteelStructureSuite.Services.Drawing
                             {
                                 using (open.LockDocument())
                                 {
-                                    PlaceOne(open.Database, dest, path, direction, gap, explode, ref cursor, result);
+                                    PlaceOne(open.Database, dest, path, direction, gap, explode, ref cursor, result, keepAlive);
                                 }
                             }
                             else
                             {
-                                using (var src = new Database(false, true))
+                                var src = new Database(false, true);
+                                keepAlive.Add(src);
+                                try
                                 {
                                     HostApplicationServices.WorkingDatabase = src;
                                     ReadSourceDrawing(src, path);
                                     HostApplicationServices.WorkingDatabase = dest;
-                                    PlaceOne(src, dest, path, direction, gap, explode, ref cursor, result);
+                                    PlaceOne(src, dest, path, direction, gap, explode, ref cursor, result, keepAlive);
+                                }
+                                catch (System.Exception ex)
+                                {
+                                    result.Message = ex.GetType().Name + ": " + ex.Message;
+                                    HostApplicationServices.WorkingDatabase = dest;
                                 }
                             }
                             if (result.Success) placed++;
@@ -266,6 +342,12 @@ namespace SteelStructureSuite.Services.Drawing
             finally
             {
                 HostApplicationServices.WorkingDatabase = previous;
+                foreach (Database db in keepAlive)
+                {
+                    try { db.Dispose(); }
+                    catch (System.Exception) { }
+                }
+                keepAlive.Clear();
             }
 
             results.Insert(0, new DwgFileResult
@@ -293,17 +375,128 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static void SaveMergedDrawing(Database db, string path)
         {
-            if (IsDxfPath(path))
+            // 先写临时文件再替换目标：写失败时目标位置仍是上一份可用图纸，
+            // 不会留下半截文件导致 AutoCAD 打开时崩溃。
+            string dir = Path.GetDirectoryName(path);
+            if (string.IsNullOrEmpty(dir)) dir = ".";
+            string temp = Path.Combine(
+                dir,
+                Path.GetFileNameWithoutExtension(path) + ".sstmp" + Path.GetExtension(path));
+
+            try
             {
-                db.DxfOut(path, DxfPrecision, DwgVersion.Current);
-                return;
+                if (File.Exists(temp)) File.Delete(temp);
+
+                if (IsDxfPath(path))
+                {
+                    // DXF 一律走独立的核心控制台进程：合并结果里若含 AEC 对象，
+                    // 进程内 DxfOut 会让 aecbase.dbx 抛 c0000027 把 CAD 带崩。
+                    // 先存成临时 DWG，再让子进程转成 DXF。
+                    string dwgTemp = Path.Combine(
+                        dir,
+                        Path.GetFileNameWithoutExtension(path) + ".sstmp.dwg");
+                    try
+                    {
+                        if (File.Exists(dwgTemp)) File.Delete(dwgTemp);
+                        db.SaveAs(dwgTemp, true, DwgVersion.Current, db.SecurityParameters);
+                        if (!File.Exists(dwgTemp) || new FileInfo(dwgTemp).Length == 0)
+                            throw new IOException("保存中间 DWG 失败。");
+
+                        string error = DxfOutOfProcessConverter.Convert(
+                            dwgTemp, path, DxfOutOfProcessConverter.GetVersionToken("AC1032"));
+                        if (error != null) throw new IOException("导出 DXF 失败：" + error);
+                        if (!File.Exists(path) || new FileInfo(path).Length == 0)
+                            throw new IOException("导出的 DXF 为空：" + path);
+                    }
+                    finally
+                    {
+                        try { if (File.Exists(dwgTemp)) File.Delete(dwgTemp); }
+                        catch (System.Exception) { }
+                    }
+                    return;
+                }
+                else
+                {
+                    // 与详图出图保持一致：按版本回退保存，
+                    // 避免 SaveAs 覆盖现有文件时抛 eWrongDatabase 写出半个文件。
+                    DwgVersion[] versions = { DwgVersion.Current, DwgVersion.AC1032, DwgVersion.AC1027, DwgVersion.AC1024 };
+                    System.Exception lastError = null;
+                    bool saved = false;
+                    foreach (DwgVersion version in versions)
+                    {
+                        try
+                        {
+                            if (File.Exists(temp)) File.Delete(temp);
+                            db.SaveAs(temp, true, version, db.SecurityParameters);
+                            if (File.Exists(temp) && new FileInfo(temp).Length > 0)
+                            {
+                                saved = true;
+                                break;
+                            }
+                        }
+                        catch (System.Exception ex)
+                        {
+                            lastError = ex;
+                        }
+                    }
+                    if (!saved)
+                    {
+                        throw new IOException(
+                            "保存 DWG 失败：" + (lastError == null ? "未知错误" : lastError.Message),
+                            lastError);
+                    }
+                }
+
+                if (File.Exists(path)) File.Delete(path);
+                File.Move(temp, path);
+                // 写完再读回来校验一次：读不回来的文件说明写出的内容
+                // 指向了已释放的原生内存，打开时必然访问冲突，必须当场判失败。
+                VerifySavedDrawing(path);
             }
-            db.SaveAs(path, DwgVersion.Current);
+            finally
+            {
+                try { if (File.Exists(temp)) File.Delete(temp); }
+                catch (System.Exception) { }
+            }
         }
 
         private static bool IsDxfPath(string path)
         {
             return path != null && path.EndsWith(".dxf", StringComparison.OrdinalIgnoreCase);
+        }
+
+        private static void TryDelete(string path)
+        {
+            if (string.IsNullOrEmpty(path)) return;
+            try { if (File.Exists(path)) File.Delete(path); }
+            catch (System.Exception) { }
+        }
+
+        /// <summary>
+        /// 写盘后再打开校验一次：只有能被 AutoCAD 正常读回来的文件才算成功。
+        /// 读不回来的文件说明写出的内容指向了已释放的原生内存，
+        /// 这种文件一旦被打开就会触发访问冲突，必须当场判定为失败。
+        /// </summary>
+        private static void VerifySavedDrawing(string path)
+        {
+            var info = new FileInfo(path);
+            if (!info.Exists || info.Length == 0)
+                throw new IOException("输出文件为空：" + path);
+
+            var previous = HostApplicationServices.WorkingDatabase;
+            using (var check = new Database(false, true))
+            {
+                try
+                {
+                    HostApplicationServices.WorkingDatabase = check;
+                    check.ReadDwgFile(path, FileOpenMode.OpenForReadAndAllShare, false, null);
+                    check.CloseInput(true);
+                }
+                finally
+                {
+                    HostApplicationServices.WorkingDatabase = previous;
+                }
+            }
         }
 
         private static void PlaceOne(
@@ -314,7 +507,8 @@ namespace SteelStructureSuite.Services.Drawing
             double gap,
             bool explode,
             ref double cursor,
-            DwgFileResult result)
+            DwgFileResult result,
+            List<Database> keepAlive)
         {
             Database saved = HostApplicationServices.WorkingDatabase;
             ObjectIdCollection ids;
@@ -334,11 +528,15 @@ namespace SteelStructureSuite.Services.Drawing
                 double y = direction == DwgMergeDirection.Vertical ? cursor : 0;
                 var basePoint = new Point3d(minX, minY, 0);
 
-                using (Database extracted = src.Wblock(ids, basePoint))
-                {
-                    HostApplicationServices.WorkingDatabase = dest;
-                    string blockName = NextBlockName(dest, Path.GetFileNameWithoutExtension(path));
-                    ObjectId blockId = dest.Insert(blockName, extracted, false);
+                Database extracted = src.Wblock(ids, basePoint);
+                keepAlive.Add(extracted);
+                HostApplicationServices.WorkingDatabase = dest;
+                string blockName = NextBlockName(dest, Path.GetFileNameWithoutExtension(path));
+                // preserveSourceDatabase 必须为 true：Insert 会按这个标志决定是否释放
+                // 传入的数据库。传 false 时它会在插入后销毁 WBLOCK 出来的库，
+                // 之后我们再 Dispose 一次就是重复释放，写出的 DWG 指向已释放的原生
+                // 内存，AutoCAD 打开合并结果时直接访问冲突。
+                ObjectId blockId = dest.Insert(blockName, extracted, true);
                 bool exploded = false;
                 using (Transaction tr = dest.TransactionManager.StartTransaction())
                 {
@@ -381,16 +579,15 @@ namespace SteelStructureSuite.Services.Drawing
                         tr.Commit();
                     }
                 }
-            }
 
-            double size = direction == DwgMergeDirection.Horizontal ? width : height;
-            cursor += size + gap;
-            result.Success = true;
-            result.Message = string.Format(
-                CultureInfo.InvariantCulture,
-                explode ? "已分解放入，范围 {0:0.###} x {1:0.###}" : "已按图块放入，范围 {0:0.###} x {1:0.###}",
-                width,
-                height);
+                double size = direction == DwgMergeDirection.Horizontal ? width : height;
+                cursor += size + gap;
+                result.Success = true;
+                result.Message = string.Format(
+                    CultureInfo.InvariantCulture,
+                    explode ? "已分解放入，范围 {0:0.###} x {1:0.###}" : "已按图块放入，范围 {0:0.###} x {1:0.###}",
+                    width,
+                    height);
             }
             finally
             {
@@ -509,22 +706,5 @@ namespace SteelStructureSuite.Services.Drawing
             return null;
         }
 
-        private static void WriteSummary(List<DwgFileResult> results)
-        {
-            try
-            {
-                int ok = 0;
-                foreach (DwgFileResult item in results)
-                {
-                    if (item.Success) ok++;
-                }
-                Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
-                    string.Format(CultureInfo.InvariantCulture, "\n[SteelStructureSuite] 图纸处理完成：成功 {0} / {1}。\n", ok, results.Count));
-            }
-            catch (System.Exception)
-            {
-                // 命令行不可用时忽略。
-            }
-        }
     }
 }
