@@ -16,7 +16,7 @@
   #define AppVersion "1.0.0"
 #endif
 #define AppPublisher "zhangly1403"
-#define AppCopyright "Copyright @ zhangly1403 2026 | zhangly1403@qq.com"
+#define AppCopyright "Copyright (c) 2026 zhangly1403 | zhangly1403@qq.com"
 
 ; 已编译产物目录：优先 Release，其次 Debug（可用 /DRuntimeDir=... 覆盖）
 #ifndef RuntimeDir
