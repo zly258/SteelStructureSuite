@@ -12,7 +12,7 @@ using SteelStructureSuite.Services.Modeling;
 namespace SteelStructureSuite.Services.Interaction
 {
     /// <summary>
-    /// 单点动态跟随放置交互器（60FPS 零卡顿实时渲染构件三维轮廓，点击即落位）
+    /// 单点动态跟随放置交互器（实时渲染构件三维轮廓，点击即落位）
     /// </summary>
     public class SteelSinglePointPlacementJig : DrawJig
     {
@@ -63,7 +63,7 @@ namespace SteelStructureSuite.Services.Interaction
     }
 
     /// <summary>
-    /// 两点线性动态绘制交互器（拾取起点 -> 鼠标实时拉出栏杆、直跑斜梯、单根钢梁/斜撑、悬挑走道、管廊桁架、框架并自动旋转对齐，60FPS 零卡顿）
+    /// 两点线性动态绘制交互器（拾取起点 -> 鼠标实时拉出栏杆、直跑斜梯、单根钢梁/斜撑、悬挑走道、管廊桁架、框架并自动旋转对齐）
     /// </summary>
     public class SteelTwoPointLinearJig : DrawJig
     {

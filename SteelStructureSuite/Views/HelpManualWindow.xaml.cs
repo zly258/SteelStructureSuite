@@ -9,7 +9,7 @@ namespace SteelStructureSuite.Views
             InitializeComponent();
             TxtManual.Text =
 @"【一、插件架构与概览】
-本插件为 AutoCAD 2019 ~ 2024 独立三维参数化钢结构套件，采用标准分层架构（Core / Commands / Domain / Services / Ribbon / Views XAML），内置 5 类国标型钢分表库、26 种参数化钢结构（含化工、电力、冶金 8 类行业标准组件）、60FPS 动态放置与线性绘制、正交夹点拉伸、全图树状模型管理器、MTO 材料统计及 A1~A4 标准图框详图出图。
+本插件为 AutoCAD 2019 ~ 2024 独立三维参数化钢结构套件，采用标准分层架构（Core / Commands / Domain / Services / Ribbon / Views XAML），内置 5 类国标型钢分表库、26 种参数化钢结构（含化工、电力、冶金 8 类行业标准组件）、动态预览放置与线性绘制、正交夹点拉伸、全图树状模型管理器、MTO 材料统计及 A1~A4 标准图框详图出图。
 
 【二、核心功能与命令】
 1. 构建管理

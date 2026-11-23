@@ -77,7 +77,7 @@ namespace SteelStructureSuite.Services.Modeling
         }
 
         /// <summary>
-        /// 生成轻量级三维预览线段集合（专供 DrawJig 动态移动鼠标或两点线性绘制时 60FPS 零卡顿实时渲染）
+        /// 生成轻量级三维预览线段集合（专供 DrawJig 动态移动鼠标或两点线性绘制时实时渲染）
         /// </summary>
         public static List<Tuple<Point3d, Point3d>> BuildFastPreviewWireframeLines(SteelStructureParams p)
         {

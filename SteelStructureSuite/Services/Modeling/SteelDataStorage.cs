@@ -25,7 +25,7 @@ namespace SteelStructureSuite.Services.Modeling
         private static readonly ConcurrentDictionary<long, Point3d> ExpectedExtentsCenterCache =
             new ConcurrentDictionary<long, Point3d>();
 
-        // 当前活跃拖拽会话中的参数备份（供夹点拖拽过程中 60FPS 实时绘制二维/三维快速预览线使用）
+        // 当前活跃拖拽会话中的参数备份（供夹点拖拽过程中实时绘制二维/三维快速预览线使用）
         private static volatile SteelStructureParams _activeTransientDragParams;
 
         public static void SetActiveTransientDragParams(SteelStructureParams p)
