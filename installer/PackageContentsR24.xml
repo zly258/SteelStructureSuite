@@ -20,13 +20,13 @@
                   Email="zhangly1403@qq.com" />
 
   <RuntimeRequirements OS="Win64"
-                       Platform="AutoCAD*"
+                       Platform="AutoCAD|AutoCAD*"
                        SeriesMin="R24.0"
                        SeriesMax="R24.3" />
 
   <Components Description="参数化钢结构套件主程序">
     <RuntimeRequirements OS="Win64"
-                         Platform="AutoCAD*"
+                         Platform="AutoCAD|AutoCAD*"
                          SeriesMin="R24.0"
                          SeriesMax="R24.3" />
 

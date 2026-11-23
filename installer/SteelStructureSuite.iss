@@ -68,7 +68,7 @@ Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.i
 ; Bundle 自动加载清单（AutoCAD 2019 / R23 与 AutoCAD 2021~2024 / R24 各一份，
 ; 两者 SeriesMin / SeriesMax 互不重叠，AutoCAD 只会加载与自己版本匹配的那个）
 Source: "PackageContents.xml"; DestDir: "{#BundleDir}"; Flags: ignoreversion
-Source: "PackageContentsR24.xml"; DestDir: "{#BundleDirR24}"; Flags: ignoreversion
+Source: "PackageContentsR24.xml"; DestDir: "{#BundleDirR24}"; DestName: "PackageContents.xml"; Flags: ignoreversion
 
 ; 主程序（AutoCAD 各托管程序集由 AutoCAD 自身提供，无需打包）
 Source: "{#RuntimeDir}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents"; Flags: ignoreversion
