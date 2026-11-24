@@ -9,6 +9,13 @@ namespace SteelStructureSuite.Ribbon
     {
         private const string TabId = "STEEL_STRUCTURE_SUITE_TAB";
 
+        /// <summary>检查当前功能区中是否已存在本插件选项卡。</summary>
+        public static bool HasRibbonTab()
+        {
+            RibbonControl ribbon = ComponentManager.Ribbon;
+            return ribbon != null && ribbon.FindTab(TabId) != null;
+        }
+
         public static void BuildOrShowRibbon(bool activateTab = true)
         {
             RibbonControl ribbon = ComponentManager.Ribbon;

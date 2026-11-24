@@ -33,6 +33,12 @@ namespace SteelStructureSuite.Core
 
                 Application.Idle += OnApplicationIdleAutoLoadRibbon;
                 ComponentManager.ItemInitialized += OnComponentManagerItemInitialized;
+                Application.SystemVariableChanged += OnSystemVariableChanged;
+                if (Application.DocumentManager != null)
+                {
+                    Application.DocumentManager.DocumentCreated += OnDocumentRibbonCheck;
+                    Application.DocumentManager.DocumentActivated += OnDocumentRibbonCheck;
+                }
                 TryLoadRibbonImmediately();
 
                 Editor ed = Application.DocumentManager.MdiActiveDocument?.Editor;
@@ -57,16 +63,21 @@ namespace SteelStructureSuite.Core
         {
             Application.Idle -= OnApplicationIdleAutoLoadRibbon;
             ComponentManager.ItemInitialized -= OnComponentManagerItemInitialized;
+            Application.SystemVariableChanged -= OnSystemVariableChanged;
+            if (Application.DocumentManager != null)
+            {
+                Application.DocumentManager.DocumentCreated -= OnDocumentRibbonCheck;
+                Application.DocumentManager.DocumentActivated -= OnDocumentRibbonCheck;
+            }
             DisableOverrules();
             SteelContextMenu.UnregisterContextMenu();
         }
 
         private static void TryLoadRibbonImmediately()
         {
-            if (_ribbonAutoLoaded) return;
-            if (ComponentManager.Ribbon != null)
+            if (ComponentManager.Ribbon != null && !SteelRibbonBuilder.HasRibbonTab())
             {
-                SteelRibbonBuilder.BuildOrShowRibbon(activateTab: true);
+                SteelRibbonBuilder.BuildOrShowRibbon(activateTab: !_ribbonAutoLoaded);
                 _ribbonAutoLoaded = true;
             }
         }
@@ -76,9 +87,9 @@ namespace SteelStructureSuite.Core
             if (ComponentManager.Ribbon != null)
             {
                 Application.Idle -= OnApplicationIdleAutoLoadRibbon;
-                if (!_ribbonAutoLoaded)
+                if (!SteelRibbonBuilder.HasRibbonTab())
                 {
-                    SteelRibbonBuilder.BuildOrShowRibbon(activateTab: true);
+                    SteelRibbonBuilder.BuildOrShowRibbon(activateTab: !_ribbonAutoLoaded);
                     _ribbonAutoLoaded = true;
                 }
             }
@@ -89,11 +100,30 @@ namespace SteelStructureSuite.Core
             if (ComponentManager.Ribbon != null)
             {
                 ComponentManager.ItemInitialized -= OnComponentManagerItemInitialized;
-                if (!_ribbonAutoLoaded)
+                if (!SteelRibbonBuilder.HasRibbonTab())
                 {
-                    SteelRibbonBuilder.BuildOrShowRibbon(activateTab: true);
+                    SteelRibbonBuilder.BuildOrShowRibbon(activateTab: !_ribbonAutoLoaded);
                     _ribbonAutoLoaded = true;
                 }
+            }
+        }
+
+        /// <summary>文档新建/激活或工作空间切换导致功能区重建时，自动补挂插件选项卡。</summary>
+        private static void OnDocumentRibbonCheck(object sender, DocumentCollectionEventArgs e)
+        {
+            if (ComponentManager.Ribbon == null || !SteelRibbonBuilder.HasRibbonTab())
+            {
+                Application.Idle -= OnApplicationIdleAutoLoadRibbon;
+                Application.Idle += OnApplicationIdleAutoLoadRibbon;
+            }
+        }
+
+        private static void OnSystemVariableChanged(object sender, Autodesk.AutoCAD.ApplicationServices.SystemVariableChangedEventArgs e)
+        {
+            if (e != null && string.Equals(e.Name, "WSCURRENT", StringComparison.OrdinalIgnoreCase))
+            {
+                Application.Idle -= OnApplicationIdleAutoLoadRibbon;
+                Application.Idle += OnApplicationIdleAutoLoadRibbon;
             }
         }
 

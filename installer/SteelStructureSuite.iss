@@ -1,13 +1,11 @@
 ﻿; ===========================================================================================
 ;  SteelStructureSuite（参数化钢结构套件）安装脚本（Inno Setup 6.x）
-;    · 以 Autodesk Bundle 形式安装到 AutoCAD 插件目录，随 AutoCAD 启动自动加载
-;    · 目标版本：AutoCAD 2019 (R23.0) ~ AutoCAD 2024 (R24.3)，Windows 10 x64
+;    · 以 Autodesk Bundle 统一自适应应用包形式安装到公共插件目录，随 AutoCAD/Plant3D 启动自动加载
+;    · 目标版本：AutoCAD 2019 ~ 2026 全系列自适应，Windows 10/11 x64
 ;
 ;  编译方式：
-;    1) 先用 pwsh tools\Publish.ps1 生成两个大版本的编译产物
-;       （bin\x64\Release_R23 = AutoCAD 2019，bin\x64\Release_R24 = AutoCAD 2021~2024）
-;    2) Inno Setup Compiler 打开本文件 → Build → Compile
-;    3) 或命令行：iscc.exe /DAppVersion=1.0.0 SteelStructureSuite.iss
+;    1) 先用 pwsh tools\Publish.ps1 生成统一 Bundle 与各版本编译产物
+;    2) 命令行调用：iscc.exe /DAppVersion=1.0.0 SteelStructureSuite.iss
 ; ===========================================================================================
 
 #define AppName "参数化钢结构套件"
@@ -18,21 +16,12 @@
 #define AppPublisher "zhangly1403"
 #define AppCopyright "Copyright (c) 2026 zhangly1403 | zhangly1403@qq.com"
 
-; 已编译产物目录：优先 Release，其次 Debug（可用 /DRuntimeDir=... 覆盖）
-#ifndef RuntimeDir
-  #if FileExists("..\SteelStructureSuite\bin\x64\Release_R23\SteelStructureSuite.dll")
-    #define RuntimeDir "..\SteelStructureSuite\bin\x64\Release_R23"
-    #define RuntimeDirR24 "..\SteelStructureSuite\bin\x64\Release_R24"
-  #else
-    #define RuntimeDir "..\SteelStructureSuite\bin\x64\Debug"
-    #define RuntimeDirR24 "..\SteelStructureSuite\bin\x64\Debug"
-  #endif
-#endif
+#define RuntimeDirR23 "..\SteelStructureSuite\bin\x64\Release_R23"
+#define RuntimeDirR24 "..\SteelStructureSuite\bin\x64\Release_R24"
+#define RuntimeDirR25 "..\SteelStructureSuite\bin\x64\Release_R25"
 
 #define BundleName "SteelStructureSuite.bundle"
 #define BundleDir "{commonappdata}\Autodesk\ApplicationPlugins\" + BundleName
-#define BundleNameR24 "SteelStructureSuite2021.bundle"
-#define BundleDirR24 "{commonappdata}\Autodesk\ApplicationPlugins\" + BundleNameR24
 
 [Setup]
 AppId={{62F3CFDA-6F06-467A-ADA0-9948368EA1C5}
@@ -68,20 +57,25 @@ LicenseFile=..\LICENSE
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
 
 [Files]
-; Bundle 自动加载清单（AutoCAD 2019 / R23 与 AutoCAD 2021~2024 / R24 各一份，
-; 两者 SeriesMin / SeriesMax 互不重叠，AutoCAD 只会加载与自己版本匹配的那个）
+; 统一 Bundle 自动加载清单（内含 2019~2026 对应 Components 配置，根据 CAD 运行时版本自动匹配加载）
 Source: "PackageContents.xml"; DestDir: "{#BundleDir}"; Flags: ignoreversion
-Source: "PackageContentsR24.xml"; DestDir: "{#BundleDirR24}"; DestName: "PackageContents.xml"; Flags: ignoreversion
 
-; 主程序（AutoCAD 各托管程序集由 AutoCAD 自身提供，无需打包）
-Source: "{#RuntimeDir}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents"; Flags: ignoreversion
-Source: "{#RuntimeDirR24}\SteelStructureSuite.dll"; DestDir: "{#BundleDirR24}\Contents"; Flags: ignoreversion
+; 2019~2020 模块 (.NET 4.8)
+Source: "{#RuntimeDirR23}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents\2019"; Flags: ignoreversion
+Source: "{#RuntimeDirR23}\SteelStructureSuite.pdb"; DestDir: "{#BundleDir}\Contents\2019"; Flags: ignoreversion skipifsourcedoesntexist
 
-; 使用说明与许可证（随 Bundle 一起分发，并提供独立副本）
+; 2021~2024 模块 (.NET 4.8)
+Source: "{#RuntimeDirR24}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents\2021"; Flags: ignoreversion
+Source: "{#RuntimeDirR24}\SteelStructureSuite.pdb"; DestDir: "{#BundleDir}\Contents\2021"; Flags: ignoreversion skipifsourcedoesntexist
+
+; 2025~2026 模块 (.NET 8.0)
+Source: "{#RuntimeDirR25}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Contents\2026"; Flags: ignoreversion
+Source: "{#RuntimeDirR25}\SteelStructureSuite.pdb"; DestDir: "{#BundleDir}\Contents\2026"; Flags: ignoreversion skipifsourcedoesntexist
+Source: "{#RuntimeDirR25}\SteelStructureSuite.deps.json"; DestDir: "{#BundleDir}\Contents\2026"; Flags: ignoreversion skipifsourcedoesntexist
+
+; 使用说明与许可证
 Source: "..\docs\UserManual.md"; DestDir: "{#BundleDir}\Contents\Help"; Flags: ignoreversion
-Source: "..\docs\UserManual.md"; DestDir: "{#BundleDirR24}\Contents\Help"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{#BundleDir}\Contents\Help"; DestName: "LICENSE.txt"; Flags: ignoreversion
-Source: "..\LICENSE"; DestDir: "{#BundleDirR24}\Contents\Help"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\docs\UserManual.md"; DestDir: "{app}"; DestName: "使用说明.md"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{app}"; DestName: "LICENSE.txt"; Flags: ignoreversion
 Source: "..\README.md"; DestDir: "{app}"; Flags: ignoreversion skipifsourcedoesntexist
@@ -93,28 +87,33 @@ Name: "{group}\使用说明"; Filename: "{sys}\notepad.exe"; Parameters: """{app
 [UninstallDelete]
 ; 清理 Bundle 目录下的空壳目录（文件本身由安装记录负责删除）
 Type: dirifempty; Name: "{#BundleDir}\Contents\Help"
+Type: dirifempty; Name: "{#BundleDir}\Contents\2019"
+Type: dirifempty; Name: "{#BundleDir}\Contents\2021"
+Type: dirifempty; Name: "{#BundleDir}\Contents\2026"
 Type: dirifempty; Name: "{#BundleDir}\Contents"
 Type: dirifempty; Name: "{#BundleDir}"
-Type: dirifempty; Name: "{#BundleDirR24}\Contents\Help"
-Type: dirifempty; Name: "{#BundleDirR24}\Contents"
-Type: dirifempty; Name: "{#BundleDirR24}"
 
 [Code]
 procedure CleanLegacyBundles;
 begin
-  { 1. 用户级同名 Bundle 必须删除，否则 AutoCAD 会同时加载两份 DLL }
-  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
-  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
-  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
-  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
-  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\' + '{#BundleName}', True, True, True);
-  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\' + '{#BundleNameR24}', True, True, True);
+  { 1. 清理用户目录与旧版历史遗留 Bundle，防止 AutoCAD 同时加载多份或旧版本残留 }
+  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
+  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
 
-  { 2. 历史遗留包名（如曾用缩写或测试包名，可在此追加 DelTree 调用） }
+  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
 
-  { 3. 安装目标 Contents 彻底重建，防止旧版本残留孤儿 DLL }
+  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
+
+  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
+
+  { 2. 安装目标 Contents 彻底重建，防止旧版本残留孤儿 DLL }
   DelTree(ExpandConstant('{#BundleDir}') + '\Contents', True, True, True);
-  DelTree(ExpandConstant('{#BundleDirR24}') + '\Contents', True, True, True);
 end;
 
 function InitializeSetup(): Boolean;

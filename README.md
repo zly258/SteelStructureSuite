@@ -200,8 +200,7 @@ SteelStructureSuite/
 │  └─ UserManual.md                  # 详细用户使用指南
 ├─ .github/                          # GitHub Issue 与 PR 模板
 ├─ installer/
-│  ├─ PackageContents.xml            # AutoCAD 2019 (R23) Bundle 描述清单
-│  ├─ PackageContentsR24.xml         # AutoCAD 2021~2024 (R24) Bundle 描述清单
+│  ├─ PackageContents.xml            # AutoCAD 2019~2026 (R23~R25) 统一自适应 Bundle 描述清单
 │  └─ SteelStructureSuite.iss        # Inno Setup 安装包构建脚本
 ├─ tools/
 │  └─ Publish.ps1                    # 一键编译、多目标发布与安装脚本

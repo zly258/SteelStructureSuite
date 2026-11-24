@@ -1,8 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!-- ============================================================================
      AutoCAD 自动加载清单（Autodesk ApplicationPlugins Bundle）
-     放置位置：<AutoCAD 安装目录>\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
-     适用版本：AutoCAD 2019 (R23.0 ~ R23.1)。AutoCAD 2021 及以上请改用 SteelStructureSuite2021.bundle
+     放置位置：%ProgramData%\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
+     适用版本：AutoCAD 2019 ~ 2026（R23.0 ~ R26.0 全系列自适应），涵盖 AutoCAD 与 AutoCAD Plant 3D
      ============================================================================ -->
 <ApplicationPackage SchemaVersion="1.0"
                     AutodeskProduct="AutoCAD"
@@ -12,82 +12,224 @@
                     ProductType="Application"
                     ProductCode="{07A15AD4-44A2-4BF5-8F62-41DDF8E03F13}"
                     UpgradeCode="{B7585238-DAB8-4F59-8C22-14F4ED107BE6}"
-                    Version="1.0.0"
                     Author="zhangly1403"
                     HelpFile="./Contents/Help/UserManual.md">
 
   <CompanyDetails Name="zhangly1403"
                   Email="zhangly1403@qq.com" />
 
-  <RuntimeRequirements OS="Win64"
-                       Platform="AutoCAD|AutoCAD*"
-                       SeriesMin="R23.0"
-                       SeriesMax="R23.1" />
-
-  <Components Description="参数化钢结构套件主程序">
+  <!-- 1. 适用 AutoCAD / Plant 3D 2019 ~ 2020 (R23.0 ~ R23.1) - 基于 .NET Framework 4.8 -->
+  <Components Description="AutoCAD 2019-2020 模块 (.NET Framework 4.8)">
     <RuntimeRequirements OS="Win64"
-                         Platform="AutoCAD|AutoCAD*"
+                         Platform="AutoCAD|AutoCAD*|Plant3D"
                          SeriesMin="R23.0"
                          SeriesMax="R23.1" />
 
     <ComponentEntry AppName="SteelStructureSuite"
                     Version="1.0.0"
-                    ModuleName="./Contents/SteelStructureSuite.dll"
+                    ModuleName="./Contents/2019/SteelStructureSuite.dll"
                     AppType=".NET"
                     LoadOnAutoCADStartup="True"
                     LoadOnCommandInvocation="True">
       <Commands GroupName="SteelStructureSuite">
         <!-- 界面与帮助 -->
-        <Command Global="SS_RIBBON"        Local="SS_RIBBON" />
-        <Command Global="SS_HELP"          Local="SS_HELP" />
-        <Command Global="SS_ABOUT"         Local="SS_ABOUT" />
+        <Command Global="SS_RIBBON"         Local="SS_RIBBON" />
+        <Command Global="SS_HELP"           Local="SS_HELP" />
+        <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
 
         <!-- 管理与算量 -->
-        <Command Global="SS_MANAGER"       Local="SS_MANAGER" />
-        <Command Global="SS_SECTIONS"      Local="SS_SECTIONS" />
-        <Command Global="SS_BOM"           Local="SS_BOM" />
-        <Command Global="SS_DRAWING"       Local="SS_DRAWING" />
+        <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
+        <Command Global="SS_BOM"            Local="SS_BOM" />
+        <Command Global="SS_DRAWING"        Local="SS_DRAWING" />
+        <Command Global="SS_DRAWCFG"        Local="SS_DRAWCFG" />
+        <Command Global="SS_DWG2DXF"        Local="SS_DWG2DXF" />
+        <Command Global="SS_DWGMERGE"       Local="SS_DWGMERGE" />
 
         <!-- 参数化建模 -->
-        <Command Global="SS_PANEL"         Local="SS_PANEL" />
-        <Command Global="SS_PORTAL"        Local="SS_PORTAL" />
-        <Command Global="SS_MULTIPORTAL"   Local="SS_MULTIPORTAL" />
-        <Command Global="SS_BRACED"        Local="SS_BRACED" />
-        <Command Global="SS_DOUBLE"        Local="SS_DOUBLE" />
-        <Command Global="SS_SPACEFRAME"    Local="SS_SPACEFRAME" />
-        <Command Global="SS_BRACKET"       Local="SS_BRACKET" />
-        <Command Global="SS_PLATFORM"      Local="SS_PLATFORM" />
-        <Command Global="SS_WALKWAY"       Local="SS_WALKWAY" />
-        <Command Global="SS_TRUSS"         Local="SS_TRUSS" />
-        <Command Global="SS_PIPEBRIDGE"    Local="SS_PIPEBRIDGE" />
-        <Command Global="SS_STAIR"         Local="SS_STAIR" />
+        <Command Global="SS_PANEL"          Local="SS_PANEL" />
+        <Command Global="SS_PORTAL"         Local="SS_PORTAL" />
+        <Command Global="SS_MULTIPORTAL"    Local="SS_MULTIPORTAL" />
+        <Command Global="SS_BRACED"         Local="SS_BRACED" />
+        <Command Global="SS_DOUBLE"         Local="SS_DOUBLE" />
+        <Command Global="SS_SPACEFRAME"     Local="SS_SPACEFRAME" />
+        <Command Global="SS_BRACKET"        Local="SS_BRACKET" />
+        <Command Global="SS_PLATFORM"       Local="SS_PLATFORM" />
+        <Command Global="SS_WALKWAY"        Local="SS_WALKWAY" />
+        <Command Global="SS_TRUSS"          Local="SS_TRUSS" />
+        <Command Global="SS_PIPEBRIDGE"     Local="SS_PIPEBRIDGE" />
+        <Command Global="SS_STAIR"          Local="SS_STAIR" />
         <Command Global="SS_STAIR_STRAIGHT" Local="SS_STAIR_STRAIGHT" />
-        <Command Global="SS_LADDER"        Local="SS_LADDER" />
-        <Command Global="SS_HANDRAIL"      Local="SS_HANDRAIL" />
-        <Command Global="SS_MEMBER"        Local="SS_MEMBER" />
-        <Command Global="SS_ARC"           Local="SS_ARC" />
-        <Command Global="SS_SPIRAL"        Local="SS_SPIRAL" />
-        <Command Global="SS_SADDLE"        Local="SS_SADDLE" />
-        <Command Global="SS_LINEAR_CHAIN"  Local="SS_LINEAR_CHAIN" />
+        <Command Global="SS_LADDER"         Local="SS_LADDER" />
+        <Command Global="SS_HANDRAIL"       Local="SS_HANDRAIL" />
+        <Command Global="SS_MEMBER"         Local="SS_MEMBER" />
+        <Command Global="SS_ARC"            Local="SS_ARC" />
+        <Command Global="SS_SPIRAL"         Local="SS_SPIRAL" />
+        <Command Global="SS_SADDLE"         Local="SS_SADDLE" />
+        <Command Global="SS_LINEAR_CHAIN"   Local="SS_LINEAR_CHAIN" />
 
-        <!-- 化工 / 电力 / 冶金行业标准组件 (HG/T 21543, HG/T 21629, NB/T 47041, SH/T 3007, DL/T 5218, DL/T 5221, 20G520, 19G518-3) -->
-        <Command Global="SS_TOWER_PLAT"    Local="SS_TOWER_PLAT" />
-        <Command Global="SS_SKIRT"         Local="SS_SKIRT" />
-        <Command Global="SS_PIPESHOE"      Local="SS_PIPESHOE" />
-        <Command Global="SS_TANK_RAIL"     Local="SS_TANK_RAIL" />
-        <Command Global="SS_GANTRY"        Local="SS_GANTRY" />
-        <Command Global="SS_CABLE_RACK"    Local="SS_CABLE_RACK" />
-        <Command Global="SS_CRANE_BEAM"    Local="SS_CRANE_BEAM" />
-        <Command Global="SS_XBRACE"        Local="SS_XBRACE" />
+        <!-- 化工 / 电力 / 冶金行业标准组件 -->
+        <Command Global="SS_TOWER_PLAT"     Local="SS_TOWER_PLAT" />
+        <Command Global="SS_SKIRT"          Local="SS_SKIRT" />
+        <Command Global="SS_PIPESHOE"       Local="SS_PIPESHOE" />
+        <Command Global="SS_TANK_RAIL"      Local="SS_TANK_RAIL" />
+        <Command Global="SS_GANTRY"         Local="SS_GANTRY" />
+        <Command Global="SS_CABLE_RACK"     Local="SS_CABLE_RACK" />
+        <Command Global="SS_CRANE_BEAM"     Local="SS_CRANE_BEAM" />
+        <Command Global="SS_XBRACE"         Local="SS_XBRACE" />
 
         <!-- 编辑与定位 -->
-        <Command Global="SS_EDIT"          Local="SS_EDIT" />
-        <Command Global="SS_ALIGN"         Local="SS_ALIGN" />
-        <Command Global="SS_ARRAY"         Local="SS_ARRAY" />
-        <Command Global="SS_DROPZ0"        Local="SS_DROPZ0" />
-        <Command Global="SS_OVERRULE_ON"   Local="SS_OVERRULE_ON" />
-        <Command Global="SS_OVERRULE_OFF"  Local="SS_OVERRULE_OFF" />
-        <Command Global="SS_RESETSETTINGS" Local="SS_RESETSETTINGS" />
+        <Command Global="SS_EDIT"           Local="SS_EDIT" />
+        <Command Global="SS_ALIGN"          Local="SS_ALIGN" />
+        <Command Global="SS_ARRAY"          Local="SS_ARRAY" />
+        <Command Global="SS_DROPZ0"         Local="SS_DROPZ0" />
+        <Command Global="SS_OVERRULE_ON"    Local="SS_OVERRULE_ON" />
+        <Command Global="SS_OVERRULE_OFF"   Local="SS_OVERRULE_OFF" />
+        <Command Global="SS_RESETSETTINGS"  Local="SS_RESETSETTINGS" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+
+  <!-- 2. 适用 AutoCAD / Plant 3D 2021 ~ 2024 (R24.0 ~ R24.3) - 基于 .NET Framework 4.8 -->
+  <Components Description="AutoCAD 2021-2024 模块 (.NET Framework 4.8)">
+    <RuntimeRequirements OS="Win64"
+                         Platform="AutoCAD|AutoCAD*|Plant3D"
+                         SeriesMin="R24.0"
+                         SeriesMax="R24.3" />
+
+    <ComponentEntry AppName="SteelStructureSuite"
+                    Version="1.0.0"
+                    ModuleName="./Contents/2021/SteelStructureSuite.dll"
+                    AppType=".NET"
+                    LoadOnAutoCADStartup="True"
+                    LoadOnCommandInvocation="True">
+      <Commands GroupName="SteelStructureSuite">
+        <!-- 界面与帮助 -->
+        <Command Global="SS_RIBBON"         Local="SS_RIBBON" />
+        <Command Global="SS_HELP"           Local="SS_HELP" />
+        <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
+
+        <!-- 管理与算量 -->
+        <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
+        <Command Global="SS_BOM"            Local="SS_BOM" />
+        <Command Global="SS_DRAWING"        Local="SS_DRAWING" />
+        <Command Global="SS_DRAWCFG"        Local="SS_DRAWCFG" />
+        <Command Global="SS_DWG2DXF"        Local="SS_DWG2DXF" />
+        <Command Global="SS_DWGMERGE"       Local="SS_DWGMERGE" />
+
+        <!-- 参数化建模 -->
+        <Command Global="SS_PANEL"          Local="SS_PANEL" />
+        <Command Global="SS_PORTAL"         Local="SS_PORTAL" />
+        <Command Global="SS_MULTIPORTAL"    Local="SS_MULTIPORTAL" />
+        <Command Global="SS_BRACED"         Local="SS_BRACED" />
+        <Command Global="SS_DOUBLE"         Local="SS_DOUBLE" />
+        <Command Global="SS_SPACEFRAME"     Local="SS_SPACEFRAME" />
+        <Command Global="SS_BRACKET"        Local="SS_BRACKET" />
+        <Command Global="SS_PLATFORM"       Local="SS_PLATFORM" />
+        <Command Global="SS_WALKWAY"        Local="SS_WALKWAY" />
+        <Command Global="SS_TRUSS"          Local="SS_TRUSS" />
+        <Command Global="SS_PIPEBRIDGE"     Local="SS_PIPEBRIDGE" />
+        <Command Global="SS_STAIR"          Local="SS_STAIR" />
+        <Command Global="SS_STAIR_STRAIGHT" Local="SS_STAIR_STRAIGHT" />
+        <Command Global="SS_LADDER"         Local="SS_LADDER" />
+        <Command Global="SS_HANDRAIL"       Local="SS_HANDRAIL" />
+        <Command Global="SS_MEMBER"         Local="SS_MEMBER" />
+        <Command Global="SS_ARC"            Local="SS_ARC" />
+        <Command Global="SS_SPIRAL"         Local="SS_SPIRAL" />
+        <Command Global="SS_SADDLE"         Local="SS_SADDLE" />
+        <Command Global="SS_LINEAR_CHAIN"   Local="SS_LINEAR_CHAIN" />
+
+        <!-- 化工 / 电力 / 冶金行业标准组件 -->
+        <Command Global="SS_TOWER_PLAT"     Local="SS_TOWER_PLAT" />
+        <Command Global="SS_SKIRT"          Local="SS_SKIRT" />
+        <Command Global="SS_PIPESHOE"       Local="SS_PIPESHOE" />
+        <Command Global="SS_TANK_RAIL"      Local="SS_TANK_RAIL" />
+        <Command Global="SS_GANTRY"         Local="SS_GANTRY" />
+        <Command Global="SS_CABLE_RACK"     Local="SS_CABLE_RACK" />
+        <Command Global="SS_CRANE_BEAM"     Local="SS_CRANE_BEAM" />
+        <Command Global="SS_XBRACE"         Local="SS_XBRACE" />
+
+        <!-- 编辑与定位 -->
+        <Command Global="SS_EDIT"           Local="SS_EDIT" />
+        <Command Global="SS_ALIGN"          Local="SS_ALIGN" />
+        <Command Global="SS_ARRAY"          Local="SS_ARRAY" />
+        <Command Global="SS_DROPZ0"         Local="SS_DROPZ0" />
+        <Command Global="SS_OVERRULE_ON"    Local="SS_OVERRULE_ON" />
+        <Command Global="SS_OVERRULE_OFF"   Local="SS_OVERRULE_OFF" />
+        <Command Global="SS_RESETSETTINGS"  Local="SS_RESETSETTINGS" />
+      </Commands>
+    </ComponentEntry>
+  </Components>
+
+  <!-- 3. 适用 AutoCAD / Plant 3D 2025 ~ 2026 (R25.0 ~ R26.0) - 基于 .NET 8.0 (CoreCLR) -->
+  <Components Description="AutoCAD 2025-2026 模块 (.NET 8.0)">
+    <RuntimeRequirements OS="Win64"
+                         Platform="AutoCAD|AutoCAD*|Plant3D"
+                         SeriesMin="R25.0"
+                         SeriesMax="R26.0" />
+
+    <ComponentEntry AppName="SteelStructureSuite"
+                    Version="1.0.0"
+                    ModuleName="./Contents/2026/SteelStructureSuite.dll"
+                    AppType=".NET"
+                    LoadOnAutoCADStartup="True"
+                    LoadOnCommandInvocation="True">
+      <Commands GroupName="SteelStructureSuite">
+        <!-- 界面与帮助 -->
+        <Command Global="SS_RIBBON"         Local="SS_RIBBON" />
+        <Command Global="SS_HELP"           Local="SS_HELP" />
+        <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
+
+        <!-- 管理与算量 -->
+        <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
+        <Command Global="SS_BOM"            Local="SS_BOM" />
+        <Command Global="SS_DRAWING"        Local="SS_DRAWING" />
+        <Command Global="SS_DRAWCFG"        Local="SS_DRAWCFG" />
+        <Command Global="SS_DWG2DXF"        Local="SS_DWG2DXF" />
+        <Command Global="SS_DWGMERGE"       Local="SS_DWGMERGE" />
+
+        <!-- 参数化建模 -->
+        <Command Global="SS_PANEL"          Local="SS_PANEL" />
+        <Command Global="SS_PORTAL"         Local="SS_PORTAL" />
+        <Command Global="SS_MULTIPORTAL"    Local="SS_MULTIPORTAL" />
+        <Command Global="SS_BRACED"         Local="SS_BRACED" />
+        <Command Global="SS_DOUBLE"         Local="SS_DOUBLE" />
+        <Command Global="SS_SPACEFRAME"     Local="SS_SPACEFRAME" />
+        <Command Global="SS_BRACKET"        Local="SS_BRACKET" />
+        <Command Global="SS_PLATFORM"       Local="SS_PLATFORM" />
+        <Command Global="SS_WALKWAY"        Local="SS_WALKWAY" />
+        <Command Global="SS_TRUSS"          Local="SS_TRUSS" />
+        <Command Global="SS_PIPEBRIDGE"     Local="SS_PIPEBRIDGE" />
+        <Command Global="SS_STAIR"          Local="SS_STAIR" />
+        <Command Global="SS_STAIR_STRAIGHT" Local="SS_STAIR_STRAIGHT" />
+        <Command Global="SS_LADDER"         Local="SS_LADDER" />
+        <Command Global="SS_HANDRAIL"       Local="SS_HANDRAIL" />
+        <Command Global="SS_MEMBER"         Local="SS_MEMBER" />
+        <Command Global="SS_ARC"            Local="SS_ARC" />
+        <Command Global="SS_SPIRAL"         Local="SS_SPIRAL" />
+        <Command Global="SS_SADDLE"         Local="SS_SADDLE" />
+        <Command Global="SS_LINEAR_CHAIN"   Local="SS_LINEAR_CHAIN" />
+
+        <!-- 化工 / 电力 / 冶金行业标准组件 -->
+        <Command Global="SS_TOWER_PLAT"     Local="SS_TOWER_PLAT" />
+        <Command Global="SS_SKIRT"          Local="SS_SKIRT" />
+        <Command Global="SS_PIPESHOE"       Local="SS_PIPESHOE" />
+        <Command Global="SS_TANK_RAIL"      Local="SS_TANK_RAIL" />
+        <Command Global="SS_GANTRY"         Local="SS_GANTRY" />
+        <Command Global="SS_CABLE_RACK"     Local="SS_CABLE_RACK" />
+        <Command Global="SS_CRANE_BEAM"     Local="SS_CRANE_BEAM" />
+        <Command Global="SS_XBRACE"         Local="SS_XBRACE" />
+
+        <!-- 编辑与定位 -->
+        <Command Global="SS_EDIT"           Local="SS_EDIT" />
+        <Command Global="SS_ALIGN"          Local="SS_ALIGN" />
+        <Command Global="SS_ARRAY"          Local="SS_ARRAY" />
+        <Command Global="SS_DROPZ0"         Local="SS_DROPZ0" />
+        <Command Global="SS_OVERRULE_ON"    Local="SS_OVERRULE_ON" />
+        <Command Global="SS_OVERRULE_OFF"   Local="SS_OVERRULE_OFF" />
+        <Command Global="SS_RESETSETTINGS"  Local="SS_RESETSETTINGS" />
       </Commands>
     </ComponentEntry>
   </Components>

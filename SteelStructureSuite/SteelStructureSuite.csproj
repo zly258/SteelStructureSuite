@@ -1,7 +1,20 @@
 <Project Sdk="Microsoft.NET.Sdk">
 
   <PropertyGroup>
-    <TargetFramework>net48</TargetFramework>
+    <!--
+      AutoCAD 安装目录（用于解析 AcCoreMgd / AcDbMgd / AcMgd / AdWindows 引用）。
+      默认为本机 AutoCAD 2019；编译其它版本请覆盖该属性，例如：
+        msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 ^
+                /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2026"
+    -->
+    <AutoCADDir Condition="'$(AutoCADDir)' == '' and Exists('C:\Program Files\Autodesk\AutoCAD 2026\AcCoreMgd.dll')">C:\Program Files\Autodesk\AutoCAD 2026</AutoCADDir>
+    <AutoCADDir Condition="'$(AutoCADDir)' == '' and Exists('C:\Program Files\Autodesk\AutoCAD 2021\AcCoreMgd.dll')">C:\Program Files\Autodesk\AutoCAD 2021</AutoCADDir>
+    <AutoCADDir Condition="'$(AutoCADDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
+    <AutoCADDir Condition="!Exists('$(AutoCADDir)\AcCoreMgd.dll')">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
+
+    <!-- 若检测到宿主为 AutoCAD 2025/2026 (.NET 8)，默认仅编译 net8.0-windows，防止 net48 引用 .NET 8 程序集报错 -->
+    <TargetFramework Condition="'$(TargetFramework)' == '' and Exists('$(AutoCADDir)\acdbmgd.runtimeconfig.json')">net8.0-windows</TargetFramework>
+    <TargetFrameworks Condition="'$(TargetFramework)' == ''">net48;net8.0-windows</TargetFrameworks>
     <PlatformTarget>x64</PlatformTarget>
     <Platforms>x64</Platforms>
     <LangVersion>latest</LangVersion>
@@ -20,17 +33,6 @@
     <Description>AutoCAD 参数化钢结构套件</Description>
     <Company>zhangly1403</Company>
     <Copyright>Copyright © 2026 zhangly1403</Copyright>
-
-    <!--
-      AutoCAD 安装目录（用于解析 AcCoreMgd / AcDbMgd / AcMgd / AdWindows 引用）。
-      默认为本机 AutoCAD 2019；编译其它版本请覆盖该属性，例如：
-        msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=x64 ^
-                /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2021"
-      注意：托管程序集版本随 AutoCAD 版本变化（2019 为 23.0.0.0，2021 为 24.0.0.0），
-      因此面向不同版本需分别编译，不可直接混用。
-    -->
-    <AutoCADDir Condition="'$(AutoCADDir)' == ''">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
-    <AutoCADDir Condition="!Exists('$(AutoCADDir)\AcCoreMgd.dll')">C:\Program Files\Autodesk\AutoCAD 2019</AutoCADDir>
   </PropertyGroup>
 
   <ItemGroup>
@@ -186,10 +188,13 @@
     </Compile>
   </ItemGroup>
 
-  <ItemGroup>
+  <ItemGroup Condition="'$(TargetFramework)' == 'net48'">
     <Reference Include="System.IO.Compression" />
     <Reference Include="System.IO.Compression.FileSystem" />
     <Reference Include="System.Xml" />
+  </ItemGroup>
+
+  <ItemGroup>
     <Reference Include="AcCoreMgd">
       <HintPath>$(AutoCADDir)\AcCoreMgd.dll</HintPath>
       <Private>False</Private>
