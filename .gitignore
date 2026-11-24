@@ -9,13 +9,18 @@
 *.userprefs
 *.rsuser
 
-# Build results
+# Build & Packaging results
 [Bb]in/
 [Oo]bj/
 [Dd]ebug/
 [Rr]elease/
 dist/
 dist_*/
+[Oo]utput/
+[Pp]ublish/
+[Oo]ut/
+*.bundle/
+TestResults/
 x64/
 x86/
 [Aa][Rr][Mm]/
@@ -23,6 +28,8 @@ x86/
 build/
 build_x64/
 Builds/
+*.exe
+*.dll
 *_i.c
 *_p.c
 *_h.h
@@ -85,9 +92,16 @@ AutoTest.Net/
 # Web workbench (sass)
 .sass-cache/
 
-# NuGet
+# NuGet & Archives
 *.nupkg
 *.snupkg
+*.zip
+*.7z
+*.rar
+*.tar
+*.gz
+*.iso
+*.iss_output
 packages/
 !packages/build/
 project.lock.json
@@ -130,8 +144,12 @@ $RECYCLE.BIN/
 *~
 .zcode/
 
-# 本地构建校验产物
+# 本地构建校验与临时探测产物
 _buildcheck/
+_build*/
 _tmp_accore/
 _tmp_refl/
+_tmp*/
+_probe/
+_test*/
 
