@@ -1,7 +1,8 @@
 ﻿; ===========================================================================================
 ;  SteelStructureSuite（参数化钢结构套件）安装脚本（Inno Setup 6.x）
-;    · 以 Autodesk Bundle 统一自适应应用包形式安装到公共插件目录，随 AutoCAD/Plant3D 启动自动加载
-;    · 目标版本：AutoCAD 2019 ~ 2026 全系列自适应，Windows 10/11 x64
+;    · 以 Autodesk Bundle 统一自适应应用包形式安装到受 SECURELOAD=1 信任的系统插件目录：
+;      C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
+;    · 目标版本：AutoCAD / Plant 3D 2019 ~ 2026+ 全系列自适应，Windows 10/11 x64
 ;
 ;  编译方式：
 ;    1) 先用 pwsh tools\Publish.ps1 生成统一 Bundle 与各版本编译产物
@@ -21,7 +22,7 @@
 #define RuntimeDirR25 "..\SteelStructureSuite\bin\x64\Release_R25"
 
 #define BundleName "SteelStructureSuite.bundle"
-#define BundleDir "{commonappdata}\Autodesk\ApplicationPlugins\" + BundleName
+#define BundleDir "{commonpf64}\Autodesk\ApplicationPlugins\" + BundleName
 
 [Setup]
 AppId={{62F3CFDA-6F06-467A-ADA0-9948368EA1C5}
@@ -55,6 +56,9 @@ LicenseFile=..\LICENSE
 
 [Languages]
 Name: "chinesesimplified"; MessagesFile: "compiler:Languages\ChineseSimplified.isl"
+
+[Dirs]
+Name: "{#BundleDir}"; Permissions: users-readexec
 
 [Files]
 ; 统一 Bundle 自动加载清单（内含 2019~2026 对应 Components 配置，根据 CAD 运行时版本自动匹配加载）
@@ -94,23 +98,67 @@ Type: dirifempty; Name: "{#BundleDir}\Contents"
 Type: dirifempty; Name: "{#BundleDir}"
 
 [Code]
+procedure CleanStaleAutoCadRegistryCache;
+var
+  Releases, Products, AppKeys, LoadedKeys: TArrayOfString;
+  I, J, K: Integer;
+  AcadRoot, RelPath, ProdPath, AppsPath, LoadedPath, KeyName: String;
+begin
+  AcadRoot := 'Software\Autodesk\AutoCAD';
+  if not RegGetSubkeyNames(HKCU, AcadRoot, Releases) then Exit;
+
+  for I := 0 to GetArrayLength(Releases) - 1 do
+  begin
+    RelPath := AcadRoot + '\' + Releases[I];
+    if RegGetSubkeyNames(HKCU, RelPath, Products) then
+    begin
+      for J := 0 to GetArrayLength(Products) - 1 do
+      begin
+        ProdPath := RelPath + '\' + Products[J];
+
+        AppsPath := ProdPath + '\Applications';
+        if RegGetSubkeyNames(HKCU, AppsPath, AppKeys) then
+        begin
+          for K := 0 to GetArrayLength(AppKeys) - 1 do
+          begin
+            KeyName := Uppercase(AppKeys[K]);
+            if Pos('STEELSTRUCTURESUITE', KeyName) > 0 then
+              RegDeleteKeyIncludingSubkeys(HKCU, AppsPath + '\' + AppKeys[K]);
+          end;
+        end;
+
+        LoadedPath := ProdPath + '\Loaded';
+        if RegGetSubkeyNames(HKCU, LoadedPath, LoadedKeys) then
+        begin
+          for K := 0 to GetArrayLength(LoadedKeys) - 1 do
+          begin
+            KeyName := Uppercase(LoadedKeys[K]);
+            if Pos('STEELSTRUCTURESUITE', KeyName) > 0 then
+              RegDeleteKeyIncludingSubkeys(HKCU, LoadedPath + '\' + LoadedKeys[K]);
+          end;
+        end;
+      end;
+    end;
+  end;
+end;
+
 procedure CleanLegacyBundles;
 begin
-  { 1. 清理用户目录与旧版历史遗留 Bundle，防止 AutoCAD 同时加载多份或旧版本残留 }
+  { 1. 清理 ProgramData / AppData / Program Files (x86) 及历史带版本号 Bundle，杜绝多副本冲突 }
+  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
+
   DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
   DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
   DelTree(ExpandConstant('{userappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
-
-  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
-  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
-  DelTree(ExpandConstant('{commonpf}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
 
   DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle', True, True, True);
   DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
   DelTree(ExpandConstant('{commonpf32}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
 
-  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
-  DelTree(ExpandConstant('{commonappdata}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf64}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2021.bundle', True, True, True);
+  DelTree(ExpandConstant('{commonpf64}') + '\Autodesk\ApplicationPlugins\SteelStructureSuite2026.bundle', True, True, True);
 
   { 2. 安装目标 Contents 彻底重建，防止旧版本残留孤儿 DLL }
   DelTree(ExpandConstant('{#BundleDir}') + '\Contents', True, True, True);
@@ -119,12 +167,21 @@ end;
 function InitializeSetup(): Boolean;
 begin
   CleanLegacyBundles;
+  CleanStaleAutoCadRegistryCache;
   Result := True;
+end;
+
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usPostUninstall then
+  begin
+    CleanStaleAutoCadRegistryCache;
+  end;
 end;
 
 function ShouldSkipPage(PageID: Integer): Boolean;
 begin
-  { 强制跳过安装位置选择页面，位置锁定为公共插件目录与预设目录，不可选不可变 }
+  { 强制跳过安装位置选择页面，位置锁定为受信任的系统插件目录，不可选不可变 }
   if PageID = wpSelectDir then
     Result := True
   else

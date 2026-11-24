@@ -9,7 +9,8 @@
 #
 #  方案：
 #    采用 Autodesk 官方推荐的单一多版本自适应 Bundle 架构（SteelStructureSuite.bundle）：
-#    统一部署到 %ProgramData%\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
+#    统一部署到受 SECURELOAD=1 默认信任的系统级插件目录：
+#      C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
 #    Contents\ 下按年份分别存放对应程序集（2019、2021、2026），由 PackageContents.xml
 #    根据当前运行的 CAD 版本自适应加载匹配模块。
 #
@@ -40,14 +41,15 @@ $targets = @(
     @{ Key = 'R25'; SubDir = '2026'; Series = 'AutoCAD 2025~2026 (R25)'; AutoCADDir = 'C:\Program Files\Autodesk\AutoCAD 2026'; TargetFramework = 'net8.0-windows' }
 )
 
-$InstallRoot = Join-Path $env:ProgramData 'Autodesk\ApplicationPlugins'
+# 使用 AutoCAD 2019-2026 默认扫描且受 SECURELOAD=1 信任的 Program Files 插件目录
+$InstallRoot = 'C:\Program Files\Autodesk\ApplicationPlugins'
 $bundleName = 'SteelStructureSuite.bundle'
 $bundleDir = Join-Path $root ("dist\" + $bundleName)
 $contents = Join-Path $bundleDir 'Contents'
 
 function Remove-LegacyBundles {
     $legacyRoots = @(
-        'C:\Program Files\Autodesk\ApplicationPlugins',
+        (Join-Path $env:ProgramData 'Autodesk\ApplicationPlugins'),
         'C:\Program Files (x86)\Autodesk\ApplicationPlugins',
         (Join-Path $env:APPDATA 'Autodesk\ApplicationPlugins')
     )
@@ -65,12 +67,36 @@ function Remove-LegacyBundles {
             }
         }
     }
-    # 清理公共插件目录下带版本号的旧包
+    # 清理 Program Files 目录下带版本号的旧包
     foreach ($b in @('SteelStructureSuite2021.bundle', 'SteelStructureSuite2026.bundle')) {
         $old = Join-Path $InstallRoot $b
         if (Test-Path -LiteralPath $old) {
             Write-Host ("清理旧版本残留包: " + $old) -ForegroundColor Yellow
             Remove-Item -LiteralPath $old -Recurse -Force
+        }
+    }
+}
+
+function Clear-StaleAutoCadRegistryCache {
+    $acadRoot = 'HKCU:\Software\Autodesk\AutoCAD'
+    if (-not (Test-Path $acadRoot)) { return }
+    Get-ChildItem $acadRoot -ErrorAction SilentlyContinue | ForEach-Object {
+        Get-ChildItem $_.PSPath -ErrorAction SilentlyContinue | ForEach-Object {
+            $prodPath = $_.PSPath
+            $appsPath = Join-Path $prodPath 'Applications'
+            if (Test-Path $appsPath) {
+                Get-ChildItem $appsPath -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -like 'SteelStructureSuite*' } | ForEach-Object {
+                    Write-Host ("清理注册表缓存: " + $_.Name) -ForegroundColor Yellow
+                    Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
+            $loadedPath = Join-Path $prodPath 'Loaded'
+            if (Test-Path $loadedPath) {
+                Get-ChildItem $loadedPath -ErrorAction SilentlyContinue | Where-Object { $_.PSChildName -match 'STEELSTRUCTURESUITE' } | ForEach-Object {
+                    Write-Host ("清理 Loaded 缓存: " + $_.Name) -ForegroundColor Yellow
+                    Remove-Item $_.PSPath -Recurse -Force -ErrorAction SilentlyContinue
+                }
+            }
         }
     }
 }
@@ -130,6 +156,7 @@ Write-Host "已生成统一架构插件包 dist\$bundleName" -ForegroundColor Gr
 if ($Install) {
     Stop-Acad
     Remove-LegacyBundles
+    Clear-StaleAutoCadRegistryCache
 
     $dest = Join-Path $InstallRoot $bundleName
     if (Test-Path -LiteralPath $dest) { Remove-Item -LiteralPath $dest -Recurse -Force }
@@ -140,11 +167,6 @@ if ($Install) {
 }
 
 # 4. 打包绿色 zip 包（仅包含统一的 SteelStructureSuite.bundle）
-$obsoleteBundles = @(Join-Path $root 'dist\SteelStructureSuite2021.bundle', Join-Path $root 'dist\SteelStructureSuite2026.bundle')
-foreach ($ob in $obsoleteBundles) {
-    if (Test-Path $ob) { Remove-Item $ob -Recurse -Force }
-}
-
 $zip = Join-Path $root 'dist\SteelStructureSuite-bundle-1.0.0.zip'
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path $bundleDir -DestinationPath $zip -Force
