@@ -76,6 +76,7 @@ namespace SteelStructureSuite.Ribbon
             switch ((glyph ?? string.Empty).Trim())
             {
                 case "manager":
+                case "renumber":
                 case "platform":
                 case "bracket":
                 case "walkway":

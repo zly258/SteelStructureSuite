@@ -34,8 +34,9 @@ namespace SteelStructureSuite.Ribbon
 
             // Panel 1: 构建管理
             RibbonPanelSource mgrPanel = CreatePanel(tab, "构建管理");
-            mgrPanel.Items.Add(CreateLargeButton("模型管理", "SS_MANAGER ", "打开全图钢结构树状模型管理器（按行业大类与构件类型分组，支持视角定位、高亮、编辑与删除）", "manager"));
-            mgrPanel.Items.Add(CreateLargeButton("截面管理", "SS_SECTIONS ", "按 H型钢、槽钢、角钢、方矩管、圆钢管 5 个分表管理截面，支持 Excel 多表导入导出", "section"));
+            mgrPanel.Items.Add(CreateLargeButton("模型管理", "SS_MANAGER ", "打开全图钢结构树状模型管理器（支持检索、视角定位、高亮、编辑与删除）", "manager"));
+            mgrPanel.Items.Add(CreateLargeButton("位号顺号", "SS_RENUMBER ", "按构件类型前缀与编号位数批量顺号重排，支持强制统一前缀与前后对比预览", "renumber"));
+            mgrPanel.Items.Add(CreateLargeButton("截面管理", "SS_SECTIONS ", "按 5 大类 24 种型钢分类树管理截面与国标手册特性，支持 2D 预览与 Excel/CSV 导入导出", "section"));
             mgrPanel.Items.Add(CreateLargeButton("重置设置", "SS_RESETSETTINGS ", "清除界面记忆，各构件恢复自己的初始预设。不修改截面库。", "regen"));
 
             // Panel 2: 厂房框架

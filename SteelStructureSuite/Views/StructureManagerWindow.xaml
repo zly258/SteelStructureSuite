@@ -114,7 +114,6 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Button Content="顺号重排" ToolTip="按类型与前缀批量重排构件位号，消除断号并预览前后对比" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnRenumberClick" />
                 <Button Content="刷新" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnRefreshClick" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal">

@@ -197,16 +197,6 @@ namespace SteelStructureSuite.Views
             }
         }
 
-        private void OnRenumberClick(object sender, RoutedEventArgs e)
-        {
-            var renumberWin = new StructureRenumberWindow(_allRecords);
-            if (UserSettings.ShowModalWindowOnAutoCad(renumberWin) == true)
-            {
-                ReloadAllStructures();
-                TxtStatus.Text = $"顺号重排完成，共更新 {renumberWin.UpdatedCount} 座构件位号。";
-            }
-        }
-
         private StructureRecordItem GetSelectedRecord()
         {
             if (DgStructures.SelectedItem is StructureRecordItem r) return r;

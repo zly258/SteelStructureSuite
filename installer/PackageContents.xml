@@ -37,6 +37,7 @@
         <Command Global="SS_HELP"           Local="SS_HELP" />
         <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
         <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_RENUMBER"       Local="SS_RENUMBER" />
         <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
         <Command Global="SS_BOM"            Local="SS_BOM" />
         <Command Global="SS_DRAWING"        Local="SS_DRAWING" />
@@ -97,6 +98,7 @@
         <Command Global="SS_HELP"           Local="SS_HELP" />
         <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
         <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_RENUMBER"       Local="SS_RENUMBER" />
         <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
         <Command Global="SS_BOM"            Local="SS_BOM" />
         <Command Global="SS_DRAWING"        Local="SS_DRAWING" />
@@ -157,6 +159,7 @@
         <Command Global="SS_HELP"           Local="SS_HELP" />
         <Command Global="SS_ABOUT"          Local="SS_ABOUT" />
         <Command Global="SS_MANAGER"        Local="SS_MANAGER" />
+        <Command Global="SS_RENUMBER"       Local="SS_RENUMBER" />
         <Command Global="SS_SECTIONS"       Local="SS_SECTIONS" />
         <Command Global="SS_BOM"            Local="SS_BOM" />
         <Command Global="SS_DRAWING"        Local="SS_DRAWING" />

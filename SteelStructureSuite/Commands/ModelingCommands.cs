@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 using System.Windows;
 using System.IO;
@@ -86,6 +87,48 @@ namespace SteelStructureSuite.Commands
         {
             var win = new StructureManagerWindow();
             UserSettings.ShowModalWindowOnAutoCad(win);
+        }
+
+        [CommandMethod("SS_RENUMBER", CommandFlags.Modal)]
+        public void OpenStructureRenumberWindow()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+
+            var records = new List<StructureRecordItem>();
+            Database db = doc.Database;
+            using (Transaction tr = db.TransactionManager.StartTransaction())
+            {
+                BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+                BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForRead);
+
+                foreach (ObjectId id in ms)
+                {
+                    if (!id.IsValid || id.IsErased) continue;
+                    if (tr.GetObject(id, OpenMode.ForRead) is Entity ent &&
+                        SteelDataStorage.TryReadParams(ent, out SteelStructureParams p))
+                    {
+                        records.Add(new StructureRecordItem
+                        {
+                            EntityId = id,
+                            Params = p
+                        });
+                    }
+                }
+                tr.Commit();
+            }
+
+            records = records
+                .OrderBy(r => r.Params.CategoryOrder)
+                .ThenBy(r => r.Params.StructureType)
+                .ThenBy(r => r.Tag)
+                .ToList();
+
+            var win = new StructureRenumberWindow(records);
+            if (UserSettings.ShowModalWindowOnAutoCad(win) == true)
+            {
+                doc.Editor.WriteMessage($"\n[SteelStructureSuite] 位号顺号完成，共更新 {win.UpdatedCount} 座构件位号。\n");
+            }
         }
 
         [CommandMethod("SS_HELP", CommandFlags.Modal)]
