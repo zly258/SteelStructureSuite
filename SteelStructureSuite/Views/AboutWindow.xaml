@@ -72,19 +72,19 @@
                     <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD 2019 / 2020 及更高版本（x64）" Style="{StaticResource Text.Label}" TextWrapping="Wrap" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" Style="{StaticResource Text.Label}" TextWrapping="Wrap" Margin="{StaticResource Layout.FormRowMargin}" />
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8 / .NET 8.0" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="MIT License" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="GNU GPL v3.0" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
                     <TextBlock Grid.Row="4" Grid.Column="1" Text="zhangly1403@qq.com" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
                 </Grid>
 
-                <GroupBox Header="MIT 许可证条款" Margin="0">
+                <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0">
                     <TextBox x:Name="TxtLicenseSummary" Style="{StaticResource TextBox.Code}" MinHeight="120" />
                 </GroupBox>
             </StackPanel>

@@ -9,28 +9,16 @@ namespace SteelStructureSuite.Views
 {
     public partial class AboutWindow : Window
     {
-        private const string MitLicenseText =
-@"MIT License
+        private const string GplV3LicenseNotice =
+@"GNU General Public License v3.0 (GPL-3.0)
 
-Copyright (c) 2026 zhangly1403
+Copyright (C) 2026 zhangly1403
 
-Permission is hereby granted, free of charge, to any person obtaining a copy
-of this software and associated documentation files (the ""Software""), to deal
-in the Software without restriction, including without limitation the rights
-to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-copies of the Software, and to permit persons to whom the Software is
-furnished to do so, subject to the following conditions:
+SteelStructureSuite 依据 GNU 通用公共许可证第三版（GPL v3.0）发布。
+你可以自由使用、修改和再分发本软件；若分发修改版或衍生作品，必须以相同的 GPL v3.0 协议开放源代码并保留版权与许可声明。
+本软件按“现状”提供，不附带任何明示或暗示的担保。
 
-The above copyright notice and this permission notice shall be included in all
-copies or substantial portions of the Software.
-
-THE SOFTWARE IS PROVIDED ""AS IS"", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE
-SOFTWARE.";
+点击下方「完整许可证」按钮可查看随包分发的完整 GNU GPL v3.0 文本。";
 
         public AboutWindow()
         {
@@ -40,13 +28,12 @@ SOFTWARE.";
             string version =
                 asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? asm.GetName().Version?.ToString()
-                ?? "1.0.0";
+                ?? "1.1.0";
             TxtVersion.Text = version;
 
-            TxtCopyright.Text = "Copyright © 2026 zhangly1403. All rights reserved.";
+            TxtCopyright.Text = "Copyright © 2026 zhangly1403 · GNU GPL v3.0";
 
-            // 关于窗口中直接展示完整 MIT 许可证条款
-            TxtLicenseSummary.Text = MitLicenseText;
+            TxtLicenseSummary.Text = GplV3LicenseNotice;
             UserSettings.AlignWindowToAutoCadScreen(this);
         }
 
@@ -69,7 +56,7 @@ SOFTWARE.";
                 }
             }
 
-            MessageBox.Show(this, MitLicenseText, "MIT License",
+            MessageBox.Show(this, GplV3LicenseNotice, "GNU GPL v3.0",
                 MessageBoxButton.OK, MessageBoxImage.Information);
         }
 
@@ -86,6 +73,7 @@ SOFTWARE.";
             string[] candidates =
             {
                 Path.Combine(baseDir, "Help", "LICENSE.txt"),
+                Path.GetFullPath(Path.Combine(baseDir, "..", "Help", "LICENSE.txt")),
                 Path.Combine(baseDir, "LICENSE.txt"),
                 Path.Combine(baseDir, "LICENSE"),
                 Path.GetFullPath(Path.Combine(baseDir, @"..\..\LICENSE")),
