@@ -43,9 +43,12 @@ AppPublisher={#AppPublisher}
 AppCopyright={#AppCopyright}
 DefaultDirName={commonappdata}\SteelStructureSuite
 UninstallFilesDir={commonappdata}\SteelStructureSuite
+UsePreviousAppDir=no
+DirExistsWarning=no
 DefaultGroupName={#AppName}
 DisableProgramGroupPage=yes
 DisableDirPage=yes
+AlwaysShowDirOnReadyPage=no
 DisableReadyPage=no
 AllowNoIcons=yes
 OutputDir=..\dist
@@ -118,4 +121,13 @@ function InitializeSetup(): Boolean;
 begin
   CleanLegacyBundles;
   Result := True;
+end;
+
+function ShouldSkipPage(PageID: Integer): Boolean;
+begin
+  { 强制跳过安装位置选择页面，位置锁定为公共插件目录与预设目录，不可选不可变 }
+  if PageID = wpSelectDir then
+    Result := True
+  else
+    Result := False;
 end;

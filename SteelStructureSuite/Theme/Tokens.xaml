@@ -25,8 +25,14 @@
 
     <Color x:Key="Color.Border">#FFD0D5DB</Color>
     <Color x:Key="Color.BorderStrong">#FFAEB7C2</Color>
-    <!-- 可交互控件描边：对 Surface / WindowBackground / ControlHover 均 >= 3:1。 -->
-    <Color x:Key="Color.BorderControl">#FF75818F</Color>
+    <!-- 按钮/可点击控件的描边：必须与白底有 ≥3:1 的可感知边界，
+         否则「白底 + 浅边」在低亮度显示器上几乎看不见。 -->
+    <Color x:Key="Color.BorderControl">#FF7C8795</Color>
+    <!-- 标签页方框描边：比 Border.Control 浅一档（对 Surface 约 2.50:1）。
+         页签由文字本身标识、边框只是分组轮廓，不属于 WCAG 1.4.11 必须
+         ≥3:1 的「唯一识别手段」，所以可以放轻；按钮/输入框仍用
+         Border.Control，不要换成这个。 -->
+    <Color x:Key="Color.BorderTab">#FF98A1AD</Color>
 
     <Color x:Key="Color.TextPrimary">#FF1F2933</Color>
     <Color x:Key="Color.TextSecondary">#FF4B5563</Color>
@@ -109,6 +115,7 @@
     <SolidColorBrush x:Key="Brush.Border" Color="{StaticResource Color.Border}" />
     <SolidColorBrush x:Key="Brush.Border.Strong" Color="{StaticResource Color.BorderStrong}" />
     <SolidColorBrush x:Key="Brush.Border.Control" Color="{StaticResource Color.BorderControl}" />
+    <SolidColorBrush x:Key="Brush.Border.Tab" Color="{StaticResource Color.BorderTab}" />
 
     <SolidColorBrush x:Key="Brush.Text.Primary" Color="{StaticResource Color.TextPrimary}" />
     <SolidColorBrush x:Key="Brush.Text.Secondary" Color="{StaticResource Color.TextSecondary}" />
@@ -193,9 +200,17 @@
 
 
     <!-- ============================================================
-         4. 布局尺寸
+         4. 布局尺寸（缺省 = 中等密度 Medium）
+         ============================================================
+         这些键是「密度可变 token」：Theme.xaml 会在 Tokens 之后合并
+         Density.Medium.xaml（或 Compact / Relaxed），后者同名键覆盖本表。
+         控件内部统一用 {DynamicResource Layout.*} 读取，因此换密度时
+         尺寸会实时生效；只合并 Controls.xaml 的项目也能拿到本表兜底值。
+
+         完整对照表见 docs/06-density.md。
          ============================================================ -->
     <sys:String x:Key="Density.Profile">medium</sys:String>
+
     <sys:Double x:Key="Layout.ControlHeight">30</sys:Double>
     <sys:Double x:Key="Layout.ControlHeight.Small">26</sys:Double>
     <sys:Double x:Key="Layout.ControlHeight.Large">36</sys:Double>
@@ -204,10 +219,14 @@
     <sys:Double x:Key="Layout.LogMaxHeight">220</sys:Double>
     <sys:Double x:Key="Layout.TagHeight">24</sys:Double>
     <sys:Double x:Key="Layout.IconButton.Micro">24</sys:Double>
-    <sys:Double x:Key="Layout.IconButton.Small">28</sys:Double>
-    <sys:Double x:Key="Layout.IconButton.Large">32</sys:Double>
+    <sys:Double x:Key="Layout.IconButton.Small">30</sys:Double>
+    <sys:Double x:Key="Layout.IconButton.Large">36</sys:Double>
     <sys:Double x:Key="Layout.RowHeight">28</sys:Double>
     <sys:Double x:Key="Layout.HeaderHeight">30</sys:Double>
+    <!-- 单元格内控件高度 = 行高 - 2：数据行底部有 1px 网格线，控件撑满整行时
+         描边会压到分隔线上（hover/展开时看起来像溢出行高）。 -->
+    <sys:Double x:Key="Layout.CellControlHeight">26</sys:Double>
+    <!-- 复选框/单选框靶心固定 16，不随密度缩小（可访问性下限）。 -->
     <sys:Double x:Key="Layout.CheckBox.Size">16</sys:Double>
     <sys:Double x:Key="Layout.RadioButton.Size">16</sys:Double>
 
@@ -217,6 +236,9 @@
          InputMinWidth：输入列最小宽度。输入列用 * + MinWidth，
          保证窄窗口下输入框仍有可用宽度。 -->
     <sys:Double x:Key="Layout.FormLabelMinWidth">80</sys:Double>
+    <!-- 标签列最大宽度：Auto 列里的长标签如果不设上限，会按单行文字宽度撑开，
+         把右侧输入列挤出可视区（窗口只有 820 宽时尤其明显）。
+         设上限后长标签正常换行，输入列仍保留 * 宽度。 -->
     <sys:Double x:Key="Layout.FormLabelMaxWidth">132</sys:Double>
     <sys:Double x:Key="Layout.InputMinWidth">140</sys:Double>
     <!-- 两列表单之间的间距。注意：ColumnDefinition.Width 需要 GridLength，
@@ -255,7 +277,6 @@
     <Thickness x:Key="Layout.ListViewItemPadding">3,2</Thickness>
     <Thickness x:Key="Layout.MenuItemPadding">8,5</Thickness>
     <Thickness x:Key="Layout.TabPadding">12,6</Thickness>
-    <Thickness x:Key="Layout.TabMargin">0,0,4,0</Thickness>
     <Thickness x:Key="Layout.TooltipPadding">8,4</Thickness>
     <Thickness x:Key="Layout.BadgePadding">8,2</Thickness>
     <Thickness x:Key="Layout.ExpanderHeaderPadding">10,6</Thickness>
@@ -341,6 +362,14 @@
         <Setter Property="Foreground" Value="{StaticResource Brush.Text.Primary}" />
         <Setter Property="TextWrapping" Value="Wrap" />
         <Setter Property="LineHeight" Value="{StaticResource LineHeight.Caption}" />
+    </Style>
+
+    <!-- 窄面板/单列表单的字段标签：标签在上，控件在下，两者左对齐。 -->
+    <Style x:Key="Text.FieldLabel" TargetType="{x:Type TextBlock}" BasedOn="{StaticResource Text.Label}">
+        <Setter Property="FontSize" Value="{StaticResource FontSize.Caption}" />
+        <Setter Property="Foreground" Value="{StaticResource Brush.Text.Secondary}" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="Margin" Value="0,0,0,3" />
     </Style>
 
     <Style x:Key="Text.RoleLabel" TargetType="{x:Type TextBlock}">

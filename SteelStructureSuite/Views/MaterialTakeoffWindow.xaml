@@ -40,7 +40,7 @@
             </StackPanel>
         </Border>
 
-        <TabControl Grid.Row="2" Margin="0,0,0,4">
+        <TabControl Grid.Row="2" Margin="0,0,0,8">
             <TabItem Header="规格汇总">
                 <DataGrid x:Name="DgSummary"
                           AutoGenerateColumns="False"

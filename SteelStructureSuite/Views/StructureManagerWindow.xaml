@@ -37,13 +37,13 @@
                 <ColumnDefinition Width="2*" MinWidth="420" />
             </Grid.ColumnDefinitions>
 
-            <GroupBox Grid.Column="0" Header="结构类型">
+            <GroupBox Grid.Column="0" Header="结构类型" Margin="0">
                 <TreeView x:Name="TreeStructures" SelectedItemChanged="OnTreeSelectionChanged" />
             </GroupBox>
 
-            <GridSplitter Grid.Column="1" Width="6" HorizontalAlignment="Center" VerticalAlignment="Stretch" />
+            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" />
 
-            <GroupBox Grid.Column="2" Header="构件列表">
+            <GroupBox Grid.Column="2" Header="构件列表" Margin="0">
                 <DataGrid x:Name="DgStructures"
                           AutoGenerateColumns="False"
                           CanUserAddRows="False"

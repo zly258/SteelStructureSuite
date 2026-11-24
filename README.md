@@ -6,6 +6,7 @@
 [![.NET](https://img.shields.io/badge/.NET%20Framework-4.8-512BD4?logo=dotnet)](README.md#二环境要求)
 [![Platform](https://img.shields.io/badge/Platform-Windows%2010%2F11%20x64-0078D6?logo=windows)](README.md#二环境要求)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-brightgreen.svg)](CONTRIBUTING.md)
+[![爱发电](https://img.shields.io/badge/爱发电-支持作者-946CE6)](https://ifdian.net/order/create?user_id=3db8e630e6dc11f1b37452540025c377)
 
 **SteelStructureSuite** 是一款面向 **AutoCAD (x64)** 平台的高性能参数化钢结构设计套件。以 Autodesk Bundle 规范深度集成，随 AutoCAD 启动自动加载并在顶部生成专属「参数化钢结构」功能区。
 
@@ -310,7 +311,16 @@ AutoCAD 的托管程序集主版本在 2021 年升级为了 `24.0.0.0`。如果�
 
 ---
 
-## 十、开源许可证
+## 十、支持与打赏
+
+如果本项目对你的日常设计或工程出图有所帮助，欢迎通过爱发电请作者喝一杯咖啡，你的支持将持续推动更多标准构件与出图功能的迭代：
+
+* **直达打赏页**：[点击直接打赏（爱发电）](https://ifdian.net/order/create?user_id=3db8e630e6dc11f1b37452540025c377)
+* **创作者主页**：[爱发电主页 · zhangly1403](https://ifdian.net/a/zhangly1403)
+
+---
+
+## 十一、开源许可证
 
 本项目依据 **[MIT License](LICENSE)** 协议完全开源。
 

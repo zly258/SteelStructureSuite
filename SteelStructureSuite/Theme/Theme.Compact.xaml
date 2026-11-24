@@ -2,7 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        紧凑密度整包入口（与默认 Theme.xaml 等价）。
+        紧凑密度整包入口。
         适合：工程插件工具条、属性面板、大表格工作台。
         用法与 Theme.xaml 相同，只替换 Source 文件名。
     -->
@@ -12,7 +12,8 @@
         <ResourceDictionary Source="DataControls.xaml" />
         <ResourceDictionary Source="Icons.xaml" />
         <ResourceDictionary Source="Extras.xaml" />
-        <!-- 密度档案必须最后合并，才能让密度键在查找时优先命中。 -->
+        <!-- 密度档案必须最后合并：控件字典内部又合并了 Tokens（中等兜底），
+             只有最后合并才能让密度键在查找时优先命中。 -->
         <ResourceDictionary Source="Density.Compact.xaml" />
     </ResourceDictionary.MergedDictionaries>
 

@@ -39,11 +39,11 @@
                     </Grid.RowDefinitions>
                     <controls:StructureSchematicControl x:Name="SchematicView" Grid.Row="0" VerticalAlignment="Top" />
                     <ScrollViewer Grid.Row="1" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Margin="0,8,0,0">
+                        <StackPanel Margin="0,8,0,0" Grid.IsSharedSizeScope="True">
                             <GroupBox Header="基本属性">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
+                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
                                         <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
@@ -75,7 +75,7 @@
                             <GroupBox Header="几何参数">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
+                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
                                         <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
@@ -116,10 +116,10 @@
                                 </Grid>
                             </GroupBox>
 
-                            <GroupBox Header="截面规格">
+                            <GroupBox Header="截面规格" Margin="0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="96" />
+                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
                                         <ColumnDefinition Width="*" MinWidth="120" />
                                         <ColumnDefinition Width="8" />
                                         <ColumnDefinition Width="2*" MinWidth="160" />

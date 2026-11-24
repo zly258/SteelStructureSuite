@@ -35,7 +35,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,8">
             <TextBlock Text="批量 DWG 转 DXF" Style="{StaticResource Text.Title}" FontWeight="SemiBold" />
-            <TextBlock Text="按当前 AutoCAD 支持的版本批量导出 DXF" Style="{StaticResource Text.Caption}" />
+            <TextBlock Text="按当前 AutoCAD 支持的版本批量导出 DXF" Style="{StaticResource Text.Caption}" Margin="0,2,0,0" />
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource Card}" Margin="0,0,0,8">
@@ -44,16 +44,12 @@
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
-                <Grid Grid.Row="0" Margin="0,0,0,6">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
-                    </Grid.ColumnDefinitions>
-                    <TextBlock Text="源图纸" Style="{StaticResource Text.Section}" />
-                    <Border Grid.Column="1" Style="{StaticResource Badge.Idle}" Margin="8,0,0,0">
+                <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
+                    <TextBlock Text="源图纸" Style="{StaticResource Text.Section}" VerticalAlignment="Center" />
+                    <Border Style="{StaticResource Badge.Idle}" Margin="8,0,0,0" VerticalAlignment="Center">
                         <TextBlock x:Name="TxtFileCount" Text="0" Style="{StaticResource BadgeText.Idle}" />
                     </Border>
-                </Grid>
+                </StackPanel>
                 <Grid Grid.Row="1">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="240" />
@@ -67,7 +63,7 @@
                             </DataTemplate>
                         </ListBox.ItemTemplate>
                     </ListBox>
-                    <StackPanel Grid.Column="2">
+                    <StackPanel Grid.Column="2" VerticalAlignment="Top">
                         <Button Content="添加" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnAddClick" />
                         <Button Content="移除" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnRemoveClick" />
                         <Button Content="上移" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,0,6" Click="OnUpClick" />
@@ -83,6 +79,7 @@
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
                     <RowDefinition Height="Auto" />
+                    <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
@@ -90,19 +87,20 @@
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="输出目录" Style="{StaticResource Text.Label}" Margin="0,0,8,0" />
-                <TextBox x:Name="TxtOutput" Grid.Row="0" Grid.Column="1" ToolTip="DXF 输出目录" />
-                <Button Grid.Row="0" Grid.Column="2" Content="浏览" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="8,0,0,0" Click="OnBrowseOutputClick" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="输出目录" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <TextBox x:Name="TxtOutput" Grid.Row="0" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" ToolTip="DXF 输出目录" />
+                <Button Grid.Row="0" Grid.Column="2" Content="浏览" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="8,3,0,3" Click="OnBrowseOutputClick" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="DXF 版本" Style="{StaticResource Text.Label}" Margin="0,8,8,0" />
-                <ComboBox x:Name="CmbVersion" Grid.Row="1" Grid.Column="1" Margin="0,8,0,0">
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="DXF 版本" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <ComboBox x:Name="CmbVersion" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2" Margin="{StaticResource Layout.FormRowMargin}">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Label}" ToolTip="{Binding Label}" TextTrimming="CharacterEllipsis" />
                         </DataTemplate>
                     </ComboBox.ItemTemplate>
                 </ComboBox>
-                <CheckBox x:Name="ChkOverwrite" Grid.Row="1" Grid.Column="2" Content="覆盖已有 DXF" VerticalAlignment="Center" Margin="12,8,0,0" />
+
+                <CheckBox x:Name="ChkOverwrite" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Content="覆盖已有 DXF" Margin="{StaticResource Layout.FormRowMargin}" />
             </Grid>
         </Border>
 
@@ -114,11 +112,11 @@
                 </Grid.RowDefinitions>
                 <TextBlock Grid.Row="0" Text="转换日志" Style="{StaticResource Text.Section}" Margin="0,0,0,6" />
                 <TextBox x:Name="TxtLog" Grid.Row="1" Style="{StaticResource TextBox.Code}"
-                         VerticalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" />
+                         MaxHeight="Infinity" VerticalAlignment="Stretch" HorizontalScrollBarVisibility="Auto" />
             </Grid>
         </Border>
 
-        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,0,0,8">
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right">
             <Button Content="打开目录" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnOpenFolderClick" />
             <Button x:Name="BtnRun" Content="开始转换" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnConvertClick" />
             <Button Content="关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnCloseClick" />

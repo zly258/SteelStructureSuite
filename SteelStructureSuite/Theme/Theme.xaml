@@ -2,10 +2,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
 
     <!--
-        唯一推荐入口（本产品默认密度 = 紧凑 Compact）。
-        工程插件、截面库、材料统计与模型管理器以数据密度优先，
-        因此默认采用紧凑档；需要中等 / 宽松时改用
-        Theme.Medium.xaml / Theme.Relaxed.xaml。
+        唯一推荐入口（默认密度 = 中等 Medium）。
         App.xaml:
             <ResourceDictionary>
                 <ResourceDictionary.MergedDictionaries>
@@ -13,10 +10,13 @@
                 </ResourceDictionary.MergedDictionaries>
             </ResourceDictionary>
 
+        换密度：把 Source 换成 Theme.Compact.xaml 或 Theme.Relaxed.xaml。
+        控件内部统一用 {DynamicResource Layout.*} 读取尺寸，
+        因此也可以在运行时替换 Density.*.xaml 完成热切换（见 docs/06-density.md）。
+
         Controls.xaml / DataControls.xaml / Icons.xaml / Extras.xaml 内部
         各自合并了 Tokens.xaml（颜色/字体兜底），这里显式再加一次
-        Tokens.xaml 以保证「Tokens → Density → 控件」的覆盖顺序。
-        换密度：把最后的 Source 换成 Density.Medium.xaml 或 Density.Relaxed.xaml。
+        Density.Medium 以保证「Tokens → Density → 控件」的覆盖顺序。
     -->
     <ResourceDictionary.MergedDictionaries>
         <ResourceDictionary Source="Tokens.xaml" />
@@ -26,7 +26,7 @@
         <ResourceDictionary Source="Extras.xaml" />
         <!-- 密度档案必须最后合并：控件字典内部又合并了 Tokens（中等兜底），
              只有最后合并才能让密度键在查找时优先命中。 -->
-        <ResourceDictionary Source="Density.Compact.xaml" />
+        <ResourceDictionary Source="Density.Medium.xaml" />
     </ResourceDictionary.MergedDictionaries>
 
 </ResourceDictionary>

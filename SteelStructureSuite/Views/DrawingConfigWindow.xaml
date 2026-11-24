@@ -65,7 +65,7 @@
                     </StackPanel>
                 </GroupBox>
 
-                <GroupBox Header="输出目标">
+                <GroupBox Header="输出目标" Margin="0">
                     <StackPanel>
                         <RadioButton x:Name="RadCurrentDwg" Content="在当前 DWG 拾取插入点" IsChecked="True" Margin="{StaticResource Layout.FormRowMargin}" Checked="OnOutputTargetChanged" />
                         <RadioButton x:Name="RadNewDwg" Content="单独创建新 DWG" IsChecked="False" Margin="{StaticResource Layout.FormRowMargin}" Checked="OnOutputTargetChanged" />

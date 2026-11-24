@@ -36,20 +36,26 @@
         <TextBlock x:Name="TxtSummary" Grid.Row="0" Style="{StaticResource Text.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
 
         <Border Grid.Row="1" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
-            <StackPanel Orientation="Horizontal">
-                <Button Content="导入" ToolTip="从 Excel 或 CSV 导入截面" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnImportClick" />
-                <Button Content="Excel" ToolTip="导出多工作表 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportXlsxClick" />
-                <Button Content="CSV" ToolTip="导出 CSV" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportCsvClick" />
-                <Button Content="恢复默认库" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Click="OnResetDefaultClick" />
-            </StackPanel>
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <StackPanel Grid.Column="0" Orientation="Horizontal">
+                    <Button Content="导入" ToolTip="从 Excel 或 CSV 导入截面" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnImportClick" />
+                    <Button Content="导出 Excel" ToolTip="导出多工作表 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportXlsxClick" />
+                    <Button Content="CSV" ToolTip="导出 CSV" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnExportCsvClick" />
+                </StackPanel>
+                <Button Grid.Column="1" Content="恢复默认库" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Click="OnResetDefaultClick" />
+            </Grid>
         </Border>
 
         <TabControl x:Name="TabsSections"
                     Grid.Row="2"
-                    Margin="0,0,0,4"
+                    Margin="0,0,0,8"
                     SelectionChanged="OnSectionSelectionChanged" />
 
-        <GroupBox Grid.Row="3" Header="新增 / 更新截面">
+        <GroupBox Grid.Row="3" Header="新增 / 更新截面" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" MinWidth="110" />
@@ -64,28 +70,28 @@
                     <ColumnDefinition Width="10" />
                     <ColumnDefinition Width="*" MinWidth="90" />
                 </Grid.ColumnDefinitions>
-                <StackPanel Grid.Column="0">
-                    <TextBlock Text="所属分表" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
+                    <TextBlock Text="所属分表" Style="{StaticResource Text.FieldLabel}" />
                     <ComboBox x:Name="CmbType" />
                 </StackPanel>
-                <StackPanel Grid.Column="2">
-                    <TextBlock Text="截面代号" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
+                    <TextBlock Text="截面代号" Style="{StaticResource Text.FieldLabel}" />
                     <TextBox x:Name="TxtName" Text="HM294x200x8x12" />
                 </StackPanel>
-                <StackPanel Grid.Column="4">
-                    <TextBlock Text="高度 H" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="4" Style="{StaticResource FormStack}">
+                    <TextBlock Text="高度 H" Style="{StaticResource Text.FieldLabel}" />
                     <TextBox x:Name="TxtH" Text="294" ToolTip="高度或外径，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="6">
-                    <TextBlock Text="宽度 B" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="6" Style="{StaticResource FormStack}">
+                    <TextBlock Text="宽度 B" Style="{StaticResource Text.FieldLabel}" />
                     <TextBox x:Name="TxtB" Text="200" ToolTip="宽度，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="8">
-                    <TextBlock Text="腹板 tw" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="8" Style="{StaticResource FormStack}">
+                    <TextBlock Text="腹板 tw" Style="{StaticResource Text.FieldLabel}" />
                     <TextBox x:Name="TxtTw" Text="8" ToolTip="腹板或壁厚，单位 mm" />
                 </StackPanel>
-                <StackPanel Grid.Column="10">
-                    <TextBlock Text="翼缘 tf" Style="{StaticResource Text.Caption}" Margin="{StaticResource Layout.FormRowMargin}" />
+                <StackPanel Grid.Column="10" Style="{StaticResource FormStack}">
+                    <TextBlock Text="翼缘 tf" Style="{StaticResource Text.FieldLabel}" />
                     <TextBox x:Name="TxtTf" Text="12" ToolTip="翼缘厚度，单位 mm" />
                 </StackPanel>
             </Grid>
