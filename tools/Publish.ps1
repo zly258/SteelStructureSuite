@@ -144,9 +144,12 @@ foreach ($t in $targets) {
     }
 }
 
-# 2. 组装通用资源与清单
+# 2. 组装通用资源、默认截面库与清单
 $helpDir = Join-Path $contents 'Help'
+$dataDir = Join-Path $contents 'Data'
 New-Item -ItemType Directory -Force -Path $helpDir | Out-Null
+New-Item -ItemType Directory -Force -Path $dataDir | Out-Null
+Copy-Item (Join-Path $root 'SteelStructureSuite\Data\DefaultSectionCatalog.csv') $dataDir -Force
 Copy-Item (Join-Path $root 'installer\PackageContents.xml') (Join-Path $bundleDir 'PackageContents.xml') -Force
 Copy-Item (Join-Path $root 'docs\UserManual.md') $helpDir -Force
 Copy-Item (Join-Path $root 'LICENSE') (Join-Path $helpDir 'UserManual-license.txt') -Force
@@ -167,7 +170,7 @@ if ($Install) {
 }
 
 # 4. 打包绿色 zip 包（仅包含统一的 SteelStructureSuite.bundle）
-$zip = Join-Path $root 'dist\SteelStructureSuite-bundle-1.0.0.zip'
+$zip = Join-Path $root 'dist\SteelStructureSuite-bundle-1.1.0.zip'
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path $bundleDir -DestinationPath $zip -Force
 Write-Host "已打包绿色分发包 $zip" -ForegroundColor Green

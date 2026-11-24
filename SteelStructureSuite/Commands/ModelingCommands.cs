@@ -78,28 +78,28 @@ namespace SteelStructureSuite.Commands
         public void OpenSectionCatalogWindow()
         {
             var win = new SectionCatalogWindow();
-            Application.ShowModalWindow(win);
+            UserSettings.ShowModalWindowOnAutoCad(win);
         }
 
         [CommandMethod("SS_MANAGER", CommandFlags.Modal)]
         public void OpenStructureManagerWindow()
         {
             var win = new StructureManagerWindow();
-            Application.ShowModalWindow(win);
+            UserSettings.ShowModalWindowOnAutoCad(win);
         }
 
         [CommandMethod("SS_HELP", CommandFlags.Modal)]
         public void OpenHelpManualWindow()
         {
             var win = new HelpManualWindow();
-            Application.ShowModalWindow(win);
+            UserSettings.ShowModalWindowOnAutoCad(win);
         }
 
         [CommandMethod("SS_ABOUT", CommandFlags.Modal)]
         public void OpenAboutWindow()
         {
             var win = new AboutWindow();
-            Application.ShowModalWindow(win);
+            UserSettings.ShowModalWindowOnAutoCad(win);
         }
 
         [CommandMethod("SS_PANEL", CommandFlags.Modal)]
@@ -197,7 +197,7 @@ namespace SteelStructureSuite.Commands
 
             var initParams = CreateDefaultParamsForType(ParametricStructureType.HandrailGuardrail);
             var win = new StructureEditWindow(initParams, isEditMode: false, lockStructureType: false, chainPlacementMode: true);
-            if (Application.ShowModalWindow(win) != true) return;
+            if (UserSettings.ShowModalWindowOnAutoCad(win) != true) return;
             if (!win.Data.SupportsChainDraw)
             {
                 ed.WriteMessage("\n当前构件类型不支持连续折线绘制，请改用两点线性绘制或单点放置。\n");
@@ -217,7 +217,7 @@ namespace SteelStructureSuite.Commands
                 if (jr.Status != PromptStatus.OK) break;
 
                 SteelStructureParams segParams = jig.UpdatedParams.Clone();
-                segParams.Tag = $"ST-{_tagSeq++}";
+                segParams.Tag = GetNextAutoTag(segParams.StructureType);
 
                 using (DocumentLock dl = doc.LockDocument())
                 {
@@ -265,7 +265,7 @@ namespace SteelStructureSuite.Commands
             }
 
             var win = new StructureEditWindow(currentParams, isEditMode: true, lockStructureType: true);
-            if (Application.ShowModalWindow(win) != true) return;
+            if (UserSettings.ShowModalWindowOnAutoCad(win) != true) return;
 
             using (DocumentLock dl = doc.LockDocument())
             {
@@ -285,7 +285,7 @@ namespace SteelStructureSuite.Commands
             Database db = doc.Database;
 
             var win = new MaterialTakeoffWindow(db);
-            bool? res = Application.ShowModalWindow(win);
+            bool? res = UserSettings.ShowModalWindowOnAutoCad(win);
 
             if (res == true && win.RequestInsertCadTable &&
                 (win.RequestInsertTableType == "detail" ? win.ResultDetailedItems.Count > 0 : win.ResultSummaryRows.Count > 0))
@@ -345,7 +345,7 @@ namespace SteelStructureSuite.Commands
             }
 
             var cfgWin = new DrawingConfigWindow(picked);
-            if (Application.ShowModalWindow(cfgWin) != true) return;
+            if (UserSettings.ShowModalWindowOnAutoCad(cfgWin) != true) return;
             DrawingGenerationOptions options = cfgWin.Options;
 
             if (options.OutputToNewDwgFile)
@@ -408,7 +408,7 @@ namespace SteelStructureSuite.Commands
             List<SteelStructureParams> picked = CollectParametricStructures(doc.Editor, doc.Database, promptSelection: false);
             SteelStructureParams header = picked.Count > 0 ? picked[0].Clone() : new SteelStructureParams();
             var cfgWin = new DrawingConfigWindow(header);
-            Application.ShowModalWindow(cfgWin);
+            UserSettings.ShowModalWindowOnAutoCad(cfgWin);
         }
 
         private static SteelStructureParams ReadStructureParams(Database db, ObjectId id)
@@ -480,7 +480,7 @@ namespace SteelStructureSuite.Commands
 
             var initParams = CreateDefaultParamsForType(defaultType);
             var win = new StructureEditWindow(initParams, isEditMode: false, lockStructureType: lockType);
-            if (Application.ShowModalWindow(win) != true) return;
+            if (UserSettings.ShowModalWindowOnAutoCad(win) != true) return;
 
             SteelStructureParams finalParams = win.Data;
             bool useLinearDraw = win.UseTwoPointLinearDraw && finalParams.SupportsTwoPointDraw;
@@ -519,11 +519,49 @@ namespace SteelStructureSuite.Commands
             ed.WriteMessage($"\n[SteelStructureSuite] 已生成三维钢结构 [{finalParams.Tag}] ({finalParams.BuildSpecSummary()})。\n");
         }
 
+        private static readonly Dictionary<ParametricStructureType, int> _typeTagSeqMap =
+            new Dictionary<ParametricStructureType, int>();
+
+        private static string GetNextAutoTag(ParametricStructureType type)
+        {
+            int nextSeq = 1;
+            if (_typeTagSeqMap.TryGetValue(type, out int last))
+            {
+                nextSeq = last + 1;
+            }
+            else
+            {
+                // 首次按类型编号时，尝试扫描当前图纸已有同类型构件的最大编号，避免重号
+                try
+                {
+                    Document doc = Application.DocumentManager.MdiActiveDocument;
+                    if (doc != null)
+                    {
+                        var existing = MaterialTakeoffService.CollectStructures(doc.Database);
+                        int maxNum = 0;
+                        foreach (var item in existing)
+                        {
+                            if (item.StructureType != type || string.IsNullOrEmpty(item.Tag)) continue;
+                            int idx = item.Tag.Length;
+                            while (idx > 0 && char.IsDigit(item.Tag[idx - 1])) idx--;
+                            if (idx < item.Tag.Length && int.TryParse(item.Tag.Substring(idx), out int n) && n > maxNum)
+                                maxNum = n;
+                        }
+                        nextSeq = maxNum + 1;
+                    }
+                }
+                catch { }
+            }
+
+            _typeTagSeqMap[type] = nextSeq;
+            return UserSettings.FormatTag(type, nextSeq);
+        }
+
         public static SteelStructureParams CreateDefaultParamsForType(ParametricStructureType type)
         {
             var p = new SteelStructureParams
             {
-                Tag = $"ST-{_tagSeq}",
+                Tag = GetNextAutoTag(type),
                 StructureType = type,
                 Material = "Q355B"
             };

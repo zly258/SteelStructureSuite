@@ -12,7 +12,7 @@
 #define AppName "参数化钢结构套件"
 #define AppShortName "SteelStructureSuite"
 #ifndef AppVersion
-  #define AppVersion "1.0.0"
+  #define AppVersion "1.1.0"
 #endif
 #define AppPublisher "zhangly1403"
 #define AppCopyright "Copyright (c) 2026 zhangly1403 | zhangly1403@qq.com"
@@ -77,6 +77,9 @@ Source: "{#RuntimeDirR25}\SteelStructureSuite.dll"; DestDir: "{#BundleDir}\Conte
 Source: "{#RuntimeDirR25}\SteelStructureSuite.pdb"; DestDir: "{#BundleDir}\Contents\2026"; Flags: ignoreversion skipifsourcedoesntexist
 Source: "{#RuntimeDirR25}\SteelStructureSuite.deps.json"; DestDir: "{#BundleDir}\Contents\2026"; Flags: ignoreversion skipifsourcedoesntexist
 
+; 默认截面库数据文件（首次启动时加载并生成用户本地 SectionCatalog_MultiTable.csv）
+Source: "..\SteelStructureSuite\Data\DefaultSectionCatalog.csv"; DestDir: "{#BundleDir}\Contents\Data"; Flags: ignoreversion
+
 ; 使用说明与许可证
 Source: "..\docs\UserManual.md"; DestDir: "{#BundleDir}\Contents\Help"; Flags: ignoreversion
 Source: "..\LICENSE"; DestDir: "{#BundleDir}\Contents\Help"; DestName: "LICENSE.txt"; Flags: ignoreversion
@@ -90,6 +93,7 @@ Name: "{group}\使用说明"; Filename: "{sys}\notepad.exe"; Parameters: """{app
 
 [UninstallDelete]
 ; 清理 Bundle 目录下的空壳目录（文件本身由安装记录负责删除）
+Type: dirifempty; Name: "{#BundleDir}\Contents\Data"
 Type: dirifempty; Name: "{#BundleDir}\Contents\Help"
 Type: dirifempty; Name: "{#BundleDir}\Contents\2019"
 Type: dirifempty; Name: "{#BundleDir}\Contents\2021"

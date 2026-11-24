@@ -21,6 +21,7 @@ namespace SteelStructureSuite.Views
     {
         private List<StructureRecordItem> _allRecords = new List<StructureRecordItem>();
         private ObjectId _lastHighlightedId = ObjectId.Null;
+        private object _currentTreeTag = "ALL";
 
         public StructureManagerWindow()
         {
@@ -81,7 +82,7 @@ namespace SteelStructureSuite.Views
                 .ThenBy(r => r.Tag)
                 .ToList();
             RebuildTree();
-            DgStructures.ItemsSource = _allRecords;
+            ApplyFiltersAndBindGrid();
 
             double totalWeight = _allRecords.Sum(x => x.WeightKg);
             TxtStatus.Text = $"共 {_allRecords.Count} 座构件  |  总重: {totalWeight:0.00} kg";
@@ -134,25 +135,75 @@ namespace SteelStructureSuite.Views
         private void OnTreeSelectionChanged(object sender, RoutedPropertyChangedEventArgs<object> e)
         {
             if (!(TreeStructures.SelectedItem is TreeViewItem node)) return;
+            _currentTreeTag = node.Tag ?? "ALL";
+            ApplyFiltersAndBindGrid(selectRecord: node.Tag as StructureRecordItem);
+        }
 
-            if (node.Tag is string s && s == "ALL")
+        private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
+        {
+            ApplyFiltersAndBindGrid();
+        }
+
+        private void OnClearSearchClick(object sender, RoutedEventArgs e)
+        {
+            TxtSearch.Text = string.Empty;
+            TxtSearch.Focus();
+        }
+
+        private void ApplyFiltersAndBindGrid(StructureRecordItem selectRecord = null)
+        {
+            IEnumerable<StructureRecordItem> query = _allRecords;
+
+            if (_currentTreeTag is string s && s == "ALL")
             {
-                DgStructures.ItemsSource = _allRecords;
+                // 全部构件
             }
-            else if (node.Tag is string category)
+            else if (_currentTreeTag is string category)
             {
-                DgStructures.ItemsSource = _allRecords.Where(r => r.Params.CategoryName == category).ToList();
+                query = query.Where(r => r.Params.CategoryName == category);
             }
-            else if (node.Tag is ParametricStructureType st)
+            else if (_currentTreeTag is ParametricStructureType st)
             {
-                DgStructures.ItemsSource = _allRecords.Where(r => r.Params.StructureType == st).ToList();
+                query = query.Where(r => r.Params.StructureType == st);
             }
-            else if (node.Tag is StructureRecordItem rec)
+            else if (_currentTreeTag is StructureRecordItem rec)
             {
-                var singleTypeList = _allRecords.Where(r => r.Params.StructureType == rec.Params.StructureType).ToList();
-                DgStructures.ItemsSource = singleTypeList;
-                DgStructures.SelectedItem = rec;
-                DgStructures.ScrollIntoView(rec);
+                query = query.Where(r => r.Params.StructureType == rec.Params.StructureType);
+            }
+
+            string keyword = TxtSearch?.Text?.Trim();
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                query = query.Where(r =>
+                    (r.Tag != null && r.Tag.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (r.TypeName != null && r.TypeName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (r.MainSection != null && r.MainSection.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (r.Material != null && r.Material.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (r.SizeSummary != null && r.SizeSummary.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (r.PositionStr != null && r.PositionStr.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0));
+            }
+
+            var list = query.ToList();
+            DgStructures.ItemsSource = list;
+            if (TxtFilterCount != null)
+            {
+                TxtFilterCount.Text = $"{list.Count} 项";
+            }
+
+            if (selectRecord != null && list.Contains(selectRecord))
+            {
+                DgStructures.SelectedItem = selectRecord;
+                DgStructures.ScrollIntoView(selectRecord);
+            }
+        }
+
+        private void OnRenumberClick(object sender, RoutedEventArgs e)
+        {
+            var renumberWin = new StructureRenumberWindow(_allRecords);
+            if (UserSettings.ShowModalWindowOnAutoCad(renumberWin) == true)
+            {
+                ReloadAllStructures();
+                TxtStatus.Text = $"顺号重排完成，共更新 {renumberWin.UpdatedCount} 座构件位号。";
             }
         }
 

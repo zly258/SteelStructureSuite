@@ -1,4 +1,5 @@
 using System.Windows;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
@@ -9,12 +10,13 @@ namespace SteelStructureSuite.Views
             InitializeComponent();
             TxtManual.Text =
 @"【一、插件架构与概览】
-本插件为 AutoCAD 2019 ~ 2024 独立三维参数化钢结构套件，采用标准分层架构（Core / Commands / Domain / Services / Ribbon / Views XAML），内置 5 类国标型钢分表库、26 种参数化钢结构（含化工、电力、冶金 8 类行业标准组件）、动态预览放置与线性绘制、正交夹点拉伸、全图树状模型管理器、MTO 材料统计及 A1~A4 标准图框详图出图。
+本插件为 AutoCAD 2019 ~ 2026 独立三维参数化钢结构套件，采用标准分层架构（Core / Commands / Domain / Services / Ribbon / Views XAML），内置 5 大类 24 种型钢截面库（热轧标准型钢、焊接与组合型钢、冷弯薄壁型钢、空心钢管、实心型材）、26 种参数化钢结构（含化工、电力、冶金 8 类行业标准组件）、动态预览放置与线性绘制、正交夹点拉伸、全图树状模型管理器、MTO 材料统计及 A1~A4 标准图框详图出图。
 
 【二、核心功能与命令】
 1. 构建管理
    - 模型管理 (SS_MANAGER)：左侧按类型树状归类，右侧表格列出构件明细。支持双击或点击【定位高亮】自动缩放视口并高亮选中构件，支持直接编辑、出图与删除。
-   - 截面管理 (SS_SECTIONS)：按 H型钢、槽钢、角钢、方矩管、圆钢管 5 个分表管理，支持多工作表 Excel (.xlsx) 或 CSV 导入导出。
+   - 截面管理 (SS_SECTIONS)：左侧分类树（5 大类 24 种截面）+ 右侧表格 + 2D 实时轮廓预览。热轧标准型钢内置国标手册截面积/理论米重/表面积，同时支持界面手工修正或一键按公式重算；支持按 5 大类工作表导出/导入 Excel (.xlsx) 或 CSV。
+   - 截面数据存储：保存路径为 %LocalAppData%\SteelStructureSuite\SectionCatalog_MultiTable.csv，格式为 UTF-8 (带 BOM) CSV，共 14 列（代号、类型、H、B、Tw、Tf、B2、Tf2、卷边C、间隙Gap、截面积、理论单重、表面积、数值来源 Manual/Auto），可直接用 Excel 或文本编辑器查看备份，启动 CAD 时自动加载。
 
 2. 单构件专属参数化建模（26 种，含带尺寸动态示意图 + 独立材料清单 Tab）
    - 厂房框架：单跨门架 (SS_PORTAL)、多跨门架 (SS_MULTIPORTAL)、人字撑架 (SS_BRACED)、双层管廊 (SS_DOUBLE)、装置框架 (SS_SPACEFRAME)、屋面桁架 (SS_TRUSS)、管廊桁桥 (SS_PIPEBRIDGE)
@@ -36,6 +38,7 @@ namespace SteelStructureSuite.Views
    - 出图设置 (SS_DRAWCFG)：设置图幅、比例、各视图、输出方式（当前图或新建 DWG）。
    - 批量转 DXF (SS_DWG2DXF)：多选 DWG，按当前 AutoCAD 支持的版本批量导出 DXF。
    - 合并图纸 (SS_DWGMERGE)：按模型空间范围把多张 DWG 或 DXF 横向或纵向排入一个新图纸，输出也可选 DWG 或 DXF。";
+            UserSettings.AlignWindowToAutoCadScreen(this);
         }
 
         private void OnCloseClick(object sender, RoutedEventArgs e)

@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
@@ -46,6 +47,7 @@ SOFTWARE.";
 
             // 关于窗口中直接展示完整 MIT 许可证条款
             TxtLicenseSummary.Text = MitLicenseText;
+            UserSettings.AlignWindowToAutoCadScreen(this);
         }
 
         private void OnOpenLicenseClick(object sender, RoutedEventArgs e)

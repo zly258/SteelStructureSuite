@@ -26,9 +26,9 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <AssemblyName>SteelStructureSuite</AssemblyName>
     <RootNamespace>SteelStructureSuite</RootNamespace>
-    <Version>1.0.0</Version>
-    <AssemblyVersion>1.0.0.0</AssemblyVersion>
-    <FileVersion>1.0.0.0</FileVersion>
+    <Version>1.1.0</Version>
+    <AssemblyVersion>1.1.0.0</AssemblyVersion>
+    <FileVersion>1.1.0.0</FileVersion>
     <Product>SteelStructureSuite</Product>
     <Description>AutoCAD 参数化钢结构套件</Description>
     <Company>zhangly1403</Company>
@@ -56,6 +56,9 @@
 
     <!-- 4. Services (截面库、三维造型、动态交互、算量导出、详图生成服务) -->
     <Compile Include="Services\Catalog\SectionCatalogService.cs" />
+    <None Include="Data\DefaultSectionCatalog.csv">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
     <Compile Include="Services\Modeling\SectionSolidBuilder.cs" />
     <Compile Include="Services\Modeling\CurveSweepService.cs" />
     <Compile Include="Services\Modeling\SteelStructureBuilder.cs" />
@@ -93,6 +96,14 @@
     </Page>
     <Compile Include="Views\StructureManagerWindow.xaml.cs">
       <DependentUpon>StructureManagerWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\StructureRenumberWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\StructureRenumberWindow.xaml.cs">
+      <DependentUpon>StructureRenumberWindow.xaml</DependentUpon>
     </Compile>
 
     <Page Include="Views\SectionCatalogWindow.xaml">

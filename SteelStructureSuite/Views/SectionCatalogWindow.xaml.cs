@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
+using System.IO;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
@@ -41,6 +43,7 @@ namespace SteelStructureSuite.Views
 
         private TreeNodeTag _currentFilter = new TreeNodeTag { Kind = TreeFilterKind.All, Key = "ALL" };
         private bool _isSuppressingEvents;
+        private bool _isManualMetricsActive;
 
         public SectionCatalogWindow()
         {
@@ -51,6 +54,7 @@ namespace SteelStructureSuite.Views
             RefreshTableAndSummary();
             UpdateParameterFieldLayout(GetSelectedEditShapeType());
             UpdateLivePreview();
+            TxtStorageInfo.Text = $"本地数据文件 (UTF-8 CSV，支持 Excel 编辑与多表导入导出): {SectionCatalogService.CatalogFilePath}";
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
             Closed += (s, e) =>
@@ -241,10 +245,16 @@ namespace SteelStructureSuite.Views
             TxtTf2.Text = (sec.Tf2 > 0 ? sec.Tf2 : sec.Tf).ToString("0.##", CultureInfo.InvariantCulture);
             TxtLip.Text = (sec.Lip > 0 ? sec.Lip : 20.0).ToString("0.##", CultureInfo.InvariantCulture);
             TxtGap.Text = (sec.Gap > 0 ? sec.Gap : 10.0).ToString("0.##", CultureInfo.InvariantCulture);
+
+            _isManualMetricsActive = sec.HasManualProperties;
+            TxtArea.Text = sec.AreaCm2.ToString("0.00", CultureInfo.InvariantCulture);
+            TxtWeight.Text = sec.UnitWeightKgPerM.ToString("0.00", CultureInfo.InvariantCulture);
+            TxtSurface.Text = sec.PerimeterMPerM.ToString("0.000", CultureInfo.InvariantCulture);
+            TxtMetricSource.Text = sec.PropertySourceDisplayName;
             _isSuppressingEvents = false;
 
             UpdateParameterFieldLayout(sec.Shape);
-            UpdateLivePreview();
+            UpdateLivePreview(refreshAutoMetrics: false);
         }
 
         private void SelectEditComboShape(SectionShapeType shapeType)
@@ -269,9 +279,10 @@ namespace SteelStructureSuite.Views
         private void OnEditTypeChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isSuppressingEvents) return;
+            _isManualMetricsActive = false;
             SectionShapeType shape = GetSelectedEditShapeType();
             UpdateParameterFieldLayout(shape);
-            UpdateLivePreview();
+            UpdateLivePreview(refreshAutoMetrics: true);
         }
 
         /// <summary>
@@ -390,7 +401,26 @@ namespace SteelStructureSuite.Views
         private void OnParamInputChanged(object sender, TextChangedEventArgs e)
         {
             if (_isSuppressingEvents) return;
-            UpdateLivePreview();
+            UpdateLivePreview(refreshAutoMetrics: !_isManualMetricsActive);
+        }
+
+        private void OnManualMetricChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            bool allEmpty = string.IsNullOrWhiteSpace(TxtArea.Text)
+                         && string.IsNullOrWhiteSpace(TxtWeight.Text)
+                         && string.IsNullOrWhiteSpace(TxtSurface.Text);
+            _isManualMetricsActive = !allEmpty;
+            if (TxtMetricSource != null)
+            {
+                TxtMetricSource.Text = _isManualMetricsActive ? "手册/自定义" : "公式计算";
+            }
+        }
+
+        private void OnRecalcMetricsClick(object sender, RoutedEventArgs e)
+        {
+            _isManualMetricsActive = false;
+            UpdateLivePreview(refreshAutoMetrics: true);
         }
 
         private bool TryBuildProfileFromForm(out SectionProfile profile, bool requireName)
@@ -443,20 +473,39 @@ namespace SteelStructureSuite.Views
             profile = new SectionProfile(
                 string.IsNullOrEmpty(name) ? "PREVIEW" : name,
                 shape, h, b, tw, tf, b2, tf2, lip, gap);
+
+            if (_isManualMetricsActive)
+            {
+                if (TryParseVal(TxtArea.Text, out double mArea) && mArea > 0)
+                    profile.ManualAreaCm2 = mArea;
+                if (TryParseVal(TxtWeight.Text, out double mWeight) && mWeight > 0)
+                    profile.ManualUnitWeightKgPerM = mWeight;
+                if (TryParseVal(TxtSurface.Text, out double mSurface) && mSurface > 0)
+                    profile.ManualUnitSurfaceM2PerM = mSurface;
+            }
+
             return true;
         }
 
-        private void UpdateLivePreview()
+        private void UpdateLivePreview(bool refreshAutoMetrics = true)
         {
-            if (PreviewControl == null || TxtLiveMetrics == null) return;
+            if (PreviewControl == null || TxtMetricSource == null) return;
             if (TryBuildProfileFromForm(out SectionProfile sec, requireName: false))
             {
                 PreviewControl.Profile = sec;
-                TxtLiveMetrics.Text = $"理论截面积: {sec.AreaCm2:0.00} cm²    理论单重: {sec.UnitWeightKgPerM:0.00} kg/m    表面积: {sec.PerimeterMPerM:0.000} m²/m";
-            }
-            else
-            {
-                TxtLiveMetrics.Text = "请输入有效的正数尺寸参数以实时预览截面";
+                if (refreshAutoMetrics)
+                {
+                    _isSuppressingEvents = true;
+                    TxtArea.Text = sec.GetCalculatedAreaCm2().ToString("0.00", CultureInfo.InvariantCulture);
+                    TxtWeight.Text = sec.GetCalculatedUnitWeightKgPerM().ToString("0.00", CultureInfo.InvariantCulture);
+                    TxtSurface.Text = sec.GetCalculatedUnitSurfaceM2PerM().ToString("0.000", CultureInfo.InvariantCulture);
+                    TxtMetricSource.Text = "公式计算";
+                    _isSuppressingEvents = false;
+                }
+                else
+                {
+                    TxtMetricSource.Text = _isManualMetricsActive ? "手册/自定义" : "公式计算";
+                }
             }
         }
 
@@ -593,6 +642,29 @@ namespace SteelStructureSuite.Views
                 SectionCatalogService.ResetToDefaults();
                 RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
                 RefreshTableAndSummary();
+            }
+        }
+
+        private void OnOpenStorageFolderClick(object sender, RoutedEventArgs e)
+        {
+            try
+            {
+                string filePath = SectionCatalogService.CatalogFilePath;
+                string dir = Path.GetDirectoryName(filePath);
+                if (!string.IsNullOrEmpty(dir)) Directory.CreateDirectory(dir);
+
+                if (File.Exists(filePath))
+                {
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"/select,\"{filePath}\"") { UseShellExecute = true });
+                }
+                else if (!string.IsNullOrEmpty(dir))
+                {
+                    Process.Start(new ProcessStartInfo("explorer.exe", $"\"{dir}\"") { UseShellExecute = true });
+                }
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show($"无法打开目录：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
             }
         }
 

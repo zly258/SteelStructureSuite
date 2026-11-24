@@ -43,6 +43,30 @@ namespace SteelStructureSuite.Domain.Models
         /// <summary>双拼间隙 Gap（用于双角钢 2L、双槽钢 2C，mm）</summary>
         public double Gap { get; set; } = 0.0;
 
+        /// <summary>手册/自定义截面积覆盖值 (cm²)，为空或 ≤0 时按几何公式自动计算</summary>
+        public double? ManualAreaCm2 { get; set; }
+
+        /// <summary>手册/自定义理论米重覆盖值 (kg/m)，为空或 ≤0 时自动计算</summary>
+        public double? ManualUnitWeightKgPerM { get; set; }
+
+        /// <summary>手册/自定义外表面积覆盖值 (m²/m)，为空或 ≤0 时按几何公式自动计算</summary>
+        public double? ManualUnitSurfaceM2PerM { get; set; }
+
+        public bool HasManualProperties =>
+            (ManualAreaCm2.HasValue && ManualAreaCm2.Value > 0) ||
+            (ManualUnitWeightKgPerM.HasValue && ManualUnitWeightKgPerM.Value > 0) ||
+            (ManualUnitSurfaceM2PerM.HasValue && ManualUnitSurfaceM2PerM.Value > 0);
+
+        public string PropertySourceDisplayName => HasManualProperties ? "手册/自定义" : "公式计算";
+
+        public SectionProfile WithHandbookProps(double areaCm2, double weightKgPerM, double? surfaceM2PerM = null)
+        {
+            if (areaCm2 > 0) ManualAreaCm2 = areaCm2;
+            if (weightKgPerM > 0) ManualUnitWeightKgPerM = weightKgPerM;
+            if (surfaceM2PerM.HasValue && surfaceM2PerM.Value > 0) ManualUnitSurfaceM2PerM = surfaceM2PerM.Value;
+            return this;
+        }
+
         public SectionProfile()
         {
         }
@@ -105,10 +129,17 @@ namespace SteelStructureSuite.Domain.Models
             }
         }
 
-        public double AreaCm2 => Math.Round(GetAreaMm2() * 0.01, 2);
+        public double AreaCm2 => (ManualAreaCm2.HasValue && ManualAreaCm2.Value > 0)
+            ? Math.Round(ManualAreaCm2.Value, 2)
+            : GetCalculatedAreaCm2();
+
         public double UnitWeightKgPerM => GetUnitWeightKgPerM();
         public double UnitSurfaceM2PerM => GetUnitSurfaceAreaM2PerM();
         public double PerimeterMPerM => GetUnitSurfaceAreaM2PerM();
+
+        public double GetCalculatedAreaCm2() => Math.Round(GetAreaMm2() * 0.01, 2);
+
+        public double GetCalculatedUnitWeightKgPerM() => Math.Round(GetAreaMm2() * 0.00785, 2);
 
         /// <summary>
         /// 计算理论截面积 (mm²)
@@ -217,13 +248,27 @@ namespace SteelStructureSuite.Domain.Models
 
         public double GetUnitWeightKgPerM()
         {
+            if (ManualUnitWeightKgPerM.HasValue && ManualUnitWeightKgPerM.Value > 0)
+                return Math.Round(ManualUnitWeightKgPerM.Value, 2);
+            if (ManualAreaCm2.HasValue && ManualAreaCm2.Value > 0)
+                return Math.Round(ManualAreaCm2.Value * 0.785, 2);
             return Math.Round(GetAreaMm2() * 0.00785, 2);
         }
 
         /// <summary>
-        /// 计算单位长度外表面积 (m²/m)，用于防腐涂装算量
+        /// 计算单位长度外表面积 (m²/m)，用于防腐涂装算量（优先采用手册/自定义值）
         /// </summary>
         public double GetUnitSurfaceAreaM2PerM()
+        {
+            if (ManualUnitSurfaceM2PerM.HasValue && ManualUnitSurfaceM2PerM.Value > 0)
+                return Math.Round(ManualUnitSurfaceM2PerM.Value, 3);
+            return GetCalculatedUnitSurfaceM2PerM();
+        }
+
+        /// <summary>
+        /// 按几何尺寸公式估算单位长度外表面积 (m²/m)
+        /// </summary>
+        public double GetCalculatedUnitSurfaceM2PerM()
         {
             double h = Math.Max(1.0, H);
             double b = Math.Max(1.0, B);
@@ -312,7 +357,12 @@ namespace SteelStructureSuite.Domain.Models
 
         public SectionProfile Clone()
         {
-            return new SectionProfile(Name, Shape, H, B, Tw, Tf, B2, Tf2, Lip, Gap);
+            return new SectionProfile(Name, Shape, H, B, Tw, Tf, B2, Tf2, Lip, Gap)
+            {
+                ManualAreaCm2 = ManualAreaCm2,
+                ManualUnitWeightKgPerM = ManualUnitWeightKgPerM,
+                ManualUnitSurfaceM2PerM = ManualUnitSurfaceM2PerM
+            };
         }
 
         public static SectionCategory GetCategory(SectionShapeType shape)

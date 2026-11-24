@@ -1,10 +1,15 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.IO;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Interop;
+using SteelStructureSuite.Domain.Enums;
+using AcadApp = Autodesk.AutoCAD.ApplicationServices.Application;
 
 namespace SteelStructureSuite.Services.Settings
 {
@@ -268,6 +273,70 @@ namespace SteelStructureSuite.Services.Settings
         public static void SetDouble(string key, double value) =>
             SetString(key, value.ToString("R", CultureInfo.InvariantCulture));
 
+        /// <summary>获取各类型构件的默认位号前缀预设。</summary>
+        public static string GetDefaultTagPrefix(ParametricStructureType type)
+        {
+            switch (type)
+            {
+                case ParametricStructureType.PortalFrame: return "PF";
+                case ParametricStructureType.MultiSpanPortalFrame: return "MPF";
+                case ParametricStructureType.BracedFrame: return "BF";
+                case ParametricStructureType.DoubleTierFrame: return "PR";
+                case ParametricStructureType.MultiBaySpaceFrame: return "SF";
+                case ParametricStructureType.RoofTruss: return "RT";
+                case ParametricStructureType.PipeBridgeTruss: return "PB";
+
+                case ParametricStructureType.CantileverBracket: return "BK";
+                case ParametricStructureType.SpacePlatform: return "PL";
+                case ParametricStructureType.CantileverWalkway: return "WK";
+                case ParametricStructureType.SpiralStair: return "SP";
+                case ParametricStructureType.StraightStair: return "ST";
+                case ParametricStructureType.SafetyCagedLadder: return "LD";
+                case ParametricStructureType.HandrailGuardrail: return "HR";
+
+                case ParametricStructureType.LinearSteelMember: return "MB";
+                case ParametricStructureType.ArcSteelMember: return "AM";
+                case ParametricStructureType.SpiralSteelMember: return "SM";
+
+                case ParametricStructureType.VesselSupport: return "SD";
+                case ParametricStructureType.TowerCircularPlatform: return "TP";
+                case ParametricStructureType.VerticalVesselSkirt: return "SK";
+                case ParametricStructureType.PipeShoeSupport: return "PS";
+                case ParametricStructureType.TankRoofHandrail: return "TR";
+
+                case ParametricStructureType.SubstationGantryFrame: return "GT";
+                case ParametricStructureType.CableTrenchSupport: return "CT";
+                case ParametricStructureType.CraneRunwayGirder: return "CR";
+                case ParametricStructureType.CrossBracingFrame: return "XB";
+
+                default: return "SS";
+            }
+        }
+
+        /// <summary>获取指定构件类型当前生效的位号前缀（优先返回用户修改后的自定义前缀）。</summary>
+        public static string GetTagPrefix(ParametricStructureType type)
+        {
+            string key = "Renumber.Prefix." + type;
+            string saved = GetString(key, null);
+            return saved == null ? GetDefaultTagPrefix(type) : saved.Trim();
+        }
+
+        /// <summary>保存指定构件类型的自定义位号前缀。</summary>
+        public static void SetTagPrefix(ParametricStructureType type, string prefix)
+        {
+            SetString("Renumber.Prefix." + type, (prefix ?? string.Empty).Trim());
+        }
+
+        /// <summary>按当前前缀预设、连接符与编号位数（默认 3 位，如 PF-001）格式化位号。</summary>
+        public static string FormatTag(ParametricStructureType type, int sequenceNumber)
+        {
+            string prefix = GetTagPrefix(type);
+            int digits = Math.Max(1, Math.Min(6, GetInt("Renumber.Digits", 3)));
+            string sep = GetString("Renumber.Separator", "-");
+            string numStr = Math.Max(0, sequenceNumber).ToString(new string('0', digits), CultureInfo.InvariantCulture);
+            return string.IsNullOrEmpty(prefix) ? numStr : prefix + sep + numStr;
+        }
+
         // ---------- 窗口几何（大小 / 位置）记忆 ----------
 
         /// <summary>清除全部界面记忆。截面库不受影响。</summary>
@@ -290,46 +359,219 @@ namespace SteelStructureSuite.Services.Settings
             }
         }
 
-        /// <summary>恢复窗口上次的尺寸与位置；无记录时保持调用方给定的初始值。</summary>
+        [StructLayout(LayoutKind.Sequential)]
+        private struct NativeRect
+        {
+            public int Left;
+            public int Top;
+            public int Right;
+            public int Bottom;
+        }
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool GetWindowRect(IntPtr hWnd, out NativeRect lpRect);
+
+        [DllImport("user32.dll", SetLastError = true)]
+        [return: MarshalAs(UnmanagedType.Bool)]
+        private static extern bool SetWindowPos(
+            IntPtr hWnd, IntPtr hWndInsertAfter,
+            int X, int Y, int cx, int cy, uint uFlags);
+
+        private const uint SwpNoSize = 0x0001;
+        private const uint SwpNoZOrder = 0x0004;
+        private const uint SwpNoActivate = 0x0010;
+
+        /// <summary>获取 AutoCAD 主窗口句柄，供双屏定位使用。</summary>
+        private static IntPtr GetAutoCadMainWindowHandle()
+        {
+            try
+            {
+                if (AcadApp.MainWindow != null && AcadApp.MainWindow.Handle != IntPtr.Zero)
+                    return AcadApp.MainWindow.Handle;
+            }
+            catch { }
+
+            try
+            {
+                return Process.GetCurrentProcess().MainWindowHandle;
+            }
+            catch
+            {
+                return IntPtr.Zero;
+            }
+        }
+
+        /// <summary>
+        /// 在 AutoCAD 主窗口所在屏幕上以模态方式打开 WPF 窗口（显式禁用 AutoCAD 自身的注册表位置覆写）。
+        /// </summary>
+        public static bool? ShowModalWindowOnAutoCad(Window window)
+        {
+            if (window == null) return false;
+            return AcadApp.ShowModalWindow(GetAutoCadMainWindowHandle(), window, false);
+        }
+
+        /// <summary>
+        /// 在 AutoCAD 主窗口所在屏幕上以非模态方式打开 WPF 窗口（显式禁用 AutoCAD 自身的注册表位置覆写）。
+        /// </summary>
+        public static void ShowModelessWindowOnAutoCad(Window window)
+        {
+            if (window == null) return;
+            AcadApp.ShowModelessWindow(GetAutoCadMainWindowHandle(), window, false);
+        }
+
+        /// <summary>
+        /// 确保窗口始终弹出在 AutoCAD 主窗口当前所在的显示器上（支持双屏/多屏与异 DPI 缩放）。
+        /// 若提供 key 且上次保存的位置仍在当前 AutoCAD 同一块屏幕内，则恢复上次位置；
+        /// 若 AutoCAD 已切换至另一块屏幕或首次打开，则自动居中于 AutoCAD 主窗口。
+        /// </summary>
+        public static void AlignWindowToAutoCadScreen(Window window, string key = null)
+        {
+            if (window == null) return;
+
+            // 先设为 Manual，避免 WPF 的 CenterScreen 强制把窗口拉回 Windows 主屏
+            window.WindowStartupLocation = WindowStartupLocation.Manual;
+
+            void ApplyPosition()
+            {
+                try
+                {
+                    IntPtr winHwnd = new WindowInteropHelper(window).Handle;
+                    if (winHwnd == IntPtr.Zero) return;
+
+                    IntPtr acadHwnd = GetAutoCadMainWindowHandle();
+                    Screen cadScreen = acadHwnd != IntPtr.Zero
+                        ? Screen.FromHandle(acadHwnd)
+                        : Screen.PrimaryScreen;
+                    System.Drawing.Rectangle work = cadScreen.WorkingArea;
+
+                    if (!GetWindowRect(winHwnd, out NativeRect winRect)) return;
+                    int winW = Math.Max(100, winRect.Right - winRect.Left);
+                    int winH = Math.Max(100, winRect.Bottom - winRect.Top);
+
+                    // 若窗口比当前屏工作区还大，先限制尺寸防止溢出
+                    bool resizeNeeded = false;
+                    if (winW > work.Width) { winW = work.Width; resizeNeeded = true; }
+                    if (winH > work.Height) { winH = work.Height; resizeNeeded = true; }
+
+                    int targetX;
+                    int targetY;
+
+                    if (!string.IsNullOrEmpty(key))
+                    {
+                        double savedPx = GetDouble(key + ".PX", double.NaN);
+                        double savedPy = GetDouble(key + ".PY", double.NaN);
+                        if (!double.IsNaN(savedPx) && !double.IsNaN(savedPy))
+                        {
+                            int sx = (int)Math.Round(savedPx);
+                            int sy = (int)Math.Round(savedPy);
+                            // 判断上次窗口中心是否仍在 AutoCAD 当前所在的同一块显示器内
+                            System.Drawing.Point savedCenter = new System.Drawing.Point(sx + winW / 2, sy + winH / 2);
+                            Screen savedScreen = Screen.FromPoint(savedCenter);
+                            if (string.Equals(savedScreen.DeviceName, cadScreen.DeviceName, StringComparison.OrdinalIgnoreCase))
+                            {
+                                targetX = Clamp(sx, work.Left, Math.Max(work.Left, work.Right - winW));
+                                targetY = Clamp(sy, work.Top, Math.Max(work.Top, work.Bottom - winH));
+                                SetWindowPos(
+                                    winHwnd, IntPtr.Zero, targetX, targetY,
+                                    resizeNeeded ? winW : 0,
+                                    resizeNeeded ? winH : 0,
+                                    (resizeNeeded ? 0u : SwpNoSize) | SwpNoZOrder | SwpNoActivate);
+                                return;
+                            }
+                        }
+                    }
+
+                    // 优先居中于 AutoCAD 主窗口，若主窗口不可用则居中于 AutoCAD 所在屏工作区
+                    if (acadHwnd != IntPtr.Zero && GetWindowRect(acadHwnd, out NativeRect acadRect) &&
+                        (acadRect.Right - acadRect.Left) > 200 && (acadRect.Bottom - acadRect.Top) > 200)
+                    {
+                        int acadCenterX = (acadRect.Left + acadRect.Right) / 2;
+                        int acadCenterY = (acadRect.Top + acadRect.Bottom) / 2;
+                        targetX = acadCenterX - winW / 2;
+                        targetY = acadCenterY - winH / 2;
+                    }
+                    else
+                    {
+                        targetX = work.Left + (work.Width - winW) / 2;
+                        targetY = work.Top + (work.Height - winH) / 2;
+                    }
+
+                    targetX = Clamp(targetX, work.Left, Math.Max(work.Left, work.Right - winW));
+                    targetY = Clamp(targetY, work.Top, Math.Max(work.Top, work.Bottom - winH));
+
+                    SetWindowPos(
+                        winHwnd, IntPtr.Zero, targetX, targetY,
+                        resizeNeeded ? winW : 0,
+                        resizeNeeded ? winH : 0,
+                        (resizeNeeded ? 0u : SwpNoSize) | SwpNoZOrder | SwpNoActivate);
+                }
+                catch
+                {
+                    // 定位异常时保持默认行为，不影响弹窗打开
+                }
+            }
+
+            if (new WindowInteropHelper(window).Handle != IntPtr.Zero)
+            {
+                ApplyPosition();
+            }
+            else
+            {
+                EventHandler sourceHandler = null;
+                sourceHandler = (s, e) =>
+                {
+                    window.SourceInitialized -= sourceHandler;
+                    ApplyPosition();
+                };
+                window.SourceInitialized += sourceHandler;
+            }
+
+            // Loaded 时窗口已完成最终布局尺寸测量，再次对齐可消除 SizeToContent/异 DPI 导致的居中偏差
+            RoutedEventHandler loadedHandler = null;
+            loadedHandler = (s, e) =>
+            {
+                window.Loaded -= loadedHandler;
+                ApplyPosition();
+            };
+            window.Loaded += loadedHandler;
+        }
+
+        private static int Clamp(int value, int min, int max)
+        {
+            if (value < min) return min;
+            if (value > max) return max;
+            return value;
+        }
+
+        /// <summary>恢复窗口上次的尺寸与位置，并确保始终与 AutoCAD 位于同一显示器。</summary>
         public static void RestoreWindowState(Window window, string key)
         {
             if (window == null || string.IsNullOrEmpty(key)) return;
             double width = GetDouble(key + ".W", 0);
             double height = GetDouble(key + ".H", 0);
-            double left = GetDouble(key + ".X", double.NaN);
-            double top = GetDouble(key + ".Y", double.NaN);
 
             if (width > 200) window.Width = width;
             if (height > 200) window.Height = height;
 
-            if (!double.IsNaN(left) && !double.IsNaN(top))
-            {
-                // 只有在当前显示器范围内才恢复位置，避免窗口跑到不可见的副屏上。
-                System.Windows.Rect bounds = new System.Windows.Rect(left, top, window.Width, window.Height);
-                bool visible = false;
-                foreach (System.Windows.Forms.Screen screen in System.Windows.Forms.Screen.AllScreens)
-                {
-                    System.Windows.Rect work = new System.Windows.Rect(
-                        screen.WorkingArea.Left, screen.WorkingArea.Top,
-                        screen.WorkingArea.Width, screen.WorkingArea.Height);
-                    if (work.IntersectsWith(bounds)) { visible = true; break; }
-                }
-                if (visible)
-                {
-                    window.WindowStartupLocation = WindowStartupLocation.Manual;
-                    window.Left = left;
-                    window.Top = top;
-                }
-            }
+            AlignWindowToAutoCadScreen(window, key);
         }
 
-        /// <summary>记录窗口当前的尺寸与位置。</summary>
+        /// <summary>记录窗口当前的尺寸与物理屏幕位置（兼容多屏异 DPI）。</summary>
         public static void SaveWindowState(Window window, string key)
         {
             if (window == null || string.IsNullOrEmpty(key)) return;
             if (window.WindowState != WindowState.Normal) return;
             SetDouble(key + ".W", window.Width);
             SetDouble(key + ".H", window.Height);
+
+            IntPtr hwnd = new WindowInteropHelper(window).Handle;
+            if (hwnd != IntPtr.Zero && GetWindowRect(hwnd, out NativeRect rect))
+            {
+                SetDouble(key + ".PX", rect.Left);
+                SetDouble(key + ".PY", rect.Top);
+            }
+
             if (!double.IsInfinity(window.Left) && !double.IsNaN(window.Left))
             {
                 SetDouble(key + ".X", window.Left);

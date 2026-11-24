@@ -77,13 +77,25 @@ namespace SteelStructureSuite.Services.Catalog
                 {
                     ImportFromCsvInto(tables, savedPath);
                 }
+                else
+                {
+                    // 首次初始化时自动在本地落盘生成 CSV 文件，方便用户查看、备份与编辑
+                    Directory.CreateDirectory(Path.GetDirectoryName(savedPath));
+                    ExportTablesToCsv(tables, savedPath);
+                }
             }
             catch
             {
-                // 读取本地缓存失败时安全回退默认国标库
+                // 读取/写入本地缓存失败时安全回退默认国标库
             }
             return tables;
         }
+
+        /// <summary>截面库本地持久化文件完整路径（UTF-8 with BOM CSV 格式）</summary>
+        public static string CatalogFilePath => GetLocalCatalogCsvPath();
+
+        /// <summary>随插件 DLL 分发的默认截面库 CSV 路径（用于首次初始化与恢复默认库）</summary>
+        public static string DefaultCatalogCsvPath => FindDefaultCatalogCsvPath();
 
         private static string GetLocalCatalogCsvPath()
         {
@@ -93,268 +105,57 @@ namespace SteelStructureSuite.Services.Catalog
             return Path.Combine(dir, "SectionCatalog_MultiTable.csv");
         }
 
+        private static string FindDefaultCatalogCsvPath()
+        {
+            string asmDir = Path.GetDirectoryName(typeof(SectionCatalogService).Assembly.Location)
+                            ?? AppDomain.CurrentDomain.BaseDirectory;
+            string[] candidates =
+            {
+                Path.Combine(asmDir, "Data", "DefaultSectionCatalog.csv"),
+                Path.GetFullPath(Path.Combine(asmDir, "..", "Data", "DefaultSectionCatalog.csv")),
+                Path.Combine(asmDir, "DefaultSectionCatalog.csv")
+            };
+            foreach (string path in candidates)
+            {
+                if (File.Exists(path)) return path;
+            }
+            return candidates[0];
+        }
+
         private static Dictionary<SectionShapeType, List<SectionProfile>> CreateDefaultTables()
         {
-            return new Dictionary<SectionShapeType, List<SectionProfile>>
+            var tables = new Dictionary<SectionShapeType, List<SectionProfile>>();
+            foreach (SectionShapeType st in OrderedShapeTypes)
             {
-                // ================= 1. 热轧标准型钢 =================
-                [SectionShapeType.HBeam] = new List<SectionProfile>
-                {
-                    new SectionProfile("HW100x100x6x8", SectionShapeType.HBeam, 100, 100, 6, 8),
-                    new SectionProfile("HW125x125x6.5x9", SectionShapeType.HBeam, 125, 125, 6.5, 9),
-                    new SectionProfile("HW150x150x7x10", SectionShapeType.HBeam, 150, 150, 7, 10),
-                    new SectionProfile("HW175x175x7.5x11", SectionShapeType.HBeam, 175, 175, 7.5, 11),
-                    new SectionProfile("HW200x200x8x12", SectionShapeType.HBeam, 200, 200, 8, 12),
-                    new SectionProfile("HW250x250x9x14", SectionShapeType.HBeam, 250, 250, 9, 14),
-                    new SectionProfile("HW300x300x10x15", SectionShapeType.HBeam, 300, 300, 10, 15),
-                    new SectionProfile("HW350x350x12x19", SectionShapeType.HBeam, 350, 350, 12, 19),
-                    new SectionProfile("HW400x400x13x21", SectionShapeType.HBeam, 400, 400, 13, 21),
-                    new SectionProfile("HM194x150x6x9", SectionShapeType.HBeam, 194, 150, 6, 9),
-                    new SectionProfile("HM244x175x7x11", SectionShapeType.HBeam, 244, 175, 7, 11),
-                    new SectionProfile("HM294x200x8x12", SectionShapeType.HBeam, 294, 200, 8, 12),
-                    new SectionProfile("HM340x250x9x14", SectionShapeType.HBeam, 340, 250, 9, 14),
-                    new SectionProfile("HM390x300x10x16", SectionShapeType.HBeam, 390, 300, 10, 16),
-                    new SectionProfile("HN200x100x5.5x8", SectionShapeType.HBeam, 200, 100, 5.5, 8),
-                    new SectionProfile("HN250x125x6x9", SectionShapeType.HBeam, 250, 125, 6, 9),
-                    new SectionProfile("HN300x150x6.5x9", SectionShapeType.HBeam, 300, 150, 6.5, 9),
-                    new SectionProfile("HN350x175x7x11", SectionShapeType.HBeam, 350, 175, 7, 11),
-                    new SectionProfile("HN400x200x8x13", SectionShapeType.HBeam, 400, 200, 8, 13),
-                    new SectionProfile("HN450x200x9x14", SectionShapeType.HBeam, 450, 200, 9, 14),
-                    new SectionProfile("HN500x200x10x16", SectionShapeType.HBeam, 500, 200, 10, 16)
-                },
-                [SectionShapeType.IBeam] = new List<SectionProfile>
-                {
-                    new SectionProfile("I10", SectionShapeType.IBeam, 100, 68, 4.5, 7.6),
-                    new SectionProfile("I12.6", SectionShapeType.IBeam, 126, 74, 5.0, 8.4),
-                    new SectionProfile("I14", SectionShapeType.IBeam, 140, 80, 5.5, 9.1),
-                    new SectionProfile("I16", SectionShapeType.IBeam, 160, 88, 6.0, 9.9),
-                    new SectionProfile("I18", SectionShapeType.IBeam, 180, 94, 6.5, 10.7),
-                    new SectionProfile("I20a", SectionShapeType.IBeam, 200, 100, 7.0, 11.4),
-                    new SectionProfile("I22a", SectionShapeType.IBeam, 220, 110, 7.5, 12.3),
-                    new SectionProfile("I25a", SectionShapeType.IBeam, 250, 116, 8.0, 13.0),
-                    new SectionProfile("I28a", SectionShapeType.IBeam, 280, 122, 8.5, 13.7),
-                    new SectionProfile("I32a", SectionShapeType.IBeam, 320, 130, 9.5, 15.0),
-                    new SectionProfile("I36a", SectionShapeType.IBeam, 360, 136, 10.0, 15.8),
-                    new SectionProfile("I40a", SectionShapeType.IBeam, 400, 142, 10.5, 16.5)
-                },
-                [SectionShapeType.Channel] = new List<SectionProfile>
-                {
-                    new SectionProfile("C8", SectionShapeType.Channel, 80, 43, 5.0, 8.0),
-                    new SectionProfile("C10", SectionShapeType.Channel, 100, 48, 5.3, 8.5),
-                    new SectionProfile("C12.6", SectionShapeType.Channel, 126, 53, 5.5, 9.0),
-                    new SectionProfile("C14a", SectionShapeType.Channel, 140, 58, 6.0, 9.5),
-                    new SectionProfile("C16a", SectionShapeType.Channel, 160, 63, 6.5, 10.0),
-                    new SectionProfile("C18a", SectionShapeType.Channel, 180, 68, 7.0, 10.5),
-                    new SectionProfile("C20a", SectionShapeType.Channel, 200, 73, 7.0, 11.0),
-                    new SectionProfile("C22a", SectionShapeType.Channel, 220, 77, 7.0, 11.5),
-                    new SectionProfile("C25a", SectionShapeType.Channel, 250, 78, 8.0, 12.0),
-                    new SectionProfile("C28a", SectionShapeType.Channel, 280, 82, 7.5, 12.5),
-                    new SectionProfile("C32a", SectionShapeType.Channel, 320, 88, 8.0, 14.0)
-                },
-                [SectionShapeType.Angle] = new List<SectionProfile>
-                {
-                    new SectionProfile("L40x40x4", SectionShapeType.Angle, 40, 40, 4, 4),
-                    new SectionProfile("L50x50x5", SectionShapeType.Angle, 50, 50, 5, 5),
-                    new SectionProfile("L63x63x6", SectionShapeType.Angle, 63, 63, 6, 6),
-                    new SectionProfile("L75x75x6", SectionShapeType.Angle, 75, 75, 6, 6),
-                    new SectionProfile("L80x80x8", SectionShapeType.Angle, 80, 80, 8, 8),
-                    new SectionProfile("L90x90x8", SectionShapeType.Angle, 90, 90, 8, 8),
-                    new SectionProfile("L100x100x8", SectionShapeType.Angle, 100, 100, 8, 8),
-                    new SectionProfile("L110x110x10", SectionShapeType.Angle, 110, 110, 10, 10),
-                    new SectionProfile("L125x125x10", SectionShapeType.Angle, 125, 125, 10, 10),
-                    new SectionProfile("L140x140x12", SectionShapeType.Angle, 140, 140, 12, 12),
-                    new SectionProfile("L160x160x12", SectionShapeType.Angle, 160, 160, 12, 12)
-                },
-                [SectionShapeType.UnequalAngle] = new List<SectionProfile>
-                {
-                    new SectionProfile("L63x40x5", SectionShapeType.UnequalAngle, 63, 40, 5, 5),
-                    new SectionProfile("L75x50x6", SectionShapeType.UnequalAngle, 75, 50, 6, 6),
-                    new SectionProfile("L90x56x6", SectionShapeType.UnequalAngle, 90, 56, 6, 6),
-                    new SectionProfile("L100x63x8", SectionShapeType.UnequalAngle, 100, 63, 8, 8),
-                    new SectionProfile("L125x80x10", SectionShapeType.UnequalAngle, 125, 80, 10, 10),
-                    new SectionProfile("L140x90x10", SectionShapeType.UnequalAngle, 140, 90, 10, 10),
-                    new SectionProfile("L160x100x12", SectionShapeType.UnequalAngle, 160, 100, 12, 12)
-                },
-                [SectionShapeType.TBeam] = new List<SectionProfile>
-                {
-                    new SectionProfile("TW100x200x8x12", SectionShapeType.TBeam, 100, 200, 8, 12),
-                    new SectionProfile("TW125x250x9x14", SectionShapeType.TBeam, 125, 250, 9, 14),
-                    new SectionProfile("TW150x300x10x15", SectionShapeType.TBeam, 150, 300, 10, 15),
-                    new SectionProfile("TM122x175x7x11", SectionShapeType.TBeam, 122, 175, 7, 11),
-                    new SectionProfile("TM147x200x8x12", SectionShapeType.TBeam, 147, 200, 8, 12),
-                    new SectionProfile("TN100x100x5.5x8", SectionShapeType.TBeam, 100, 100, 5.5, 8),
-                    new SectionProfile("TN150x150x6.5x9", SectionShapeType.TBeam, 150, 150, 6.5, 9)
-                },
+                tables[st] = new List<SectionProfile>();
+            }
 
-                // ================= 2. 焊接与组合型钢 =================
-                [SectionShapeType.WeldedHBeam] = new List<SectionProfile>
+            try
+            {
+                string defaultCsv = FindDefaultCatalogCsvPath();
+                if (File.Exists(defaultCsv))
                 {
-                    new SectionProfile("BH300x200x8x12", SectionShapeType.WeldedHBeam, 300, 200, 8, 12),
-                    new SectionProfile("BH400x200x8x12", SectionShapeType.WeldedHBeam, 400, 200, 8, 12),
-                    new SectionProfile("BH450x220x8x14", SectionShapeType.WeldedHBeam, 450, 220, 8, 14),
-                    new SectionProfile("BH500x250x10x16", SectionShapeType.WeldedHBeam, 500, 250, 10, 16),
-                    new SectionProfile("BH600x250x10x16", SectionShapeType.WeldedHBeam, 600, 250, 10, 16),
-                    new SectionProfile("BH700x300x12x20", SectionShapeType.WeldedHBeam, 700, 300, 12, 20),
-                    new SectionProfile("BH800x350x14x22", SectionShapeType.WeldedHBeam, 800, 350, 14, 22)
-                },
-                [SectionShapeType.WeldedHBeamUnequal] = new List<SectionProfile>
-                {
-                    new SectionProfile("BHU400x180x240x8x12x16", SectionShapeType.WeldedHBeamUnequal, 400, 180, 8, 12, 240, 16),
-                    new SectionProfile("BHU500x200x280x10x14x18", SectionShapeType.WeldedHBeamUnequal, 500, 200, 10, 14, 280, 18),
-                    new SectionProfile("BHU600x220x320x12x16x22", SectionShapeType.WeldedHBeamUnequal, 600, 220, 12, 16, 320, 22),
-                    new SectionProfile("BHU750x250x350x12x18x25", SectionShapeType.WeldedHBeamUnequal, 750, 250, 12, 18, 350, 25)
-                },
-                [SectionShapeType.WeldedBox] = new List<SectionProfile>
-                {
-                    new SectionProfile("BOX250x250x12x12", SectionShapeType.WeldedBox, 250, 250, 12, 12),
-                    new SectionProfile("BOX300x300x14x14", SectionShapeType.WeldedBox, 300, 300, 14, 14),
-                    new SectionProfile("BOX350x350x16x16", SectionShapeType.WeldedBox, 350, 350, 16, 16),
-                    new SectionProfile("BOX400x400x16x20", SectionShapeType.WeldedBox, 400, 400, 16, 20),
-                    new SectionProfile("BOX500x300x14x20", SectionShapeType.WeldedBox, 500, 300, 14, 20),
-                    new SectionProfile("BOX600x400x18x24", SectionShapeType.WeldedBox, 600, 400, 18, 24)
-                },
-                [SectionShapeType.WeldedTBeam] = new List<SectionProfile>
-                {
-                    new SectionProfile("WT150x150x8x12", SectionShapeType.WeldedTBeam, 150, 150, 8, 12),
-                    new SectionProfile("WT200x200x10x14", SectionShapeType.WeldedTBeam, 200, 200, 10, 14),
-                    new SectionProfile("WT250x220x10x16", SectionShapeType.WeldedTBeam, 250, 220, 10, 16),
-                    new SectionProfile("WT300x250x12x18", SectionShapeType.WeldedTBeam, 300, 250, 12, 18)
-                },
-                [SectionShapeType.WeldedCross] = new List<SectionProfile>
-                {
-                    new SectionProfile("CROSS300x180x10x16", SectionShapeType.WeldedCross, 300, 180, 10, 16),
-                    new SectionProfile("CROSS400x200x12x18", SectionShapeType.WeldedCross, 400, 200, 12, 18),
-                    new SectionProfile("CROSS500x250x14x22", SectionShapeType.WeldedCross, 500, 250, 14, 22),
-                    new SectionProfile("CROSS600x300x16x25", SectionShapeType.WeldedCross, 600, 300, 16, 25)
-                },
-                [SectionShapeType.DoubleAngle] = new List<SectionProfile>
-                {
-                    new SectionProfile("2L63x63x6", SectionShapeType.DoubleAngle, 63, 63, 6, 6, 0, 0, 0, 8),
-                    new SectionProfile("2L75x75x6", SectionShapeType.DoubleAngle, 75, 75, 6, 6, 0, 0, 0, 10),
-                    new SectionProfile("2L90x90x8", SectionShapeType.DoubleAngle, 90, 90, 8, 8, 0, 0, 0, 10),
-                    new SectionProfile("2L100x100x8", SectionShapeType.DoubleAngle, 100, 100, 8, 8, 0, 0, 0, 12),
-                    new SectionProfile("2L125x125x10", SectionShapeType.DoubleAngle, 125, 125, 10, 10, 0, 0, 0, 12)
-                },
-                [SectionShapeType.DoubleChannel] = new List<SectionProfile>
-                {
-                    new SectionProfile("2C14a", SectionShapeType.DoubleChannel, 140, 58, 6.0, 9.5, 0, 0, 0, 10),
-                    new SectionProfile("2C16a", SectionShapeType.DoubleChannel, 160, 63, 6.5, 10.0, 0, 0, 0, 10),
-                    new SectionProfile("2C20a", SectionShapeType.DoubleChannel, 200, 73, 7.0, 11.0, 0, 0, 0, 12),
-                    new SectionProfile("2C25a", SectionShapeType.DoubleChannel, 250, 78, 8.0, 12.0, 0, 0, 0, 12)
-                },
-
-                // ================= 3. 冷弯薄壁型钢 =================
-                [SectionShapeType.ColdFormedC] = new List<SectionProfile>
-                {
-                    new SectionProfile("C120x50x20x2.0", SectionShapeType.ColdFormedC, 120, 50, 2.0, 2.0, 0, 0, 20),
-                    new SectionProfile("C140x50x20x2.0", SectionShapeType.ColdFormedC, 140, 50, 2.0, 2.0, 0, 0, 20),
-                    new SectionProfile("C160x60x20x2.5", SectionShapeType.ColdFormedC, 160, 60, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("C180x70x20x2.5", SectionShapeType.ColdFormedC, 180, 70, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("C200x70x20x2.5", SectionShapeType.ColdFormedC, 200, 70, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("C220x75x20x3.0", SectionShapeType.ColdFormedC, 220, 75, 3.0, 3.0, 0, 0, 20),
-                    new SectionProfile("C250x75x20x3.0", SectionShapeType.ColdFormedC, 250, 75, 3.0, 3.0, 0, 0, 20)
-                },
-                [SectionShapeType.ColdFormedZ] = new List<SectionProfile>
-                {
-                    new SectionProfile("Z140x50x20x2.0", SectionShapeType.ColdFormedZ, 140, 50, 2.0, 2.0, 0, 0, 20),
-                    new SectionProfile("Z160x60x20x2.5", SectionShapeType.ColdFormedZ, 160, 60, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("Z180x70x20x2.5", SectionShapeType.ColdFormedZ, 180, 70, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("Z200x70x20x2.5", SectionShapeType.ColdFormedZ, 200, 70, 2.5, 2.5, 0, 0, 20),
-                    new SectionProfile("Z220x75x20x3.0", SectionShapeType.ColdFormedZ, 220, 75, 3.0, 3.0, 0, 0, 20),
-                    new SectionProfile("Z250x75x20x3.0", SectionShapeType.ColdFormedZ, 250, 75, 3.0, 3.0, 0, 0, 20)
-                },
-                [SectionShapeType.ZBeam] = new List<SectionProfile>
-                {
-                    new SectionProfile("Z100x50x3.0", SectionShapeType.ZBeam, 100, 50, 3.0, 3.0),
-                    new SectionProfile("Z120x60x4.0", SectionShapeType.ZBeam, 120, 60, 4.0, 4.0),
-                    new SectionProfile("Z160x65x4.0", SectionShapeType.ZBeam, 160, 65, 4.0, 4.0),
-                    new SectionProfile("Z200x75x5.0", SectionShapeType.ZBeam, 200, 75, 5.0, 5.0)
-                },
-                [SectionShapeType.ColdFormedU] = new List<SectionProfile>
-                {
-                    new SectionProfile("U80x40x3.0", SectionShapeType.ColdFormedU, 80, 40, 3.0, 3.0),
-                    new SectionProfile("U100x50x3.0", SectionShapeType.ColdFormedU, 100, 50, 3.0, 3.0),
-                    new SectionProfile("U120x50x4.0", SectionShapeType.ColdFormedU, 120, 50, 4.0, 4.0),
-                    new SectionProfile("U160x60x4.0", SectionShapeType.ColdFormedU, 160, 60, 4.0, 4.0),
-                    new SectionProfile("U200x70x5.0", SectionShapeType.ColdFormedU, 200, 70, 5.0, 5.0)
-                },
-                [SectionShapeType.HatSection] = new List<SectionProfile>
-                {
-                    new SectionProfile("HAT40x60x20x2.0", SectionShapeType.HatSection, 40, 60, 2.0, 2.0, 0, 0, 20),
-                    new SectionProfile("HAT60x80x25x2.5", SectionShapeType.HatSection, 60, 80, 2.5, 2.5, 0, 0, 25),
-                    new SectionProfile("HAT80x100x25x3.0", SectionShapeType.HatSection, 80, 100, 3.0, 3.0, 0, 0, 25),
-                    new SectionProfile("HAT100x120x30x3.0", SectionShapeType.HatSection, 100, 120, 3.0, 3.0, 0, 0, 30)
-                },
-
-                // ================= 4. 空心钢管 =================
-                [SectionShapeType.SquareTube] = new List<SectionProfile>
-                {
-                    new SectionProfile("SHS60x60x4", SectionShapeType.SquareTube, 60, 60, 4, 4),
-                    new SectionProfile("SHS80x80x5", SectionShapeType.SquareTube, 80, 80, 5, 5),
-                    new SectionProfile("F100x100x6", SectionShapeType.SquareTube, 100, 100, 6, 6),
-                    new SectionProfile("F120x120x6", SectionShapeType.SquareTube, 120, 120, 6, 6),
-                    new SectionProfile("F150x150x8", SectionShapeType.SquareTube, 150, 150, 8, 8),
-                    new SectionProfile("F200x200x10", SectionShapeType.SquareTube, 200, 200, 10, 10),
-                    new SectionProfile("SHS250x250x10", SectionShapeType.SquareTube, 250, 250, 10, 10),
-                    new SectionProfile("SHS300x300x12", SectionShapeType.SquareTube, 300, 300, 12, 12)
-                },
-                [SectionShapeType.RectTube] = new List<SectionProfile>
-                {
-                    new SectionProfile("RHS100x50x4", SectionShapeType.RectTube, 100, 50, 4, 4),
-                    new SectionProfile("RHS120x60x5", SectionShapeType.RectTube, 120, 60, 5, 5),
-                    new SectionProfile("RHS150x100x6", SectionShapeType.RectTube, 150, 100, 6, 6),
-                    new SectionProfile("F200x100x8", SectionShapeType.RectTube, 200, 100, 8, 8),
-                    new SectionProfile("RHS250x150x8", SectionShapeType.RectTube, 250, 150, 8, 8),
-                    new SectionProfile("RHS300x150x10", SectionShapeType.RectTube, 300, 150, 10, 10),
-                    new SectionProfile("RHS300x200x10", SectionShapeType.RectTube, 300, 200, 10, 10)
-                },
-                [SectionShapeType.PipeTube] = new List<SectionProfile>
-                {
-                    new SectionProfile("P32x3.2", SectionShapeType.PipeTube, 32, 32, 3.2, 3.2),
-                    new SectionProfile("P42x3.5", SectionShapeType.PipeTube, 42, 42, 3.5, 3.5),
-                    new SectionProfile("P48x3.5", SectionShapeType.PipeTube, 48, 48, 3.5, 3.5),
-                    new SectionProfile("P60x4", SectionShapeType.PipeTube, 60, 60, 4, 4),
-                    new SectionProfile("P76x4", SectionShapeType.PipeTube, 76, 76, 4, 4),
-                    new SectionProfile("P89x5", SectionShapeType.PipeTube, 89, 89, 5, 5),
-                    new SectionProfile("P114x6", SectionShapeType.PipeTube, 114, 114, 6, 6),
-                    new SectionProfile("P140x6", SectionShapeType.PipeTube, 140, 140, 6, 6),
-                    new SectionProfile("P159x6", SectionShapeType.PipeTube, 159, 159, 6, 6),
-                    new SectionProfile("P219x8", SectionShapeType.PipeTube, 219, 219, 8, 8),
-                    new SectionProfile("P273x8", SectionShapeType.PipeTube, 273, 273, 8, 8),
-                    new SectionProfile("P325x10", SectionShapeType.PipeTube, 325, 325, 10, 10),
-                    new SectionProfile("P426x12", SectionShapeType.PipeTube, 426, 426, 12, 12)
-                },
-
-                // ================= 5. 实心型材与板材 =================
-                [SectionShapeType.FlatBar] = new List<SectionProfile>
-                {
-                    new SectionProfile("-50x6", SectionShapeType.FlatBar, 50, 6, 6, 6),
-                    new SectionProfile("-80x8", SectionShapeType.FlatBar, 80, 8, 8, 8),
-                    new SectionProfile("-100x8", SectionShapeType.FlatBar, 100, 8, 8, 8),
-                    new SectionProfile("-100x10", SectionShapeType.FlatBar, 100, 10, 10, 10),
-                    new SectionProfile("-120x10", SectionShapeType.FlatBar, 120, 10, 10, 10),
-                    new SectionProfile("-150x12", SectionShapeType.FlatBar, 150, 12, 12, 12),
-                    new SectionProfile("-200x14", SectionShapeType.FlatBar, 200, 14, 14, 14)
-                },
-                [SectionShapeType.RoundBar] = new List<SectionProfile>
-                {
-                    new SectionProfile("D12", SectionShapeType.RoundBar, 12, 12, 12, 12),
-                    new SectionProfile("D16", SectionShapeType.RoundBar, 16, 16, 16, 16),
-                    new SectionProfile("D20", SectionShapeType.RoundBar, 20, 20, 20, 20),
-                    new SectionProfile("D22", SectionShapeType.RoundBar, 22, 22, 22, 22),
-                    new SectionProfile("D25", SectionShapeType.RoundBar, 25, 25, 25, 25),
-                    new SectionProfile("D30", SectionShapeType.RoundBar, 30, 30, 30, 30),
-                    new SectionProfile("D36", SectionShapeType.RoundBar, 36, 36, 36, 36)
-                },
-                [SectionShapeType.SquareBar] = new List<SectionProfile>
-                {
-                    new SectionProfile("S16x16", SectionShapeType.SquareBar, 16, 16, 16, 16),
-                    new SectionProfile("S20x20", SectionShapeType.SquareBar, 20, 20, 20, 20),
-                    new SectionProfile("S25x25", SectionShapeType.SquareBar, 25, 25, 25, 25),
-                    new SectionProfile("S30x30", SectionShapeType.SquareBar, 30, 30, 30, 30),
-                    new SectionProfile("S40x40", SectionShapeType.SquareBar, 40, 40, 40, 40)
+                    ImportFromCsvInto(tables, defaultCsv);
                 }
-            };
+            }
+            catch
+            {
+                // 外部默认 CSV 读取异常时进入最小兜底，避免插件启动失败
+            }
+
+            // 最小兜底：确保任何情况下至少保留基础规格，防止下拉框与建模空指针
+            if (tables[SectionShapeType.HBeam].Count == 0)
+                tables[SectionShapeType.HBeam].Add(new SectionProfile("HW200x200x8x12", SectionShapeType.HBeam, 200, 200, 8, 12).WithHandbookProps(63.53, 49.9, 1.158));
+            if (tables[SectionShapeType.Channel].Count == 0)
+                tables[SectionShapeType.Channel].Add(new SectionProfile("C16a", SectionShapeType.Channel, 160, 63, 6.5, 10.0).WithHandbookProps(21.96, 17.24, 0.548));
+            if (tables[SectionShapeType.Angle].Count == 0)
+                tables[SectionShapeType.Angle].Add(new SectionProfile("L75x75x6", SectionShapeType.Angle, 75, 75, 6, 6).WithHandbookProps(8.80, 6.91, 0.295));
+            if (tables[SectionShapeType.RectTube].Count == 0)
+                tables[SectionShapeType.RectTube].Add(new SectionProfile("F200x100x8", SectionShapeType.RectTube, 200, 100, 8, 8));
+            if (tables[SectionShapeType.PipeTube].Count == 0)
+                tables[SectionShapeType.PipeTube].Add(new SectionProfile("P114x6", SectionShapeType.PipeTube, 114, 114, 6, 6));
+
+            return tables;
         }
 
         public static List<SectionShapeType> GetShapeTypesByCategory(SectionCategory category)
@@ -436,6 +237,7 @@ namespace SteelStructureSuite.Services.Catalog
         public static void AddOrUpdate(SectionProfile profile)
         {
             AddOrUpdateInto(_tables, profile);
+            SaveCatalog();
         }
 
         private static void AddOrUpdateInto(Dictionary<SectionShapeType, List<SectionProfile>> tables, SectionProfile profile)
@@ -482,6 +284,7 @@ namespace SteelStructureSuite.Services.Catalog
                 if (idx >= 0 && list.Count > 1)
                 {
                     list.RemoveAt(idx);
+                    SaveCatalog();
                     return true;
                 }
             }
@@ -491,6 +294,7 @@ namespace SteelStructureSuite.Services.Catalog
         public static void ResetToDefaults()
         {
             _tables = CreateDefaultTables();
+            SaveCatalog();
         }
 
         public static void SaveCatalog()
@@ -499,22 +303,32 @@ namespace SteelStructureSuite.Services.Catalog
             {
                 string path = GetLocalCatalogCsvPath();
                 Directory.CreateDirectory(Path.GetDirectoryName(path));
-                ExportCatalogToCsv(path);
+                ExportTablesToCsv(_tables, path);
             }
             catch { }
         }
 
         public static void ExportCatalogToCsv(string filePath)
         {
+            ExportTablesToCsv(_tables, filePath);
+        }
+
+        private static void ExportTablesToCsv(Dictionary<SectionShapeType, List<SectionProfile>> tables, string filePath)
+        {
             var sb = new StringBuilder();
-            sb.AppendLine("截面代号(Name),截面类型(ShapeType),高度H(mm),宽度B(mm),腹板厚Tw(mm),翼缘厚Tf(mm),下翼缘宽B2(mm),下翼缘厚Tf2(mm),卷边C(mm),双拼间隙Gap(mm),截面积(cm2),理论单重(kg/m),表面积(m2/m)");
-            foreach (var s in GetAllSections())
+            sb.AppendLine("截面代号(Name),截面类型(ShapeType),高度H(mm),宽度B(mm),腹板厚Tw(mm),翼缘厚Tf(mm),下翼缘宽B2(mm),下翼缘厚Tf2(mm),卷边C(mm),双拼间隙Gap(mm),截面积(cm2),理论单重(kg/m),表面积(m2/m),数值来源(PropSource)");
+            foreach (SectionShapeType t in OrderedShapeTypes)
             {
-                sb.AppendFormat(
-                    CultureInfo.InvariantCulture,
-                    "{0},{1},{2:0.##},{3:0.##},{4:0.##},{5:0.##},{6:0.##},{7:0.##},{8:0.##},{9:0.##},{10:0.00},{11:0.00},{12:0.000}\r\n",
-                    s.Name, s.Shape, s.H, s.B, s.Tw, s.Tf, s.B2, s.Tf2, s.Lip, s.Gap,
-                    s.AreaCm2, s.UnitWeightKgPerM, s.PerimeterMPerM);
+                if (!tables.TryGetValue(t, out var list)) continue;
+                foreach (var s in list)
+                {
+                    sb.AppendFormat(
+                        CultureInfo.InvariantCulture,
+                        "{0},{1},{2:0.##},{3:0.##},{4:0.##},{5:0.##},{6:0.##},{7:0.##},{8:0.##},{9:0.##},{10:0.00},{11:0.00},{12:0.000},{13}\r\n",
+                        s.Name, s.Shape, s.H, s.B, s.Tw, s.Tf, s.B2, s.Tf2, s.Lip, s.Gap,
+                        s.AreaCm2, s.UnitWeightKgPerM, s.PerimeterMPerM,
+                        s.HasManualProperties ? "Manual" : "Auto");
+                }
             }
             File.WriteAllText(filePath, sb.ToString(), new UTF8Encoding(true));
         }
@@ -685,16 +499,29 @@ namespace SteelStructureSuite.Services.Catalog
                                 double lip = cellVals.Count > 8 && TryParseNonNegative(cellVals[8], out double vLip) ? vLip : 0.0;
                                 double gap = cellVals.Count > 9 && TryParseNonNegative(cellVals[9], out double vGap) ? vGap : 0.0;
 
-                                AddOrUpdate(new SectionProfile(cellVals[0], parsedShape, nh, nb, ntw, ntf, b2, tf2, lip, gap));
+                                var prof = new SectionProfile(cellVals[0], parsedShape, nh, nb, ntw, ntf, b2, tf2, lip, gap);
+                                ApplyImportedPhysicalOverrides(
+                                    prof,
+                                    cellVals.Count > 10 ? cellVals[10] : null,
+                                    cellVals.Count > 11 ? cellVals[11] : null,
+                                    cellVals.Count > 12 ? cellVals[12] : null,
+                                    cellVals.Count > 13 ? cellVals[13] : null);
+                                AddOrUpdate(prof);
                                 importedCount++;
                             }
-                            // 兼容旧格式：[0]Name, [1]H, [2]B, [3]Tw, [4]Tf
+                            // 兼容旧格式：[0]Name, [1]H, [2]B, [3]Tw, [4]Tf, [5]Area, [6]Weight
                             else if (TryParsePositive(cellVals[1], out double h) &&
                                      TryParsePositive(cellVals[2], out double b) &&
                                      TryParsePositive(cellVals[3], out double tw) &&
                                      TryParsePositive(cellVals[4], out double tf))
                             {
-                                AddOrUpdate(new SectionProfile(cellVals[0], fallbackType, h, b, tw, tf));
+                                var prof = new SectionProfile(cellVals[0], fallbackType, h, b, tw, tf);
+                                ApplyImportedPhysicalOverrides(
+                                    prof,
+                                    cellVals.Count > 5 ? cellVals[5] : null,
+                                    cellVals.Count > 6 ? cellVals[6] : null,
+                                    null, null);
+                                AddOrUpdate(prof);
                                 importedCount++;
                             }
                         }
@@ -737,11 +564,56 @@ namespace SteelStructureSuite.Services.Catalog
                         TryParseNonNegative(parts[9], out gap);
                     }
 
-                    AddOrUpdateInto(tables, new SectionProfile(parts[0].Trim(), shape, h, b, tw, tf, b2, tf2, lip, gap));
+                    var prof = new SectionProfile(parts[0].Trim(), shape, h, b, tw, tf, b2, tf2, lip, gap);
+                    if (isNewFormat && parts.Length >= 13)
+                    {
+                        ApplyImportedPhysicalOverrides(
+                            prof,
+                            parts[10], parts[11], parts[12],
+                            parts.Length > 13 ? parts[13] : null);
+                    }
+                    else if (!isNewFormat && parts.Length >= 9)
+                    {
+                        ApplyImportedPhysicalOverrides(prof, parts[6], parts[7], parts[8], null);
+                    }
+
+                    AddOrUpdateInto(tables, prof);
                     count++;
                 }
             }
             return count;
+        }
+
+        /// <summary>
+        /// 导入时保留手册/用户手工修改过的截面积、单重、表面积：
+        /// 若显式标记为 Manual，或导入值与几何公式计算值存在差异（说明用户/手册已修正），则作为覆盖值保存。
+        /// </summary>
+        private static void ApplyImportedPhysicalOverrides(
+            SectionProfile prof,
+            string areaText,
+            string weightText,
+            string surfaceText,
+            string sourceFlag)
+        {
+            bool explicitManual = string.Equals(sourceFlag?.Trim(), "Manual", StringComparison.OrdinalIgnoreCase);
+            bool explicitAuto = string.Equals(sourceFlag?.Trim(), "Auto", StringComparison.OrdinalIgnoreCase);
+            if (explicitAuto) return;
+
+            if (TryParsePositive(areaText, out double a))
+            {
+                if (explicitManual || Math.Abs(a - prof.GetCalculatedAreaCm2()) > 0.02)
+                    prof.ManualAreaCm2 = a;
+            }
+            if (TryParsePositive(weightText, out double w))
+            {
+                if (explicitManual || Math.Abs(w - prof.GetCalculatedUnitWeightKgPerM()) > 0.02)
+                    prof.ManualUnitWeightKgPerM = w;
+            }
+            if (TryParsePositive(surfaceText, out double s))
+            {
+                if (explicitManual || Math.Abs(s - prof.GetCalculatedUnitSurfaceM2PerM()) > 0.003)
+                    prof.ManualUnitSurfaceM2PerM = s;
+            }
         }
 
         private static bool TryParsePositive(string text, out double value)
@@ -774,7 +646,8 @@ namespace SteelStructureSuite.Services.Catalog
                 "双拼间隙Gap(mm)",
                 "截面积(cm2)",
                 "理论米重(kg/m)",
-                "表面积(m2/m)"
+                "表面积(m2/m)",
+                "数值来源(PropSource)"
             };
             for (int c = 0; c < cols.Length; c++)
             {
@@ -801,6 +674,7 @@ namespace SteelStructureSuite.Services.Catalog
                 sb.Append($@"<c r=""K{r}""><v>{s.AreaCm2.ToString(CultureInfo.InvariantCulture)}</v></c>");
                 sb.Append($@"<c r=""L{r}""><v>{s.UnitWeightKgPerM.ToString(CultureInfo.InvariantCulture)}</v></c>");
                 sb.Append($@"<c r=""M{r}""><v>{s.PerimeterMPerM.ToString(CultureInfo.InvariantCulture)}</v></c>");
+                sb.Append($@"<c r=""N{r}"" t=""inlineStr""><is><t>{(s.HasManualProperties ? "Manual" : "Auto")}</t></is></c>");
                 sb.Append(@"</row>");
             }
 

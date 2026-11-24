@@ -27,15 +27,46 @@ namespace SteelStructureSuite.Views
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
         private List<StructurePresetItem> _currentPresets = new List<StructurePresetItem>();
 
-        private static readonly string[] ShapeFilterNames =
+        private sealed class SectionFilterOption
         {
-            "全部截面",
-            "H型钢",
-            "槽钢",
-            "角钢",
-            "方矩管",
-            "圆钢管"
-        };
+            public string Key { get; set; }
+            public string DisplayText { get; set; }
+            public SectionCategory? Category { get; set; }
+            public SectionShapeType? ShapeType { get; set; }
+            public override string ToString() => DisplayText;
+        }
+
+        private readonly List<SectionFilterOption> _sectionFilterOptions = BuildSectionFilterOptions();
+
+        private static List<SectionFilterOption> BuildSectionFilterOptions()
+        {
+            var list = new List<SectionFilterOption>
+            {
+                new SectionFilterOption { Key = "ALL", DisplayText = "全部截面" }
+            };
+
+            foreach (SectionCategory cat in SectionCatalogService.OrderedCategories)
+            {
+                list.Add(new SectionFilterOption
+                {
+                    Key = $"CAT_{(int)cat}",
+                    DisplayText = $"【{SectionProfile.GetCategoryDisplayName(cat)}】",
+                    Category = cat
+                });
+
+                foreach (SectionShapeType st in SectionCatalogService.GetShapeTypesByCategory(cat))
+                {
+                    list.Add(new SectionFilterOption
+                    {
+                        Key = $"SHAPE_{(int)st}",
+                        DisplayText = $"  {SectionProfile.GetShapeDisplayName(st)}",
+                        ShapeType = st
+                    });
+                }
+            }
+
+            return list;
+        }
 
         public StructureEditWindow(
             SteelStructureParams initialParams,
@@ -93,11 +124,11 @@ namespace SteelStructureSuite.Views
                     : Data.Material ?? "Q355B";
             if (CmbMaterial.SelectedIndex < 0) CmbMaterial.SelectedIndex = 1;
 
-            foreach (string f in ShapeFilterNames)
+            foreach (SectionFilterOption opt in _sectionFilterOptions)
             {
-                CmbColTypeFilter.Items.Add(f);
-                CmbBeamTypeFilter.Items.Add(f);
-                CmbBraceTypeFilter.Items.Add(f);
+                CmbColTypeFilter.Items.Add(opt);
+                CmbBeamTypeFilter.Items.Add(opt);
+                CmbBraceTypeFilter.Items.Add(opt);
             }
             if (isEditMode)
             {
@@ -153,15 +184,20 @@ namespace SteelStructureSuite.Views
         {
             string saved = UserSettings.GetString(SectionSettingKey(sectionPart), null);
             bool savedOk = !string.IsNullOrEmpty(saved) && SectionCatalogService.GetAllNames().Contains(saved);
-            int filterIndex = savedOk ? UserSettings.GetInt(SectionSettingKey(filterPart), 0) : 0;
-            if (filterIndex < 0 || filterIndex >= ShapeFilterNames.Length) filterIndex = 0;
+            string savedFilterKey = savedOk ? UserSettings.GetString(SectionSettingKey(filterPart + "Key"), null) : null;
+            int filterIndex = 0;
+            if (!string.IsNullOrEmpty(savedFilterKey))
+            {
+                int found = _sectionFilterOptions.FindIndex(o => string.Equals(o.Key, savedFilterKey, StringComparison.OrdinalIgnoreCase));
+                if (found >= 0) filterIndex = found;
+            }
             filter.SelectedIndex = filterIndex;
             string preferred = savedOk ? saved : fallback;
-            PopulateSectionCombo(combo, filter.SelectedIndex, preferred);
+            PopulateSectionCombo(combo, filter.SelectedItem as SectionFilterOption, preferred);
             if (!string.Equals(combo.SelectedItem as string, preferred, StringComparison.Ordinal))
             {
                 filter.SelectedIndex = 0;
-                PopulateSectionCombo(combo, 0, string.IsNullOrEmpty(preferred) ? fallback : preferred);
+                PopulateSectionCombo(combo, _sectionFilterOptions[0], string.IsNullOrEmpty(preferred) ? fallback : preferred);
             }
             string chosen = combo.SelectedItem as string;
             if (!string.IsNullOrEmpty(chosen)) assign(chosen);
@@ -176,9 +212,9 @@ namespace SteelStructureSuite.Views
         private void SaveLastSettings()
         {
             UserSettings.SetString("Edit.Material", CmbMaterial.SelectedItem as string);
-            UserSettings.SetInt(SectionSettingKey("ColFilter"), CmbColTypeFilter.SelectedIndex);
-            UserSettings.SetInt(SectionSettingKey("BeamFilter"), CmbBeamTypeFilter.SelectedIndex);
-            UserSettings.SetInt(SectionSettingKey("BraceFilter"), CmbBraceTypeFilter.SelectedIndex);
+            UserSettings.SetString(SectionSettingKey("ColFilterKey"), (CmbColTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
+            UserSettings.SetString(SectionSettingKey("BeamFilterKey"), (CmbBeamTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
+            UserSettings.SetString(SectionSettingKey("BraceFilterKey"), (CmbBraceTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
             UserSettings.SetString(SectionSettingKey("ColSec"), CmbColSec.SelectedItem as string);
             UserSettings.SetString(SectionSettingKey("BeamSec"), CmbBeamSec.SelectedItem as string);
             UserSettings.SetString(SectionSettingKey("BraceSec"), CmbBraceSec.SelectedItem as string);
@@ -195,9 +231,9 @@ namespace SteelStructureSuite.Views
             TxtRotationDeg.Text = Data.RotationDeg.ToString("0.#", CultureInfo.InvariantCulture);
             TxtEndOffsetZ.Text = Data.EndPointOffsetZ.ToString("0.#", CultureInfo.InvariantCulture);
 
-            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedIndex, Data.ColumnSection);
-            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedIndex, Data.BeamSection);
-            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedIndex, Data.BraceSection);
+            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedItem as SectionFilterOption, Data.ColumnSection);
+            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedItem as SectionFilterOption, Data.BeamSection);
+            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedItem as SectionFilterOption, Data.BraceSection);
         }
 
         private void ReloadPresetsForCurrentType()
@@ -308,18 +344,21 @@ namespace SteelStructureSuite.Views
             sec.Visibility = v;
         }
 
-        private static void PopulateSectionCombo(ComboBox cmb, int filterIdx, string preferredName)
+        private static void PopulateSectionCombo(ComboBox cmb, SectionFilterOption filter, string preferredName)
         {
             if (cmb == null) return;
             List<string> names;
-            switch (filterIdx)
+            if (filter?.ShapeType != null)
             {
-                case 1: names = SectionCatalogService.GetNamesByShapeType(SectionShapeType.HBeam); break;
-                case 2: names = SectionCatalogService.GetNamesByShapeType(SectionShapeType.Channel); break;
-                case 3: names = SectionCatalogService.GetNamesByShapeType(SectionShapeType.Angle); break;
-                case 4: names = SectionCatalogService.GetNamesByShapeType(SectionShapeType.RectTube); break;
-                case 5: names = SectionCatalogService.GetNamesByShapeType(SectionShapeType.PipeTube); break;
-                default: names = SectionCatalogService.GetAllNames(); break;
+                names = SectionCatalogService.GetByShapeType(filter.ShapeType.Value).Select(x => x.Name).ToList();
+            }
+            else if (filter?.Category != null)
+            {
+                names = SectionCatalogService.GetByCategory(filter.Category.Value).Select(x => x.Name).ToList();
+            }
+            else
+            {
+                names = SectionCatalogService.GetAllNames();
             }
 
             cmb.Items.Clear();
@@ -334,19 +373,19 @@ namespace SteelStructureSuite.Views
         private void OnColFilterChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedIndex, CmbColSec.SelectedItem as string);
+            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedItem as SectionFilterOption, CmbColSec.SelectedItem as string);
         }
 
         private void OnBeamFilterChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedIndex, CmbBeamSec.SelectedItem as string);
+            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedItem as SectionFilterOption, CmbBeamSec.SelectedItem as string);
         }
 
         private void OnBraceFilterChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedIndex, CmbBraceSec.SelectedItem as string);
+            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedItem as SectionFilterOption, CmbBraceSec.SelectedItem as string);
         }
 
         private void OnStructureTypeChanged(object sender, SelectionChangedEventArgs e)

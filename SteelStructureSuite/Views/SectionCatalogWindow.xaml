@@ -31,6 +31,7 @@
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
         <!-- Zone 1: 页头汇总与全局库操作 -->
@@ -69,7 +70,7 @@
                     Background="{StaticResource Brush.Surface}"
                     BorderBrush="{StaticResource Brush.Border}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Control}">
+                    CornerRadius="{StaticResource Radius.Card}">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -138,7 +139,7 @@
                                 Click="OnClearSearchClick" />
                         <Border Grid.Column="7"
                                 Background="{StaticResource Brush.Accent.Subtle}"
-                                CornerRadius="{StaticResource Radius.Badge}"
+                                CornerRadius="{StaticResource Radius.Pill}"
                                 Padding="8,3"
                                 VerticalAlignment="Center">
                             <TextBlock x:Name="TxtFilteredCount"
@@ -168,44 +169,39 @@
                         <DataGridTextColumn Header="腹板/壁厚 tw" Binding="{Binding Tw, StringFormat=0.##}" Width="0.85*" MinWidth="85" />
                         <DataGridTextColumn Header="翼缘厚 tf" Binding="{Binding Tf, StringFormat=0.##}" Width="0.75*" MinWidth="72" />
                         <DataGridTextColumn Header="扩展参数" Binding="{Binding ExtraParamsSummary}" Width="1.1*" MinWidth="92" />
-                        <DataGridTextColumn Header="截面积 (cm²)" Binding="{Binding AreaCm2, StringFormat=0.00}" Width="0.9*" MinWidth="88" />
-                        <DataGridTextColumn Header="单重 (kg/m)" Binding="{Binding UnitWeightKgPerM, StringFormat=0.00}" Width="0.85*" MinWidth="85" />
-                        <DataGridTextColumn Header="表面积 (m²/m)" Binding="{Binding PerimeterMPerM, StringFormat=0.000}" Width="0.95*" MinWidth="92" />
+                        <DataGridTextColumn Header="截面积 (cm²)" Binding="{Binding AreaCm2, StringFormat=0.00}" Width="0.9*" MinWidth="86" />
+                        <DataGridTextColumn Header="单重 (kg/m)" Binding="{Binding UnitWeightKgPerM, StringFormat=0.00}" Width="0.85*" MinWidth="82" />
+                        <DataGridTextColumn Header="表面积 (m²/m)" Binding="{Binding PerimeterMPerM, StringFormat=0.000}" Width="0.9*" MinWidth="88" />
+                        <DataGridTextColumn Header="数据来源" Binding="{Binding PropertySourceDisplayName}" Width="0.85*" MinWidth="78" />
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>
         </Grid>
 
-        <!-- Zone 3.5: 底部参数编辑表单 + 2D 轮廓实时预览 -->
+        <!-- Zone 3.5: 底部参数编辑表单（3 行分区：基本标识 / 几何尺寸 / 物理特性） + 2D 轮廓实时预览 -->
         <Grid Grid.Row="2" Margin="0,0,0,8">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="8" />
-                <ColumnDefinition Width="216" />
+                <ColumnDefinition Width="220" />
             </Grid.ColumnDefinitions>
 
             <GroupBox Grid.Column="0" Header="新增 / 更新截面参数">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="6" />
+                        <RowDefinition Height="8" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="8" />
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <!-- 第 1 行：类型 + 代号 + 核心 4 尺寸 -->
+                    <!-- 第 1 行：基本标识（截面类型 + 截面代号） -->
                     <Grid Grid.Row="0">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="1.45*" MinWidth="140" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="1.5*" MinWidth="140" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="0.85*" MinWidth="74" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="0.85*" MinWidth="74" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="0.85*" MinWidth="74" />
-                            <ColumnDefinition Width="8" />
-                            <ColumnDefinition Width="0.85*" MinWidth="74" />
+                            <ColumnDefinition Width="1.1*" MinWidth="180" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="1.4*" MinWidth="200" />
                         </Grid.ColumnDefinitions>
                         <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
                             <TextBlock Text="截面类型" Style="{StaticResource Text.FieldLabel}" />
@@ -213,75 +209,130 @@
                         </StackPanel>
                         <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
                             <TextBlock Text="截面代号" Style="{StaticResource Text.FieldLabel}" />
-                            <TextBox x:Name="TxtName" Text="HW200x200x8x12" />
-                        </StackPanel>
-                        <StackPanel x:Name="PanelH" Grid.Column="4" Style="{StaticResource FormStack}">
-                            <TextBlock x:Name="LblH" Text="高度 H" Style="{StaticResource Text.FieldLabel}" />
-                            <TextBox x:Name="TxtH" Text="200" ToolTip="截面高度或外径，单位 mm" TextChanged="OnParamInputChanged" />
-                        </StackPanel>
-                        <StackPanel x:Name="PanelB" Grid.Column="6" Style="{StaticResource FormStack}">
-                            <TextBlock x:Name="LblB" Text="宽度 B" Style="{StaticResource Text.FieldLabel}" />
-                            <TextBox x:Name="TxtB" Text="200" ToolTip="截面宽度或上翼缘宽，单位 mm" TextChanged="OnParamInputChanged" />
-                        </StackPanel>
-                        <StackPanel x:Name="PanelTw" Grid.Column="8" Style="{StaticResource FormStack}">
-                            <TextBlock x:Name="LblTw" Text="腹板 tw" Style="{StaticResource Text.FieldLabel}" />
-                            <TextBox x:Name="TxtTw" Text="8" ToolTip="腹板厚或管壁厚，单位 mm" TextChanged="OnParamInputChanged" />
-                        </StackPanel>
-                        <StackPanel x:Name="PanelTf" Grid.Column="10" Style="{StaticResource FormStack}">
-                            <TextBlock x:Name="LblTf" Text="翼缘 tf" Style="{StaticResource Text.FieldLabel}" />
-                            <TextBox x:Name="TxtTf" Text="12" ToolTip="翼缘厚度或上翼缘厚，单位 mm" TextChanged="OnParamInputChanged" />
+                            <TextBox x:Name="TxtName" Text="HW200x200x8x12" ToolTip="自定义或国标截面代号，如 HW200x200x8x12、C160x60x20x2.5" />
                         </StackPanel>
                     </Grid>
 
-                    <!-- 第 2 行：扩展参数（按类型动态显示）+ 实时物理指标 -->
-                    <Grid Grid.Row="2">
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Orientation="Horizontal">
-                            <StackPanel x:Name="PanelB2" Style="{StaticResource FormStack}" Width="116" Margin="0,0,8,0" Visibility="Collapsed">
-                                <TextBlock Text="下翼缘宽 B2" Style="{StaticResource Text.FieldLabel}" />
-                                <TextBox x:Name="TxtB2" Text="240" ToolTip="不等翼缘焊接H型钢下翼缘宽度 (mm)" TextChanged="OnParamInputChanged" />
-                            </StackPanel>
-                            <StackPanel x:Name="PanelTf2" Style="{StaticResource FormStack}" Width="116" Margin="0,0,8,0" Visibility="Collapsed">
-                                <TextBlock Text="下翼缘厚 tf2" Style="{StaticResource Text.FieldLabel}" />
-                                <TextBox x:Name="TxtTf2" Text="16" ToolTip="不等翼缘焊接H型钢下翼缘厚度 (mm)" TextChanged="OnParamInputChanged" />
-                            </StackPanel>
-                            <StackPanel x:Name="PanelLip" Style="{StaticResource FormStack}" Width="116" Margin="0,0,8,0" Visibility="Collapsed">
-                                <TextBlock x:Name="LblLip" Text="卷边高度 C" Style="{StaticResource Text.FieldLabel}" />
-                                <TextBox x:Name="TxtLip" Text="20" ToolTip="冷弯卷边高度或帽型钢外翻边宽 (mm)" TextChanged="OnParamInputChanged" />
-                            </StackPanel>
-                            <StackPanel x:Name="PanelGap" Style="{StaticResource FormStack}" Width="116" Margin="0,0,8,0" Visibility="Collapsed">
-                                <TextBlock Text="双拼间隙 Gap" Style="{StaticResource Text.FieldLabel}" />
-                                <TextBox x:Name="TxtGap" Text="10" ToolTip="双拼截面中间节点板间隙 (mm)" TextChanged="OnParamInputChanged" />
-                            </StackPanel>
+                    <!-- 第 2 行：几何尺寸 (mm)，仅显示当前截面所需字段 -->
+                    <WrapPanel Grid.Row="2" Orientation="Horizontal">
+                        <StackPanel x:Name="PanelH" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblH" Text="高度 H" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtH" Text="200" ToolTip="截面高度或外径，单位 mm" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <Border Grid.Column="1"
+                        <StackPanel x:Name="PanelB" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblB" Text="宽度 B" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtB" Text="200" ToolTip="截面宽度或上翼缘宽，单位 mm" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelTw" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblTw" Text="腹板 tw" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtTw" Text="8" ToolTip="腹板厚或管壁厚，单位 mm" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelTf" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblTf" Text="翼缘 tf" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtTf" Text="12" ToolTip="翼缘厚度或上翼缘厚，单位 mm" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelB2" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="下翼缘宽 B2" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtB2" Text="240" ToolTip="不等翼缘焊接H型钢下翼缘宽度 (mm)" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelTf2" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="下翼缘厚 tf2" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtTf2" Text="16" ToolTip="不等翼缘焊接H型钢下翼缘厚度 (mm)" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelLip" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock x:Name="LblLip" Text="卷边高度 C" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtLip" Text="20" ToolTip="冷弯卷边高度或帽型钢外翻边宽 (mm)" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                        <StackPanel x:Name="PanelGap" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="双拼间隙 Gap" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtGap" Text="10" ToolTip="双拼截面中间节点板间隙 (mm)" TextChanged="OnParamInputChanged" />
+                        </StackPanel>
+                    </WrapPanel>
+
+                    <!-- 第 3 行：物理特性（支持国标手册值/手工修正，或一键按公式重算） -->
+                    <Grid Grid.Row="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" MinWidth="110" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" MinWidth="110" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="*" MinWidth="110" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
+                            <TextBlock Text="截面积 (cm²)" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtArea" ToolTip="可直接修改为国标手册值；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
+                            <TextBlock Text="理论单重 (kg/m)" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtWeight" ToolTip="可直接修改为国标手册米重；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
+                        </StackPanel>
+                        <StackPanel Grid.Column="4" Style="{StaticResource FormStack}">
+                            <TextBlock Text="表面积 (m²/m)" Style="{StaticResource Text.FieldLabel}" />
+                            <TextBox x:Name="TxtSurface" ToolTip="可直接修改为国标手册表面积；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
+                        </StackPanel>
+                        <Border Grid.Column="6"
                                 Background="{StaticResource Brush.SurfaceAlt}"
                                 BorderBrush="{StaticResource Brush.Border}"
                                 BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Control}"
-                                Padding="10,6"
-                                VerticalAlignment="Bottom">
-                            <TextBlock x:Name="TxtLiveMetrics"
-                                       Text="理论截面积: -- cm²    理论单重: -- kg/m    表面积: -- m²/m"
+                                CornerRadius="{StaticResource Radius.Pill}"
+                                Padding="8,4"
+                                VerticalAlignment="Bottom"
+                                Margin="0,0,0,2">
+                            <TextBlock x:Name="TxtMetricSource"
+                                       Text="公式计算"
                                        Foreground="{StaticResource Brush.Text.Secondary}"
-                                       FontSize="{DynamicResource FontSize.Caption}"
-                                       TextTrimming="CharacterEllipsis"
-                                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                                       FontSize="{DynamicResource FontSize.Caption}" />
                         </Border>
+                        <Button Grid.Column="8"
+                                Content="按公式重算"
+                                ToolTip="清除手册/自定义覆盖值，按当前几何尺寸公式重新计算"
+                                MinWidth="{StaticResource Layout.ButtonMinWidth}"
+                                VerticalAlignment="Bottom"
+                                Click="OnRecalcMetricsClick" />
                     </Grid>
                 </Grid>
             </GroupBox>
 
             <GroupBox Grid.Column="2" Header="2D 截面示意">
-                <controls:SectionPreviewControl x:Name="PreviewControl" Height="118" />
+                <controls:SectionPreviewControl x:Name="PreviewControl" Height="156" />
             </GroupBox>
         </Grid>
 
+        <!-- Zone 3.8: 数据存储路径与格式说明（独占底部操作栏上方一行） -->
+        <Border Grid.Row="3"
+                Background="{StaticResource Brush.SurfaceAlt}"
+                BorderBrush="{StaticResource Brush.Border}"
+                BorderThickness="1"
+                CornerRadius="{StaticResource Radius.Card}"
+                Padding="10,4"
+                Margin="0,0,0,8">
+            <Grid>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="8" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock x:Name="TxtStorageInfo"
+                           Grid.Column="0"
+                           VerticalAlignment="Center"
+                           Foreground="{StaticResource Brush.Text.Secondary}"
+                           FontSize="{DynamicResource FontSize.Caption}"
+                           TextTrimming="CharacterEllipsis"
+                           ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+                <Button Grid.Column="2"
+                        Content="打开目录"
+                        ToolTip="在文件资源管理器中定位本地截面库 CSV 文件"
+                        MinWidth="{StaticResource Layout.ButtonMinWidth.Small}"
+                        Click="OnOpenStorageFolderClick" />
+            </Grid>
+        </Border>
+
         <!-- Zone 4: 底部操作栏 -->
-        <Grid Grid.Row="3">
+        <Grid Grid.Row="4">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />

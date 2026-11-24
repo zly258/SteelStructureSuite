@@ -1,6 +1,7 @@
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.Runtime;
 using SteelStructureSuite.Services.Interaction;
+using SteelStructureSuite.Services.Settings;
 using SteelStructureSuite.Views;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
@@ -16,7 +17,7 @@ namespace SteelStructureSuite.Commands
             if (Application.DocumentManager.MdiActiveDocument == null) return;
             // 非模态窗口：转换作业由 MainThreadDispatcher 排到 AutoCAD 主线程执行，
             // 窗口只负责收集参数与显示日志，避免在 WPF 线程上操作 AutoCAD 数据库。
-            Application.ShowModelessWindow(new DwgToDxfWindow());
+            UserSettings.ShowModelessWindowOnAutoCad(new DwgToDxfWindow());
         }
 
         [CommandMethod("SS_DWGMERGE", CommandFlags.Modal)]
@@ -24,7 +25,7 @@ namespace SteelStructureSuite.Commands
         {
             if (Application.DocumentManager.MdiActiveDocument == null) return;
             var window = new DwgMergeWindow();
-            Application.ShowModelessWindow(window);
+            UserSettings.ShowModelessWindowOnAutoCad(window);
         }
 
         /// <summary>
