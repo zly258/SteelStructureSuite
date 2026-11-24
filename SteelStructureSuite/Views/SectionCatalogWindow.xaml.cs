@@ -1,9 +1,9 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Globalization;
+using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
 using Microsoft.Win32;
 using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
@@ -12,136 +12,457 @@ using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
 {
+    /// <summary>
+    /// 型钢截面库管理窗口（左侧分类树 + 右侧规格表格 + 动态参数编辑与 2D 实时预览）
+    /// </summary>
     public partial class SectionCatalogWindow : Window
     {
-        private readonly Dictionary<SectionShapeType, DataGrid> _gridsByType = new Dictionary<SectionShapeType, DataGrid>();
-
-        private static readonly SectionShapeType[] OrderedTypes =
+        private enum TreeFilterKind
         {
-            SectionShapeType.HBeam,
-            SectionShapeType.Channel,
-            SectionShapeType.Angle,
-            SectionShapeType.RectTube,
-            SectionShapeType.PipeTube
-        };
+            All,
+            Category,
+            ShapeType
+        }
+
+        private sealed class TreeNodeTag
+        {
+            public TreeFilterKind Kind { get; set; }
+            public SectionCategory Category { get; set; }
+            public SectionShapeType ShapeType { get; set; }
+            public string Key { get; set; }
+        }
+
+        private sealed class ShapeTypeComboItem
+        {
+            public SectionShapeType ShapeType { get; set; }
+            public string DisplayText { get; set; }
+            public override string ToString() => DisplayText;
+        }
+
+        private TreeNodeTag _currentFilter = new TreeNodeTag { Kind = TreeFilterKind.All, Key = "ALL" };
+        private bool _isSuppressingEvents;
 
         public SectionCatalogWindow()
         {
             InitializeComponent();
-            Width = Math.Max(Width, 960);
-            Height = Math.Max(Height, 640);
-            MinWidth = 840;
-            MinHeight = 420;
 
-            CmbType.Items.Add("H型钢");
-            CmbType.Items.Add("槽钢");
-            CmbType.Items.Add("等边角钢");
-            CmbType.Items.Add("方矩管");
-            CmbType.Items.Add("圆钢管");
-            CmbType.SelectedIndex = 0;
-
-            foreach (SectionShapeType shapeType in OrderedTypes)
-            {
-                DataGrid dg = CreateSectionDataGrid(shapeType);
-                _gridsByType[shapeType] = dg;
-
-                TabItem item = new TabItem
-                {
-                    Tag = shapeType,
-                    Header = SectionCatalogService.GetShapeTabTitle(shapeType),
-                    Content = dg
-                };
-                TabsSections.Items.Add(item);
-            }
-
-            if (TabsSections.Items.Count > 0)
-            {
-                TabsSections.SelectedIndex = 0;
-            }
-            RefreshAllTabGrids();
-
-            // 恢复上次停留的截面类型页签
-            int lastTab = UserSettings.GetInt("Catalog.LastTabIndex", 0);
-            if (lastTab >= 0 && lastTab < TabsSections.Items.Count)
-            {
-                TabsSections.SelectedIndex = lastTab;
-            }
+            InitEditTypeCombo();
+            RebuildCategoryTree(UserSettings.GetString("Catalog.LastTreeNode", "ALL"));
+            RefreshTableAndSummary();
+            UpdateParameterFieldLayout(GetSelectedEditShapeType());
+            UpdateLivePreview();
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
             Closed += (s, e) =>
             {
-                UserSettings.SetInt("Catalog.LastTabIndex", TabsSections.SelectedIndex);
+                UserSettings.SetString("Catalog.LastTreeNode", _currentFilter?.Key ?? "ALL");
                 UserSettings.Save();
                 UserSettings.SaveWindowState(this, "SectionCatalogWindow");
             };
         }
 
-        private static DataGrid CreateSectionDataGrid(SectionShapeType shapeType)
+        private void InitEditTypeCombo()
         {
-            DataGrid dg = new DataGrid
+            _isSuppressingEvents = true;
+            CmbType.Items.Clear();
+            foreach (SectionShapeType st in SectionCatalogService.OrderedShapeTypes)
             {
-                AutoGenerateColumns = false,
-                CanUserAddRows = false,
-                IsReadOnly = false,
-                SelectionMode = DataGridSelectionMode.Single,
-                RowHeaderWidth = 0,
-                HorizontalScrollBarVisibility = ScrollBarVisibility.Auto,
-                VerticalScrollBarVisibility = ScrollBarVisibility.Auto,
-                Margin = new Thickness(4)
+                CmbType.Items.Add(new ShapeTypeComboItem
+                {
+                    ShapeType = st,
+                    DisplayText = SectionProfile.GetShapeDisplayName(st)
+                });
+            }
+            if (CmbType.Items.Count > 0)
+            {
+                CmbType.SelectedIndex = 0;
+            }
+            _isSuppressingEvents = false;
+        }
+
+        private void RebuildCategoryTree(string selectKey)
+        {
+            _isSuppressingEvents = true;
+            TreeCategories.Items.Clear();
+
+            var allSections = SectionCatalogService.GetAllSections();
+            TreeViewItem rootItem = new TreeViewItem
+            {
+                Header = $"全部截面 ({allSections.Count})",
+                IsExpanded = true,
+                Tag = new TreeNodeTag { Kind = TreeFilterKind.All, Key = "ALL" }
             };
 
-            dg.Columns.Add(new DataGridTextColumn { Header = "截面代号", Binding = new Binding("Name"), Width = new DataGridLength(1.4, DataGridLengthUnitType.Star), MinWidth = 130 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "类别", Binding = new Binding("ShapeTypeDisplayName"), IsReadOnly = true, Width = new DataGridLength(0.9, DataGridLengthUnitType.Star), MinWidth = 80 });
+            TreeViewItem itemToSelect = rootItem;
 
-            string hHeader = shapeType == SectionShapeType.PipeTube ? "外径 D (mm)" : "高度 H (mm)";
-            string bHeader = shapeType == SectionShapeType.PipeTube ? "外径 D (mm)" : "宽度 B (mm)";
-            dg.Columns.Add(new DataGridTextColumn { Header = hHeader, Binding = new Binding("H"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
-            dg.Columns.Add(new DataGridTextColumn { Header = bHeader, Binding = new Binding("B"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "壁厚 tw (mm)", Binding = new Binding("Tw"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 90 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "翼缘厚 tf (mm)", Binding = new Binding("Tf"), Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 95 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "截面积 (cm²)", Binding = new Binding("AreaCm2") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(0.95, DataGridLengthUnitType.Star), MinWidth = 95 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "单重 (kg/m)", Binding = new Binding("UnitWeightKgPerM") { StringFormat = "0.00" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star), MinWidth = 95 });
-            dg.Columns.Add(new DataGridTextColumn { Header = "表面积 (m²/m)", Binding = new Binding("PerimeterMPerM") { StringFormat = "0.000" }, IsReadOnly = true, Width = new DataGridLength(1.0, DataGridLengthUnitType.Star), MinWidth = 100 });
+            foreach (SectionCategory cat in SectionCatalogService.OrderedCategories)
+            {
+                var catSections = SectionCatalogService.GetByCategory(cat);
+                string catKey = $"CAT_{(int)cat}";
+                TreeViewItem catItem = new TreeViewItem
+                {
+                    Header = $"{SectionProfile.GetCategoryDisplayName(cat)} ({catSections.Count})",
+                    IsExpanded = true,
+                    Tag = new TreeNodeTag { Kind = TreeFilterKind.Category, Category = cat, Key = catKey }
+                };
 
-            return dg;
+                if (string.Equals(selectKey, catKey, StringComparison.OrdinalIgnoreCase))
+                {
+                    itemToSelect = catItem;
+                }
+
+                foreach (SectionShapeType st in SectionCatalogService.GetShapeTypesByCategory(cat))
+                {
+                    var shapeSections = SectionCatalogService.GetByShapeType(st);
+                    string shapeKey = $"SHAPE_{(int)st}";
+                    TreeViewItem shapeItem = new TreeViewItem
+                    {
+                        Header = $"{SectionProfile.GetShapeDisplayName(st)} ({shapeSections.Count})",
+                        Tag = new TreeNodeTag
+                        {
+                            Kind = TreeFilterKind.ShapeType,
+                            Category = cat,
+                            ShapeType = st,
+                            Key = shapeKey
+                        }
+                    };
+
+                    if (string.Equals(selectKey, shapeKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        itemToSelect = shapeItem;
+                    }
+
+                    catItem.Items.Add(shapeItem);
+                }
+
+                rootItem.Items.Add(catItem);
+            }
+
+            TreeCategories.Items.Add(rootItem);
+            if (itemToSelect != null)
+            {
+                itemToSelect.IsSelected = true;
+                _currentFilter = itemToSelect.Tag as TreeNodeTag ?? _currentFilter;
+            }
+            _isSuppressingEvents = false;
         }
 
-        private void OnSectionSelectionChanged(object sender, SelectionChangedEventArgs e)
+        private void RefreshTableAndSummary()
         {
-            if (TabsSections.SelectedItem is TabItem item &&
-                item.Tag is SectionShapeType st &&
-                _gridsByType.ContainsKey(st))
+            var all = SectionCatalogService.GetAllSections();
+            TxtSummary.Text = $"共 {SectionCatalogService.OrderedCategories.Length} 大类 {SectionCatalogService.OrderedShapeTypes.Length} 种截面类型，合计 {all.Count} 条规格";
+
+            List<SectionProfile> source;
+            switch (_currentFilter.Kind)
             {
-                int idx = Array.IndexOf(OrderedTypes, st);
-                if (idx >= 0 && CmbType != null)
+                case TreeFilterKind.Category:
+                    source = SectionCatalogService.GetByCategory(_currentFilter.Category);
+                    TxtCurrentCategory.Text = SectionProfile.GetCategoryDisplayName(_currentFilter.Category);
+                    break;
+                case TreeFilterKind.ShapeType:
+                    source = SectionCatalogService.GetByShapeType(_currentFilter.ShapeType);
+                    TxtCurrentCategory.Text = SectionProfile.GetShapeDisplayName(_currentFilter.ShapeType);
+                    break;
+                default:
+                    source = all;
+                    TxtCurrentCategory.Text = "全部截面";
+                    break;
+            }
+
+            string keyword = TxtSearch?.Text?.Trim();
+            if (!string.IsNullOrEmpty(keyword))
+            {
+                source = source.Where(s =>
+                    (s.Name != null && s.Name.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (s.ShapeTypeDisplayName != null && s.ShapeTypeDisplayName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0) ||
+                    (s.CategoryDisplayName != null && s.CategoryDisplayName.IndexOf(keyword, StringComparison.OrdinalIgnoreCase) >= 0)
+                ).ToList();
+            }
+
+            GridSections.ItemsSource = null;
+            GridSections.ItemsSource = source;
+            TxtFilteredCount.Text = $"{source.Count} 项";
+            BtnDelete.IsEnabled = GridSections.SelectedItem is SectionProfile;
+        }
+
+        private void OnTreeCategorySelected(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (_isSuppressingEvents) return;
+            if (e.NewValue is TreeViewItem item && item.Tag is TreeNodeTag tag)
+            {
+                _currentFilter = tag;
+                RefreshTableAndSummary();
+
+                // 选中具体截面类型节点时，联动切换下方编辑框的目标类型
+                if (tag.Kind == TreeFilterKind.ShapeType)
                 {
-                    CmbType.SelectedIndex = idx;
+                    SelectEditComboShape(tag.ShapeType);
+                    var list = SectionCatalogService.GetByShapeType(tag.ShapeType);
+                    if (list.Count > 0)
+                    {
+                        FillFormFromProfile(list[0]);
+                    }
                 }
             }
         }
 
-        private void RefreshAllTabGrids()
+        private void OnSearchTextChanged(object sender, TextChangedEventArgs e)
         {
-            int totalCount = 0;
-            for (int i = 0; i < OrderedTypes.Length; i++)
+            if (_isSuppressingEvents) return;
+            RefreshTableAndSummary();
+        }
+
+        private void OnClearSearchClick(object sender, RoutedEventArgs e)
+        {
+            TxtSearch.Text = string.Empty;
+            TxtSearch.Focus();
+        }
+
+        private void OnGridSelectionChanged(object sender, SelectionChangedEventArgs e)
+        {
+            BtnDelete.IsEnabled = GridSections.SelectedItem is SectionProfile;
+            if (GridSections.SelectedItem is SectionProfile sel)
             {
-                SectionShapeType st = OrderedTypes[i];
-                var list = SectionCatalogService.GetByShapeType(st);
-                totalCount += list.Count;
+                FillFormFromProfile(sel);
+            }
+        }
 
-                if (_gridsByType.TryGetValue(st, out DataGrid dg))
-                {
-                    dg.ItemsSource = null;
-                    dg.ItemsSource = list;
-                }
+        private void FillFormFromProfile(SectionProfile sec)
+        {
+            if (sec == null) return;
+            _isSuppressingEvents = true;
+            SelectEditComboShape(sec.Shape);
+            TxtName.Text = sec.Name;
+            TxtH.Text = sec.H.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtB.Text = sec.B.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTw.Text = sec.Tw.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTf.Text = sec.Tf.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtB2.Text = (sec.B2 > 0 ? sec.B2 : sec.B).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTf2.Text = (sec.Tf2 > 0 ? sec.Tf2 : sec.Tf).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtLip.Text = (sec.Lip > 0 ? sec.Lip : 20.0).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtGap.Text = (sec.Gap > 0 ? sec.Gap : 10.0).ToString("0.##", CultureInfo.InvariantCulture);
+            _isSuppressingEvents = false;
 
-                if (i < TabsSections.Items.Count && TabsSections.Items[i] is TabItem item)
+            UpdateParameterFieldLayout(sec.Shape);
+            UpdateLivePreview();
+        }
+
+        private void SelectEditComboShape(SectionShapeType shapeType)
+        {
+            for (int i = 0; i < CmbType.Items.Count; i++)
+            {
+                if (CmbType.Items[i] is ShapeTypeComboItem item && item.ShapeType == shapeType)
                 {
-                    item.Header = $"{SectionCatalogService.GetShapeTabTitle(st)} ({list.Count})";
+                    CmbType.SelectedIndex = i;
+                    return;
                 }
             }
+        }
 
-            TxtSummary.Text = $"共 5 个分表，合计 {totalCount} 种型钢规格";
+        private SectionShapeType GetSelectedEditShapeType()
+        {
+            if (CmbType.SelectedItem is ShapeTypeComboItem item)
+                return item.ShapeType;
+            return SectionShapeType.HBeam;
+        }
+
+        private void OnEditTypeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            SectionShapeType shape = GetSelectedEditShapeType();
+            UpdateParameterFieldLayout(shape);
+            UpdateLivePreview();
+        }
+
+        /// <summary>
+        /// 按截面类型动态调整参数输入框的标签名称与显隐状态，减少误输入
+        /// </summary>
+        private void UpdateParameterFieldLayout(SectionShapeType shape)
+        {
+            // 先重置默认状态
+            PanelH.Visibility = Visibility.Visible;
+            PanelB.Visibility = Visibility.Visible;
+            PanelTw.Visibility = Visibility.Visible;
+            PanelTf.Visibility = Visibility.Visible;
+            PanelB2.Visibility = Visibility.Collapsed;
+            PanelTf2.Visibility = Visibility.Collapsed;
+            PanelLip.Visibility = Visibility.Collapsed;
+            PanelGap.Visibility = Visibility.Collapsed;
+
+            LblH.Text = "高度 H";
+            LblB.Text = "宽度 B";
+            LblTw.Text = "腹板 tw";
+            LblTf.Text = "翼缘 tf";
+
+            switch (shape)
+            {
+                case SectionShapeType.WeldedHBeamUnequal:
+                    LblB.Text = "上翼缘宽 B";
+                    LblTf.Text = "上翼缘厚 tf";
+                    PanelB2.Visibility = Visibility.Visible;
+                    PanelTf2.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.Angle:
+                case SectionShapeType.UnequalAngle:
+                    LblH.Text = "长肢 H";
+                    LblB.Text = shape == SectionShapeType.Angle ? "肢宽 B" : "短肢 B";
+                    LblTw.Text = "肢厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.DoubleAngle:
+                    LblH.Text = "肢高 H";
+                    LblB.Text = "肢宽 B";
+                    LblTw.Text = "肢厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    PanelGap.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.DoubleChannel:
+                    PanelGap.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.ColdFormedC:
+                case SectionShapeType.ColdFormedZ:
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    LblLip.Text = "卷边高度 C";
+                    PanelLip.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.HatSection:
+                    LblB.Text = "顶宽 B";
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    LblLip.Text = "外翻边 C";
+                    PanelLip.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.ZBeam:
+                case SectionShapeType.ColdFormedU:
+                    LblTw.Text = "壁厚 t";
+                    LblTf.Text = "翼缘厚 tf";
+                    break;
+
+                case SectionShapeType.SquareTube:
+                    LblH.Text = "边长 H";
+                    LblTw.Text = "壁厚 t";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.RectTube:
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.PipeTube:
+                    LblH.Text = "外径 D";
+                    LblTw.Text = "壁厚 t";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.FlatBar:
+                    LblH.Text = "板宽 H";
+                    LblB.Text = "板厚 t";
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.RoundBar:
+                    LblH.Text = "直径 D";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.SquareBar:
+                    LblH.Text = "边长 a";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+            }
+        }
+
+        private void OnParamInputChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            UpdateLivePreview();
+        }
+
+        private bool TryBuildProfileFromForm(out SectionProfile profile, bool requireName)
+        {
+            profile = null;
+            string name = TxtName.Text?.Trim();
+            if (requireName && string.IsNullOrEmpty(name))
+                return false;
+
+            SectionShapeType shape = GetSelectedEditShapeType();
+            if (!TryParseVal(TxtH.Text, out double h) || h <= 0)
+                return false;
+
+            double b = h;
+            if (PanelB.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtB.Text, out b) || b <= 0) return false;
+            }
+
+            double tw = b;
+            if (PanelTw.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTw.Text, out tw) || tw <= 0) return false;
+            }
+
+            double tf = tw;
+            if (PanelTf.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTf.Text, out tf) || tf <= 0) return false;
+            }
+
+            double b2 = 0.0, tf2 = 0.0, lip = 0.0, gap = 0.0;
+            if (PanelB2.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtB2.Text, out b2) || b2 <= 0) return false;
+            }
+            if (PanelTf2.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTf2.Text, out tf2) || tf2 <= 0) return false;
+            }
+            if (PanelLip.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtLip.Text, out lip) || lip < 0) return false;
+            }
+            if (PanelGap.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtGap.Text, out gap) || gap < 0) return false;
+            }
+
+            profile = new SectionProfile(
+                string.IsNullOrEmpty(name) ? "PREVIEW" : name,
+                shape, h, b, tw, tf, b2, tf2, lip, gap);
+            return true;
+        }
+
+        private void UpdateLivePreview()
+        {
+            if (PreviewControl == null || TxtLiveMetrics == null) return;
+            if (TryBuildProfileFromForm(out SectionProfile sec, requireName: false))
+            {
+                PreviewControl.Profile = sec;
+                TxtLiveMetrics.Text = $"理论截面积: {sec.AreaCm2:0.00} cm²    理论单重: {sec.UnitWeightKgPerM:0.00} kg/m    表面积: {sec.PerimeterMPerM:0.000} m²/m";
+            }
+            else
+            {
+                TxtLiveMetrics.Text = "请输入有效的正数尺寸参数以实时预览截面";
+            }
+        }
+
+        private static bool TryParseVal(string text, out double val)
+        {
+            return double.TryParse(text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out val);
         }
 
         private void OnAddSectionClick(object sender, RoutedEventArgs e)
@@ -150,38 +471,48 @@ namespace SteelStructureSuite.Views
             if (string.IsNullOrEmpty(name))
             {
                 MessageBox.Show("请输入截面代号！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtName.Focus();
                 return;
             }
 
-            if (!double.TryParse(TxtH.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double h) ||
-                !double.TryParse(TxtB.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double b) ||
-                !double.TryParse(TxtTw.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double tw) ||
-                !double.TryParse(TxtTf.Text, NumberStyles.Float, CultureInfo.InvariantCulture, out double tf))
+            if (!TryBuildProfileFromForm(out SectionProfile profile, requireName: true))
             {
-                MessageBox.Show("截面尺寸必须为有效数值！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                MessageBox.Show("截面尺寸参数必须为有效数值！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            SectionShapeType shapeType = OrderedTypes[Math.Max(0, Math.Min(CmbType.SelectedIndex, OrderedTypes.Length - 1))];
-            SectionCatalogService.AddOrUpdate(new SectionProfile(name, shapeType, h, b, tw, tf));
+            SectionCatalogService.AddOrUpdate(profile);
+            string targetNodeKey = $"SHAPE_{(int)profile.Shape}";
+            RebuildCategoryTree(targetNodeKey);
+            RefreshTableAndSummary();
 
-            TabsSections.SelectedIndex = Array.IndexOf(OrderedTypes, shapeType);
-            RefreshAllTabGrids();
+            // 选中刚新增或更新的行
+            if (GridSections.ItemsSource is IEnumerable<SectionProfile> list)
+            {
+                var added = list.FirstOrDefault(x => string.Equals(x.Name, profile.Name, StringComparison.OrdinalIgnoreCase));
+                if (added != null)
+                {
+                    GridSections.SelectedItem = added;
+                    GridSections.ScrollIntoView(added);
+                }
+            }
         }
 
         private void OnDeleteSectionClick(object sender, RoutedEventArgs e)
         {
-            if (TabsSections.SelectedItem is TabItem item &&
-                item.Tag is SectionShapeType st &&
-                _gridsByType.TryGetValue(st, out DataGrid dg) &&
-                dg.SelectedItem is SectionProfile sel)
+            if (GridSections.SelectedItem is SectionProfile sel)
             {
-                SectionCatalogService.Remove(sel.Name);
-                RefreshAllTabGrids();
+                if (!SectionCatalogService.Remove(sel.Name))
+                {
+                    MessageBox.Show("该截面类型至少需保留 1 条默认规格，无法删除最后一条。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
+                RefreshTableAndSummary();
             }
             else
             {
-                MessageBox.Show("请先选中要删除的规格行。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show("请先在表格中选中要删除的规格行。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 
@@ -189,9 +520,9 @@ namespace SteelStructureSuite.Views
         {
             SaveFileDialog sfd = new SaveFileDialog
             {
-                Title = "导出 5 分表型钢截面库 (.xlsx)",
+                Title = "导出型钢截面库 (.xlsx)",
                 Filter = "Excel 工作簿 (*.xlsx)|*.xlsx",
-                FileName = $"国标型钢截面分表库_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
+                FileName = $"钢结构型钢截面库_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
             };
 
             if (sfd.ShowDialog() == true)
@@ -199,7 +530,7 @@ namespace SteelStructureSuite.Views
                 try
                 {
                     SectionCatalogService.ExportCatalogToXlsx(sfd.FileName);
-                    MessageBox.Show($"已导出 5 个分表工作表至：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"已按 5 大类工作表导出 Excel 至：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -214,7 +545,7 @@ namespace SteelStructureSuite.Views
             {
                 Title = "导出型钢截面库 (.csv)",
                 Filter = "CSV 文件 (*.csv)|*.csv",
-                FileName = $"国标型钢截面分表库_{DateTime.Now:yyyyMMdd_HHmm}.csv"
+                FileName = $"钢结构型钢截面库_{DateTime.Now:yyyyMMdd_HHmm}.csv"
             };
 
             if (sfd.ShowDialog() == true)
@@ -222,7 +553,7 @@ namespace SteelStructureSuite.Views
                 try
                 {
                     SectionCatalogService.ExportCatalogToCsv(sfd.FileName);
-                    MessageBox.Show($"已导出 CSV：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    MessageBox.Show($"已导出 CSV 至：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
                 {
@@ -244,7 +575,8 @@ namespace SteelStructureSuite.Views
                 try
                 {
                     int count = SectionCatalogService.ImportCatalogFromFile(ofd.FileName, replaceExisting: false);
-                    RefreshAllTabGrids();
+                    RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
+                    RefreshTableAndSummary();
                     MessageBox.Show($"已成功导入/更新 {count} 条截面规格！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
                 }
                 catch (Exception ex)
@@ -256,10 +588,11 @@ namespace SteelStructureSuite.Views
 
         private void OnResetDefaultClick(object sender, RoutedEventArgs e)
         {
-            if (MessageBox.Show("确定恢复默认国标截面库吗？", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
+            if (MessageBox.Show("确定恢复默认国标与工程截面库吗？当前自定义修改将被覆盖。", "确认", MessageBoxButton.YesNo, MessageBoxImage.Question) == MessageBoxResult.Yes)
             {
                 SectionCatalogService.ResetToDefaults();
-                RefreshAllTabGrids();
+                RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
+                RefreshTableAndSummary();
             }
         }
 
@@ -271,4 +604,3 @@ namespace SteelStructureSuite.Views
         }
     }
 }
-
