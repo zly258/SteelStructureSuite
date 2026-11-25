@@ -158,12 +158,12 @@
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="件号" Binding="{Binding PartNo, StringFormat=#{0}}" Width="56" MinWidth="50" />
-                            <DataGridTextColumn Header="构件部位" Binding="{Binding PartRole}" Width="1.15*" MinWidth="110" />
-                            <DataGridTextColumn Header="截面规格" Binding="{Binding SectionName}" Width="1.35*" MinWidth="130" />
-                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" Width="56" MinWidth="50" />
-                            <DataGridTextColumn Header="单长(mm)" Binding="{Binding SingleLengthMm, StringFormat=0}" Width="84" MinWidth="75" />
-                            <DataGridTextColumn Header="小计重(kg)" Binding="{Binding TotalWeightKg, StringFormat=0.00}" Width="88" MinWidth="80" />
+                            <DataGridTextColumn Header="件号" Binding="{Binding PartNo, StringFormat=#{0}}" Width="56" MinWidth="50" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="构件部位" Binding="{Binding PartRole}" Width="1.15*" MinWidth="110" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="截面规格" Binding="{Binding SectionName}" Width="1.35*" MinWidth="130" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" Width="56" MinWidth="50" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="单长(mm)" Binding="{Binding SingleLengthMm, StringFormat=0}" Width="84" MinWidth="75" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="小计重(kg)" Binding="{Binding TotalWeightKg, StringFormat=0.00}" Width="88" MinWidth="80" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>
             </Grid>

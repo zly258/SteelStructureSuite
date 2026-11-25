@@ -142,17 +142,17 @@
                           VerticalScrollBarVisibility="Auto"
                           SelectionChanged="OnGridSelectionChanged">
                     <DataGrid.Columns>
-                        <DataGridTextColumn Header="截面代号" Binding="{Binding Name}" Width="1.5*" MinWidth="135" />
-                        <DataGridTextColumn Header="所属类型" Binding="{Binding ShapeTypeDisplayName}" Width="1.15*" MinWidth="105" />
-                        <DataGridTextColumn Header="高度/外径 H" Binding="{Binding H, StringFormat=0.##}" Width="0.85*" MinWidth="82" />
-                        <DataGridTextColumn Header="宽度 B" Binding="{Binding B, StringFormat=0.##}" Width="0.75*" MinWidth="68" />
-                        <DataGridTextColumn Header="腹板/壁厚 tw" Binding="{Binding Tw, StringFormat=0.##}" Width="0.85*" MinWidth="85" />
-                        <DataGridTextColumn Header="翼缘厚 tf" Binding="{Binding Tf, StringFormat=0.##}" Width="0.75*" MinWidth="72" />
-                        <DataGridTextColumn Header="扩展参数" Binding="{Binding ExtraParamsSummary}" Width="1.1*" MinWidth="92" />
-                        <DataGridTextColumn Header="截面积 (cm²)" Binding="{Binding AreaCm2, StringFormat=0.00}" Width="0.9*" MinWidth="86" />
-                        <DataGridTextColumn Header="单重 (kg/m)" Binding="{Binding UnitWeightKgPerM, StringFormat=0.00}" Width="0.85*" MinWidth="82" />
-                        <DataGridTextColumn Header="表面积 (m²/m)" Binding="{Binding PerimeterMPerM, StringFormat=0.000}" Width="0.9*" MinWidth="88" />
-                        <DataGridTextColumn Header="数据来源" Binding="{Binding PropertySourceDisplayName}" Width="0.85*" MinWidth="78" />
+                        <DataGridTextColumn Header="截面代号" Binding="{Binding Name}" Width="1.5*" MinWidth="135" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="所属类型" Binding="{Binding ShapeTypeDisplayName}" Width="1.15*" MinWidth="105" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="高度/外径 H" Binding="{Binding H, StringFormat=0.##}" Width="0.85*" MinWidth="82" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="宽度 B" Binding="{Binding B, StringFormat=0.##}" Width="0.75*" MinWidth="68" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="腹板/壁厚 tw" Binding="{Binding Tw, StringFormat=0.##}" Width="0.85*" MinWidth="85" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="翼缘厚 tf" Binding="{Binding Tf, StringFormat=0.##}" Width="0.75*" MinWidth="72" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="扩展参数" Binding="{Binding ExtraParamsSummary}" Width="1.1*" MinWidth="92" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="截面积 (cm²)" Binding="{Binding AreaCm2, StringFormat=0.00}" Width="0.9*" MinWidth="86" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="单重 (kg/m)" Binding="{Binding UnitWeightKgPerM, StringFormat=0.00}" Width="0.85*" MinWidth="82" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="表面积 (m²/m)" Binding="{Binding PerimeterMPerM, StringFormat=0.000}" Width="0.9*" MinWidth="88" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                        <DataGridTextColumn Header="数据来源" Binding="{Binding PropertySourceDisplayName}" Width="0.85*" MinWidth="78" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
                     </DataGrid.Columns>
                 </DataGrid>
             </Grid>

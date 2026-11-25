@@ -130,9 +130,9 @@
                               VerticalScrollBarVisibility="Auto"
                               CellEditEnding="OnPrefixCellEditEnding">
                         <DataGrid.Columns>
-                            <DataGridTextColumn Header="构件类型" Binding="{Binding TypeName}" IsReadOnly="True" Width="1.45*" MinWidth="120" />
-                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" IsReadOnly="True" Width="48" MinWidth="44" />
-                            <DataGridTextColumn Header="前缀" Binding="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="0.75*" MinWidth="64" />
+                            <DataGridTextColumn Header="构件类型" Binding="{Binding TypeName}" IsReadOnly="True" Width="1.45*" MinWidth="120" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="数量" Binding="{Binding Count}" IsReadOnly="True" Width="48" MinWidth="44" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="前缀" Binding="{Binding Prefix, UpdateSourceTrigger=PropertyChanged}" IsReadOnly="False" Width="0.75*" MinWidth="64" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
@@ -186,13 +186,13 @@
                               HorizontalScrollBarVisibility="Auto"
                               VerticalScrollBarVisibility="Auto">
                         <DataGrid.Columns>
-                            <DataGridCheckBoxColumn Header="应用" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="52" MinWidth="48" />
-                            <DataGridTextColumn Header="构件类型" Binding="{Binding TypeName}" IsReadOnly="True" Width="1.15*" MinWidth="115" />
-                            <DataGridTextColumn Header="原位号" Binding="{Binding OldTag}" IsReadOnly="True" Width="0.9*" MinWidth="82" />
-                            <DataGridTextColumn Header="新位号" Binding="{Binding NewTag}" IsReadOnly="True" Width="0.95*" MinWidth="86" />
-                            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" IsReadOnly="True" Width="105" MinWidth="92" />
-                            <DataGridTextColumn Header="主截面" Binding="{Binding MainSection}" IsReadOnly="True" Width="1.0*" MinWidth="95" />
-                            <DataGridTextColumn Header="坐标(X,Y,Z)" Binding="{Binding PositionStr}" IsReadOnly="True" Width="1.1*" MinWidth="110" />
+                            <DataGridCheckBoxColumn Header="应用" Binding="{Binding IsSelected, UpdateSourceTrigger=PropertyChanged}" Width="52" MinWidth="48" ElementStyle="{StaticResource DataGridCheck.Cell}" EditingElementStyle="{StaticResource DataGridCheck.Cell}"/>
+                            <DataGridTextColumn Header="构件类型" Binding="{Binding TypeName}" IsReadOnly="True" Width="1.15*" MinWidth="115" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="原位号" Binding="{Binding OldTag}" IsReadOnly="True" Width="0.9*" MinWidth="82" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="新位号" Binding="{Binding NewTag}" IsReadOnly="True" Width="0.95*" MinWidth="86" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="状态" Binding="{Binding StatusText}" IsReadOnly="True" Width="105" MinWidth="92" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="主截面" Binding="{Binding MainSection}" IsReadOnly="True" Width="1.0*" MinWidth="95" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
+                            <DataGridTextColumn Header="坐标(X,Y,Z)" Binding="{Binding PositionStr}" IsReadOnly="True" Width="1.1*" MinWidth="110" ElementStyle="{StaticResource DataGridText.Cell}" EditingElementStyle="{StaticResource DataGridText.EditingCell}"/>
                         </DataGrid.Columns>
                     </DataGrid>
                 </Grid>
