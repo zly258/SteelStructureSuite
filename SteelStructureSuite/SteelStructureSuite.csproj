@@ -60,6 +60,7 @@
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <Compile Include="Services\Modeling\SectionSolidBuilder.cs" />
+    <Compile Include="Services\Modeling\SteelJointService.cs" />
     <Compile Include="Services\Modeling\CurveSweepService.cs" />
     <Compile Include="Services\Modeling\SteelStructureBuilder.cs" />
     <Compile Include="Services\Modeling\SteelDataStorage.cs" />
