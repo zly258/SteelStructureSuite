@@ -2,6 +2,7 @@
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:SteelStructureSuite.Views.Controls"
+        xmlns:winforms="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="型钢截面库管理"
         Width="1180"
         Height="820"
@@ -179,170 +180,34 @@
                 </Grid>
             </Border>
 
-            <!-- 右：参数编辑（分组标题 + 缩进；每行两组「标签 + 控件」，整体高度紧凑） -->
+            <!-- 右：参数编辑（WinForms PropertyGrid，按截面类型动态分组显示） -->
             <Border Grid.Column="2" Style="{StaticResource Panel.Card}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
+
                     <Border Grid.Row="0" Style="{StaticResource Panel.Header}">
                         <TextBlock Text="新增 / 更新截面参数" FontWeight="SemiBold" />
                     </Border>
 
-                    <ScrollViewer Grid.Row="1"
-                                  VerticalScrollBarVisibility="Auto"
-                                  HorizontalScrollBarVisibility="Disabled">
-                        <StackPanel Margin="10,6,12,8" Grid.IsSharedSizeScope="True">
+                    <winforms:WindowsFormsHost Grid.Row="1" x:Name="PropertyHost" Margin="4" />
 
-                            <!-- 分组：基本标识 -->
-                            <TextBlock Text="基本标识" Style="{StaticResource Text.GroupHeader}" />
-                            <Grid Margin="12,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
-                                    <ColumnDefinition Width="*" MinWidth="96" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
-                                    <ColumnDefinition Width="*" MinWidth="96" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="截面类型" VerticalAlignment="Center" />
-                                <ComboBox x:Name="CmbType" Grid.Row="0" Grid.Column="1" SelectionChanged="OnEditTypeChanged" />
-
-                                <TextBlock Grid.Row="0" Grid.Column="3" Text="截面代号" VerticalAlignment="Center" />
-                                <TextBox x:Name="TxtName" Grid.Row="0" Grid.Column="4" Text="HW200x200x8x12" ToolTip="自定义或国标截面代号，如 HW200x200x8x12、C160x60x20x2.5" />
-                            </Grid>
-
-                            <!-- 分组：几何尺寸 (mm)，仅显示当前截面所需字段；每行两组「标签 + 控件」 -->
-                            <TextBlock Text="几何尺寸 (mm)" Style="{StaticResource Text.GroupHeader}" />
-                            <Grid Margin="12,0,0,8">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="*" MinWidth="170" />
-                                    <ColumnDefinition Width="18" />
-                                    <ColumnDefinition Width="*" MinWidth="170" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <Grid x:Name="PanelH" Grid.Row="0" Grid.Column="0" Grid.ColumnSpan="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblH" Text="高度 H" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtH" Grid.Column="1" Text="200" ToolTip="截面高度或外径，单位 mm" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelB" Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="2">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblB" Text="宽度 B" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtB" Grid.Column="1" Text="200" ToolTip="截面宽度或上翼缘宽，单位 mm" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelTw" Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblTw" Text="腹板 tw" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtTw" Grid.Column="1" Text="8" ToolTip="腹板厚或管壁厚，单位 mm" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelTf" Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblTf" Text="翼缘 tf" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtTf" Grid.Column="1" Text="12" ToolTip="翼缘厚度或上翼缘厚，单位 mm" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelB2" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="下翼缘宽 B2" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtB2" Grid.Column="1" Text="240" ToolTip="不等翼缘焊接H型钢下翼缘宽度 (mm)" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelTf2" Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="下翼缘厚 tf2" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtTf2" Grid.Column="1" Text="16" ToolTip="不等翼缘焊接H型钢下翼缘厚度 (mm)" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelLip" Grid.Row="3" Grid.Column="0" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock x:Name="LblLip" Text="卷边高度 C" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtLip" Grid.Column="1" Text="20" ToolTip="冷弯卷边高度或帽型钢外翻边宽 (mm)" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                                <Grid x:Name="PanelGap" Grid.Row="3" Grid.Column="2" Grid.ColumnSpan="2" Visibility="Collapsed" Margin="0,6,0,0">
-                                    <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="82" />
-                                        <ColumnDefinition Width="*" />
-                                    </Grid.ColumnDefinitions>
-                                    <TextBlock Text="双拼间隙 Gap" VerticalAlignment="Center" />
-                                    <TextBox x:Name="TxtGap" Grid.Column="1" Text="10" ToolTip="双拼截面中间节点板间隙 (mm)" TextChanged="OnParamInputChanged" />
-                                </Grid>
-
-                            </Grid>
-
-                            <!-- 分组：物理特性（支持国标手册值/手工修正，或一键按公式重算） -->
-                            <TextBlock Text="物理特性" Style="{StaticResource Text.GroupHeader}" />
-                            <Grid Margin="12,0,0,0">
-                                <Grid.ColumnDefinitions>
-                                    <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
-                                    <ColumnDefinition Width="*" MinWidth="96" />
-                                    <ColumnDefinition Width="16" />
-                                    <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
-                                    <ColumnDefinition Width="*" MinWidth="96" />
-                                </Grid.ColumnDefinitions>
-                                <Grid.RowDefinitions>
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                    <RowDefinition Height="Auto" />
-                                </Grid.RowDefinitions>
-
-                                <TextBlock Grid.Row="0" Grid.Column="0" Text="截面积 (cm²)" VerticalAlignment="Center" />
-                                <TextBox x:Name="TxtArea" Grid.Row="0" Grid.Column="1" ToolTip="可直接修改为国标手册值；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
-
-                                <TextBlock Grid.Row="0" Grid.Column="3" Text="理论单重 (kg/m)" VerticalAlignment="Center" />
-                                <TextBox x:Name="TxtWeight" Grid.Row="0" Grid.Column="4" ToolTip="可直接修改为国标手册米重；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
-
-                                <TextBlock Grid.Row="1" Grid.Column="0" Text="表面积 (m²/m)" VerticalAlignment="Center" Margin="0,6,0,0" />
-                                <TextBox x:Name="TxtSurface" Grid.Row="1" Grid.Column="1" ToolTip="可直接修改为国标手册表面积；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" Margin="0,6,0,0" />
-
-                                <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
-                                            Orientation="Horizontal"
-                                            Margin="0,8,0,0">
-                                    <Border Style="{StaticResource Panel.Badge}">
-                                        <TextBlock x:Name="TxtMetricSource" Text="公式计算" />
-                                    </Border>
-                                    <Button Content="按公式重算"
-                                            ToolTip="清除手册/自定义覆盖值，按当前几何尺寸公式重新计算"
-                                            Margin="10,0,0,0"
-                                            Click="OnRecalcMetricsClick" />
-                                </StackPanel>
-                            </Grid>
+                    <Border Grid.Row="2"
+                            Style="{StaticResource Panel.Header}"
+                            BorderThickness="0,1,0,0">
+                        <StackPanel Orientation="Horizontal">
+                            <Border Style="{StaticResource Panel.Badge}">
+                                <TextBlock x:Name="TxtMetricSource" Text="公式计算" />
+                            </Border>
+                            <Button Content="按公式重算"
+                                    ToolTip="清除手册/自定义覆盖值，按当前几何尺寸公式重新计算"
+                                    Margin="10,0,0,0"
+                                    Click="OnRecalcMetricsClick" />
                         </StackPanel>
-                    </ScrollViewer>
+                    </Border>
                 </Grid>
             </Border>
         </Grid>

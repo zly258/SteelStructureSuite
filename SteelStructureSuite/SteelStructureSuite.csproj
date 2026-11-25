@@ -81,6 +81,7 @@
     <!-- 6. Views (WPF XAML 界面与自定义示意图控件) -->
     <Compile Include="Views\Controls\StructureSchematicControl.cs" />
     <Compile Include="Views\Controls\SectionPreviewControl.cs" />
+    <Compile Include="Views\Controls\SectionParameterModel.cs" />
     <Page Include="Views\Controls\SectionPickerControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
