@@ -9,23 +9,18 @@
         MinHeight="480"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
+
     <!-- layout-check: allow-fixed-window-height（型钢库树与表格需要固定视口，数据区独立滚动） -->
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -35,7 +30,7 @@
         </Grid.RowDefinitions>
 
         <!-- Zone 1: 页头汇总与全局库操作 -->
-        <Border Grid.Row="0" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
+        <Border Grid.Row="0" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -43,16 +38,15 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock x:Name="TxtSummary"
                            Grid.Column="0"
-                           Style="{StaticResource Text.Title}"
                            FontWeight="SemiBold"
                            VerticalAlignment="Center"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                    <Button Content="导入" ToolTip="从 Excel (.xlsx) 或 CSV 导入截面" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnImportClick" />
-                    <Button Content="导出 Excel" ToolTip="按 5 大类分工作表导出 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportXlsxClick" />
-                    <Button Content="导出 CSV" ToolTip="导出全部截面为 CSV" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportCsvClick" />
-                    <Button Content="恢复默认库" ToolTip="重置为内置国标与工程截面库" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Click="OnResetDefaultClick" />
+                    <Button Content="导入" ToolTip="从 Excel (.xlsx) 或 CSV 导入截面" Margin="0,0,8,0" Click="OnImportClick" />
+                    <Button Content="导出 Excel" ToolTip="按 5 大类分工作表导出 Excel" Margin="0,0,8,0" Click="OnExportXlsxClick" />
+                    <Button Content="导出 CSV" ToolTip="导出全部截面为 CSV" Margin="0,0,8,0" Click="OnExportCsvClick" />
+                    <Button Content="恢复默认库" ToolTip="重置为内置国标与工程截面库" Click="OnResetDefaultClick" />
                 </StackPanel>
             </Grid>
         </Border>
@@ -65,28 +59,26 @@
                 <ColumnDefinition Width="*" MinWidth="500" />
             </Grid.ColumnDefinitions>
 
-            <!-- 左侧分类树 -->
+            <!-- 左侧分类树：外框 1px 描边 + 标题栏分隔线，树本身不再重复描边 -->
             <Border Grid.Column="0"
-                    Background="{StaticResource Brush.Surface}"
-                    BorderBrush="{StaticResource Brush.Border}"
+                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
                     BorderThickness="1"
-                    CornerRadius="{StaticResource Radius.Card}">
+                    SnapsToDevicePixels="True">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
                     <Border Grid.Row="0"
-                            Background="{StaticResource Brush.SurfaceAlt}"
-                            BorderBrush="{StaticResource Brush.Border}"
+                            Background="{x:Static SystemColors.ControlBrush}"
+                            BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
                             BorderThickness="0,0,0,1"
                             Padding="10,6">
-                        <TextBlock Text="截面分类树" Style="{StaticResource Text.Section}" FontWeight="SemiBold" />
+                        <TextBlock Text="截面分类树" FontWeight="SemiBold" />
                     </Border>
                     <TreeView x:Name="TreeCategories"
                               Grid.Row="1"
                               BorderThickness="0"
-                              Background="{StaticResource Brush.Surface}"
                               SelectedItemChanged="OnTreeCategorySelected" />
                 </Grid>
             </Border>
@@ -106,7 +98,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- 范围筛选栏 -->
-                <Border Grid.Row="0" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
+                <Border Grid.Row="0" Margin="0,0,0,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -121,12 +113,10 @@
                         <TextBlock x:Name="TxtCurrentCategory"
                                    Grid.Column="0"
                                    Text="全部截面"
-                                   Style="{StaticResource Text.Section}"
                                    FontWeight="SemiBold"
                                    VerticalAlignment="Center" />
                         <TextBlock Grid.Column="2"
                                    Text="筛选"
-                                   Style="{StaticResource Text.FieldLabel}"
                                    VerticalAlignment="Center"
                                    Margin="0,0,6,0" />
                         <TextBox x:Name="TxtSearch"
@@ -135,17 +125,12 @@
                                  TextChanged="OnSearchTextChanged" />
                         <Button Grid.Column="5"
                                 Content="清除"
-                                MinWidth="{StaticResource Layout.ButtonMinWidth.Small}"
                                 Click="OnClearSearchClick" />
                         <Border Grid.Column="7"
-                                Background="{StaticResource Brush.Accent.Subtle}"
-                                CornerRadius="{StaticResource Radius.Pill}"
                                 Padding="8,3"
                                 VerticalAlignment="Center">
                             <TextBlock x:Name="TxtFilteredCount"
-                                       Text="0 项"
-                                       Foreground="{StaticResource Brush.Accent}"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                       Text="0 项" />
                         </Border>
                     </Grid>
                 </Border>
@@ -203,48 +188,48 @@
                             <ColumnDefinition Width="10" />
                             <ColumnDefinition Width="1.4*" MinWidth="200" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
-                            <TextBlock Text="截面类型" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="截面类型" />
                             <ComboBox x:Name="CmbType" SelectionChanged="OnEditTypeChanged" />
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
-                            <TextBlock Text="截面代号" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="截面代号" />
                             <TextBox x:Name="TxtName" Text="HW200x200x8x12" ToolTip="自定义或国标截面代号，如 HW200x200x8x12、C160x60x20x2.5" />
                         </StackPanel>
                     </Grid>
 
                     <!-- 第 2 行：几何尺寸 (mm)，仅显示当前截面所需字段 -->
                     <WrapPanel Grid.Row="2" Orientation="Horizontal">
-                        <StackPanel x:Name="PanelH" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
-                            <TextBlock x:Name="LblH" Text="高度 H" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelH" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblH" Text="高度 H" />
                             <TextBox x:Name="TxtH" Text="200" ToolTip="截面高度或外径，单位 mm" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelB" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
-                            <TextBlock x:Name="LblB" Text="宽度 B" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelB" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblB" Text="宽度 B" />
                             <TextBox x:Name="TxtB" Text="200" ToolTip="截面宽度或上翼缘宽，单位 mm" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelTw" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
-                            <TextBlock x:Name="LblTw" Text="腹板 tw" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelTw" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblTw" Text="腹板 tw" />
                             <TextBox x:Name="TxtTw" Text="8" ToolTip="腹板厚或管壁厚，单位 mm" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelTf" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0">
-                            <TextBlock x:Name="LblTf" Text="翼缘 tf" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelTf" Width="108" Margin="0,0,8,0">
+                            <TextBlock x:Name="LblTf" Text="翼缘 tf" />
                             <TextBox x:Name="TxtTf" Text="12" ToolTip="翼缘厚度或上翼缘厚，单位 mm" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelB2" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
-                            <TextBlock Text="下翼缘宽 B2" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelB2" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="下翼缘宽 B2" />
                             <TextBox x:Name="TxtB2" Text="240" ToolTip="不等翼缘焊接H型钢下翼缘宽度 (mm)" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelTf2" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
-                            <TextBlock Text="下翼缘厚 tf2" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelTf2" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="下翼缘厚 tf2" />
                             <TextBox x:Name="TxtTf2" Text="16" ToolTip="不等翼缘焊接H型钢下翼缘厚度 (mm)" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelLip" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
-                            <TextBlock x:Name="LblLip" Text="卷边高度 C" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelLip" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock x:Name="LblLip" Text="卷边高度 C" />
                             <TextBox x:Name="TxtLip" Text="20" ToolTip="冷弯卷边高度或帽型钢外翻边宽 (mm)" TextChanged="OnParamInputChanged" />
                         </StackPanel>
-                        <StackPanel x:Name="PanelGap" Style="{StaticResource FormStack}" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
-                            <TextBlock Text="双拼间隙 Gap" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel x:Name="PanelGap" Width="108" Margin="0,0,8,0" Visibility="Collapsed">
+                            <TextBlock Text="双拼间隙 Gap" />
                             <TextBox x:Name="TxtGap" Text="10" ToolTip="双拼截面中间节点板间隙 (mm)" TextChanged="OnParamInputChanged" />
                         </StackPanel>
                     </WrapPanel>
@@ -262,35 +247,29 @@
                             <ColumnDefinition Width="8" />
                             <ColumnDefinition Width="Auto" />
                         </Grid.ColumnDefinitions>
-                        <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
-                            <TextBlock Text="截面积 (cm²)" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel Grid.Column="0">
+                            <TextBlock Text="截面积 (cm²)" />
                             <TextBox x:Name="TxtArea" ToolTip="可直接修改为国标手册值；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
                         </StackPanel>
-                        <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
-                            <TextBlock Text="理论单重 (kg/m)" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel Grid.Column="2">
+                            <TextBlock Text="理论单重 (kg/m)" />
                             <TextBox x:Name="TxtWeight" ToolTip="可直接修改为国标手册米重；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
                         </StackPanel>
-                        <StackPanel Grid.Column="4" Style="{StaticResource FormStack}">
-                            <TextBlock Text="表面积 (m²/m)" Style="{StaticResource Text.FieldLabel}" />
+                        <StackPanel Grid.Column="4">
+                            <TextBlock Text="表面积 (m²/m)" />
                             <TextBox x:Name="TxtSurface" ToolTip="可直接修改为国标手册表面积；留空或点右侧重算则按几何公式计算" TextChanged="OnManualMetricChanged" />
                         </StackPanel>
                         <Border Grid.Column="6"
-                                Background="{StaticResource Brush.SurfaceAlt}"
-                                BorderBrush="{StaticResource Brush.Border}"
                                 BorderThickness="1"
-                                CornerRadius="{StaticResource Radius.Pill}"
                                 Padding="8,4"
                                 VerticalAlignment="Bottom"
                                 Margin="0,0,0,2">
                             <TextBlock x:Name="TxtMetricSource"
-                                       Text="公式计算"
-                                       Foreground="{StaticResource Brush.Text.Secondary}"
-                                       FontSize="{DynamicResource FontSize.Caption}" />
+                                       Text="公式计算" />
                         </Border>
                         <Button Grid.Column="8"
                                 Content="按公式重算"
                                 ToolTip="清除手册/自定义覆盖值，按当前几何尺寸公式重新计算"
-                                MinWidth="{StaticResource Layout.ButtonMinWidth}"
                                 VerticalAlignment="Bottom"
                                 Click="OnRecalcMetricsClick" />
                     </Grid>
@@ -304,10 +283,7 @@
 
         <!-- Zone 3.8: 数据存储路径与格式说明（独占底部操作栏上方一行） -->
         <Border Grid.Row="3"
-                Background="{StaticResource Brush.SurfaceAlt}"
-                BorderBrush="{StaticResource Brush.Border}"
                 BorderThickness="1"
-                CornerRadius="{StaticResource Radius.Card}"
                 Padding="10,4"
                 Margin="0,0,0,8">
             <Grid>
@@ -319,14 +295,11 @@
                 <TextBlock x:Name="TxtStorageInfo"
                            Grid.Column="0"
                            VerticalAlignment="Center"
-                           Foreground="{StaticResource Brush.Text.Secondary}"
-                           FontSize="{DynamicResource FontSize.Caption}"
                            TextTrimming="CharacterEllipsis"
                            ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <Button Grid.Column="2"
                         Content="打开目录"
                         ToolTip="在文件资源管理器中定位本地截面库 CSV 文件"
-                        MinWidth="{StaticResource Layout.ButtonMinWidth.Small}"
                         Click="OnOpenStorageFolderClick" />
             </Grid>
         </Border>
@@ -339,10 +312,10 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Button Content="新增 / 更新" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnAddSectionClick" />
-                <Button x:Name="BtnDelete" Content="删除选中项" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" IsEnabled="False" Click="OnDeleteSectionClick" />
+                <Button Content="新增 / 更新" Margin="0,0,8,0" Click="OnAddSectionClick" />
+                <Button x:Name="BtnDelete" Content="删除选中项" IsEnabled="False" Click="OnDeleteSectionClick" />
             </StackPanel>
-            <Button Grid.Column="2" Content="保存并关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" IsDefault="True" Click="OnSaveCloseClick" />
+            <Button Grid.Column="2" Content="保存并关闭" IsDefault="True" Click="OnSaveCloseClick" />
         </Grid>
     </Grid>
 </Window>

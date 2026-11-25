@@ -8,23 +8,18 @@
         MinHeight="460"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
+
     <!-- layout-check: allow-fixed-window-height（顺号对比预览表格需要固定视口，数据区独立滚动） -->
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -49,8 +44,8 @@
                     <ColumnDefinition Width="1.1*" MinWidth="125" />
                 </Grid.ColumnDefinitions>
 
-                <StackPanel Grid.Column="0" Style="{StaticResource FormStack}">
-                    <TextBlock Text="处理策略" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="0">
+                    <TextBlock Text="处理策略" />
                     <ComboBox x:Name="CmbActionMode" SelectionChanged="OnRuleOptionChanged">
                         <ComboBoxItem Content="强制统一前缀并顺号" Tag="ForcePrefixAndRenumber" IsSelected="True" />
                         <ComboBoxItem Content="仅强制统一前缀(保原号)" Tag="ForcePrefixOnly" />
@@ -58,8 +53,8 @@
                     </ComboBox>
                 </StackPanel>
 
-                <StackPanel Grid.Column="2" Style="{StaticResource FormStack}">
-                    <TextBlock Text="编号位数" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="2">
+                    <TextBlock Text="编号位数" />
                     <ComboBox x:Name="CmbDigits" SelectionChanged="OnRuleOptionChanged">
                         <ComboBoxItem Content="2 位 (01)" Tag="2" />
                         <ComboBoxItem Content="3 位 (001)" Tag="3" IsSelected="True" />
@@ -68,13 +63,13 @@
                     </ComboBox>
                 </StackPanel>
 
-                <StackPanel Grid.Column="4" Style="{StaticResource FormStack}">
-                    <TextBlock Text="起始号" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="4">
+                    <TextBlock Text="起始号" />
                     <TextBox x:Name="TxtStartNumber" Text="1" ToolTip="顺号起始数字，默认为 1" TextChanged="OnRuleTextChanged" />
                 </StackPanel>
 
-                <StackPanel Grid.Column="6" Style="{StaticResource FormStack}">
-                    <TextBlock Text="连接符" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="6">
+                    <TextBlock Text="连接符" />
                     <ComboBox x:Name="CmbSeparator" SelectionChanged="OnRuleOptionChanged">
                         <ComboBoxItem Content="- (PF-001)" Tag="-" IsSelected="True" />
                         <ComboBoxItem Content="_ (PF_001)" Tag="_" />
@@ -82,16 +77,16 @@
                     </ComboBox>
                 </StackPanel>
 
-                <StackPanel Grid.Column="8" Style="{StaticResource FormStack}">
-                    <TextBlock Text="编号范围" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="8">
+                    <TextBlock Text="编号范围" />
                     <ComboBox x:Name="CmbNumberingMode" SelectionChanged="OnRuleOptionChanged">
                         <ComboBoxItem Content="按类型分别顺号" Tag="ByType" IsSelected="True" />
                         <ComboBoxItem Content="全图统一顺号" Tag="Global" />
                     </ComboBox>
                 </StackPanel>
 
-                <StackPanel Grid.Column="10" Style="{StaticResource FormStack}">
-                    <TextBlock Text="同组排序" Style="{StaticResource Text.FieldLabel}" />
+                <StackPanel Grid.Column="10">
+                    <TextBlock Text="同组排序" />
                     <ComboBox x:Name="CmbSortOrder" SelectionChanged="OnRuleOptionChanged">
                         <ComboBoxItem Content="坐标 X → Y → Z" Tag="XYZ" IsSelected="True" />
                         <ComboBoxItem Content="坐标 Y → X → Z" Tag="YXZ" />
@@ -153,7 +148,7 @@
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <Border Grid.Row="0" Style="{StaticResource ToolStrip}" Margin="0,0,0,6">
+                    <Border Grid.Row="0" Margin="0,0,0,6">
                         <Grid>
                             <Grid.ColumnDefinitions>
                                 <ColumnDefinition Width="Auto" />
@@ -161,20 +156,16 @@
                                 <ColumnDefinition Width="Auto" />
                             </Grid.ColumnDefinitions>
                             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                                <Button Content="全选" MinWidth="{StaticResource Layout.ButtonMinWidth.Small}" Margin="0,0,6,0" Click="OnSelectAllClick" />
-                                <Button Content="仅选有变化" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,6,0" Click="OnSelectChangedOnlyClick" />
-                                <Button Content="仅选前缀不符" ToolTip="只勾选当前位号前缀与配置前缀不一致的构件" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,6,0" Click="OnSelectPrefixMismatchClick" />
-                                <Button Content="取消全选" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnSelectNoneClick" />
+                                <Button Content="全选" Margin="0,0,6,0" Click="OnSelectAllClick" />
+                                <Button Content="仅选有变化" Margin="0,0,6,0" Click="OnSelectChangedOnlyClick" />
+                                <Button Content="仅选前缀不符" ToolTip="只勾选当前位号前缀与配置前缀不一致的构件" Margin="0,0,6,0" Click="OnSelectPrefixMismatchClick" />
+                                <Button Content="取消全选" Click="OnSelectNoneClick" />
                             </StackPanel>
                             <Border Grid.Column="2"
-                                    Background="{StaticResource Brush.Accent.Subtle}"
-                                    CornerRadius="{StaticResource Radius.Pill}"
                                     Padding="8,3"
                                     VerticalAlignment="Center">
                                 <TextBlock x:Name="TxtPreviewSummary"
-                                           Text="共 0 项，待更新 0 项"
-                                           Foreground="{StaticResource Brush.Accent}"
-                                           FontSize="{DynamicResource FontSize.Caption}" />
+                                           Text="共 0 项，待更新 0 项" />
                             </Border>
                         </Grid>
                     </Border>
@@ -204,15 +195,14 @@
 
         <TextBlock x:Name="TxtTip"
                    Grid.Row="2"
-                   Style="{StaticResource Text.Caption}"
                    Text="仅更新已勾选且位号发生变化的构件，不会改动构件三维几何尺寸与位置。"
                    Margin="0,0,0,8" />
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="恢复默认前缀" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnResetPrefixesClick" />
-            <Button Content="保存前缀预设" ToolTip="仅保存各类型前缀、位数与连接符设置（新建构件时也将自动采用）" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnSavePresetsOnlyClick" />
-            <Button Content="应用顺号" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" IsDefault="True" Margin="0,0,8,0" Click="OnApplyClick" />
-            <Button Content="取消" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCancelClick" />
+            <Button Content="恢复默认前缀" Margin="0,0,8,0" Click="OnResetPrefixesClick" />
+            <Button Content="保存前缀预设" ToolTip="仅保存各类型前缀、位数与连接符设置（新建构件时也将自动采用）" Margin="0,0,8,0" Click="OnSavePresetsOnlyClick" />
+            <Button Content="应用顺号" IsDefault="True" Margin="0,0,8,0" Click="OnApplyClick" />
+            <Button Content="取消" IsCancel="True" Click="OnCancelClick" />
         </StackPanel>
     </Grid>
 </Window>

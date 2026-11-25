@@ -9,22 +9,17 @@
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         ShowInTaskbar="False"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -35,30 +30,24 @@
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <Border Width="40" Height="40"
-                            Background="{StaticResource Brush.Accent}"
-                            CornerRadius="{StaticResource Radius.Card}"
                             VerticalAlignment="Center">
                         <TextBlock Text="SS"
-                                   Foreground="{StaticResource Brush.OnAccent}"
-                                   FontSize="{StaticResource FontSize.Display}"
                                    FontWeight="SemiBold"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                     </Border>
                     <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
                         <TextBlock Text="参数化钢结构套件"
-                                   FontSize="{StaticResource FontSize.Display}"
                                    FontWeight="SemiBold" />
                         <TextBlock Text="SteelStructureSuite for AutoCAD"
-                                   Style="{StaticResource Text.Caption}"
                                    Margin="0,2,0,0" />
                     </StackPanel>
                 </StackPanel>
 
                 <Grid Margin="0,12,0,0">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" />
-                        <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                        <ColumnDefinition Width="Auto" />
+                        <ColumnDefinition Width="*" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -68,35 +57,33 @@
                         <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" />
+                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" Style="{StaticResource Text.Label}" TextWrapping="Wrap" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" />
+                    <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" TextWrapping="Wrap" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8 / .NET 8.0" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" />
+                    <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8 / .NET 8.0" />
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="GNU GPL v3.0" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" />
+                    <TextBlock Grid.Row="3" Grid.Column="1" Text="GNU GPL v3.0" />
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" Style="{StaticResource Text.Label}" Foreground="{StaticResource Brush.Text.Secondary}" Margin="{StaticResource Layout.FormRowMargin}" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" Text="zhangly1403@qq.com" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" />
+                    <TextBlock Grid.Row="4" Grid.Column="1" Text="zhangly1403@qq.com" />
                 </Grid>
 
                 <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0">
-                    <TextBox x:Name="TxtLicenseSummary" Style="{StaticResource TextBox.Code}" MinHeight="120" />
+                    <TextBox x:Name="TxtLicenseSummary" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto" MaxHeight="240" MinHeight="120" />
                 </GroupBox>
             </StackPanel>
         </ScrollViewer>
 
-        <TextBlock x:Name="TxtCopyright" Grid.Row="1" Style="{StaticResource Text.Caption}" Margin="0,8,0,8" />
+        <TextBlock x:Name="TxtCopyright" Grid.Row="1" Margin="0,8,0,8" />
 
         <StackPanel Grid.Row="2" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="完整许可证" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnOpenLicenseClick" />
+            <Button Content="完整许可证" Margin="0,0,8,0" Click="OnOpenLicenseClick" />
             <Button Content="关闭"
-                    MinWidth="{StaticResource Layout.ButtonMinWidth}"
-                    Style="{StaticResource Button.Primary}"
                     IsDefault="True"
                     IsCancel="True"
                     Click="OnCloseClick" />

@@ -8,22 +8,17 @@
         MinHeight="420"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="Auto" />
@@ -31,12 +26,12 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <TextBlock x:Name="TxtBanner" Grid.Row="0" Style="{StaticResource Text.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+        <TextBlock x:Name="TxtBanner" Grid.Row="0" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
 
-        <Border Grid.Row="1" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
+        <Border Grid.Row="1" Margin="0,0,0,8">
             <StackPanel Orientation="Horizontal">
-                <Button Content="全图统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnAllScopeClick" />
-                <Button Content="框选统计" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnPickSelectionClick" />
+                <Button Content="全图统计" Margin="0,0,8,0" Click="OnAllScopeClick" />
+                <Button Content="框选统计" Click="OnPickSelectionClick" />
             </StackPanel>
         </Border>
 
@@ -89,10 +84,10 @@
         </TabControl>
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">
-            <Button Content="导出 Excel" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnExportExcelClick" />
-            <Button Content="插入汇总表" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnInsertSummaryClick" />
-            <Button Content="插入明细表" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnInsertDetailClick" />
-            <Button Content="关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCloseClick" />
+            <Button Content="导出 Excel" Margin="0,0,8,0" Click="OnExportExcelClick" />
+            <Button Content="插入汇总表" Margin="0,0,8,0" Click="OnInsertSummaryClick" />
+            <Button Content="插入明细表" Margin="0,0,8,0" Click="OnInsertDetailClick" />
+            <Button Content="关闭" IsCancel="True" Click="OnCloseClick" />
         </StackPanel>
     </Grid>
 </Window>

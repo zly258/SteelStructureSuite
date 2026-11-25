@@ -11,6 +11,7 @@ using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Modeling;
 using SteelStructureSuite.Services.Settings;
+using SteelStructureSuite.Views.Controls;
 
 namespace SteelStructureSuite.Views
 {
@@ -26,47 +27,6 @@ namespace SteelStructureSuite.Views
         private bool _isInitializing = true;
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
         private List<StructurePresetItem> _currentPresets = new List<StructurePresetItem>();
-
-        private sealed class SectionFilterOption
-        {
-            public string Key { get; set; }
-            public string DisplayText { get; set; }
-            public SectionCategory? Category { get; set; }
-            public SectionShapeType? ShapeType { get; set; }
-            public override string ToString() => DisplayText;
-        }
-
-        private readonly List<SectionFilterOption> _sectionFilterOptions = BuildSectionFilterOptions();
-
-        private static List<SectionFilterOption> BuildSectionFilterOptions()
-        {
-            var list = new List<SectionFilterOption>
-            {
-                new SectionFilterOption { Key = "ALL", DisplayText = "全部截面" }
-            };
-
-            foreach (SectionCategory cat in SectionCatalogService.OrderedCategories)
-            {
-                list.Add(new SectionFilterOption
-                {
-                    Key = $"CAT_{(int)cat}",
-                    DisplayText = $"【{SectionProfile.GetCategoryDisplayName(cat)}】",
-                    Category = cat
-                });
-
-                foreach (SectionShapeType st in SectionCatalogService.GetShapeTypesByCategory(cat))
-                {
-                    list.Add(new SectionFilterOption
-                    {
-                        Key = $"SHAPE_{(int)st}",
-                        DisplayText = $"  {SectionProfile.GetShapeDisplayName(st)}",
-                        ShapeType = st
-                    });
-                }
-            }
-
-            return list;
-        }
 
         public StructureEditWindow(
             SteelStructureParams initialParams,
@@ -124,17 +84,8 @@ namespace SteelStructureSuite.Views
                     : Data.Material ?? "Q355B";
             if (CmbMaterial.SelectedIndex < 0) CmbMaterial.SelectedIndex = 1;
 
-            foreach (SectionFilterOption opt in _sectionFilterOptions)
-            {
-                CmbColTypeFilter.Items.Add(opt);
-                CmbBeamTypeFilter.Items.Add(opt);
-                CmbBraceTypeFilter.Items.Add(opt);
-            }
             if (isEditMode)
             {
-                CmbColTypeFilter.SelectedIndex = 0;
-                CmbBeamTypeFilter.SelectedIndex = 0;
-                CmbBraceTypeFilter.SelectedIndex = 0;
                 SyncControlsFromData();
             }
             else
@@ -174,33 +125,42 @@ namespace SteelStructureSuite.Views
         /// <summary>只恢复当前构件类型自己记住的截面，没有记录时用该类型的初始预设。</summary>
         private void ApplyRememberedSections()
         {
-            ApplySectionChoice(CmbColTypeFilter, CmbColSec, "ColFilter", "ColSec", Data.ColumnSection, v => Data.ColumnSection = v);
-            ApplySectionChoice(CmbBeamTypeFilter, CmbBeamSec, "BeamFilter", "BeamSec", Data.BeamSection, v => Data.BeamSection = v);
-            ApplySectionChoice(CmbBraceTypeFilter, CmbBraceSec, "BraceFilter", "BraceSec", Data.BraceSection, v => Data.BraceSection = v);
+            ApplySectionChoice(ColTypePicker, ColSpecPicker, "ColSec", Data.ColumnSection, v => Data.ColumnSection = v);
+            ApplySectionChoice(BeamTypePicker, BeamSpecPicker, "BeamSec", Data.BeamSection, v => Data.BeamSection = v);
+            ApplySectionChoice(BraceTypePicker, BraceSpecPicker, "BraceSec", Data.BraceSection, v => Data.BraceSection = v);
             SyncControlsFromData();
         }
 
-        private void ApplySectionChoice(ComboBox filter, ComboBox combo, string filterPart, string sectionPart, string fallback, Action<string> assign)
+        private void ApplySectionChoice(SectionTypePickerControl typePicker, SectionPickerControl specPicker, string sectionPart, string fallback, Action<string> assign)
         {
             string saved = UserSettings.GetString(SectionSettingKey(sectionPart), null);
             bool savedOk = !string.IsNullOrEmpty(saved) && SectionCatalogService.GetAllNames().Contains(saved);
-            string savedFilterKey = savedOk ? UserSettings.GetString(SectionSettingKey(filterPart + "Key"), null) : null;
-            int filterIndex = 0;
-            if (!string.IsNullOrEmpty(savedFilterKey))
-            {
-                int found = _sectionFilterOptions.FindIndex(o => string.Equals(o.Key, savedFilterKey, StringComparison.OrdinalIgnoreCase));
-                if (found >= 0) filterIndex = found;
-            }
-            filter.SelectedIndex = filterIndex;
             string preferred = savedOk ? saved : fallback;
-            PopulateSectionCombo(combo, filter.SelectedItem as SectionFilterOption, preferred);
-            if (!string.Equals(combo.SelectedItem as string, preferred, StringComparison.Ordinal))
+            ApplySectionToPickers(typePicker, specPicker, preferred);
+            if (!string.IsNullOrEmpty(preferred)) assign(preferred);
+        }
+
+        /// <summary>按截面代号反推所属类型，同时同步“类型”下拉与“规格”下拉的筛选。</summary>
+        private static void ApplySectionToPickers(SectionTypePickerControl typePicker, SectionPickerControl specPicker, string sectionName)
+        {
+            SectionShapeType? shape = null;
+            if (!string.IsNullOrWhiteSpace(sectionName))
             {
-                filter.SelectedIndex = 0;
-                PopulateSectionCombo(combo, _sectionFilterOptions[0], string.IsNullOrEmpty(preferred) ? fallback : preferred);
+                SectionProfile profile = SectionCatalogService.GetByName(sectionName);
+                if (profile != null && string.Equals(profile.Name, sectionName, StringComparison.OrdinalIgnoreCase))
+                    shape = profile.Shape;
             }
-            string chosen = combo.SelectedItem as string;
-            if (!string.IsNullOrEmpty(chosen)) assign(chosen);
+
+            if (typePicker != null)
+            {
+                typePicker.SelectedShapeType = shape;
+                typePicker.SelectedCategory = shape.HasValue ? SectionProfile.GetCategory(shape.Value) : (SectionCategory?)null;
+            }
+            if (specPicker != null)
+            {
+                specPicker.FilterShapeType = shape;
+                specPicker.SelectedSectionName = sectionName;
+            }
         }
 
         private string SectionSettingKey(string part)
@@ -212,12 +172,9 @@ namespace SteelStructureSuite.Views
         private void SaveLastSettings()
         {
             UserSettings.SetString("Edit.Material", CmbMaterial.SelectedItem as string);
-            UserSettings.SetString(SectionSettingKey("ColFilterKey"), (CmbColTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
-            UserSettings.SetString(SectionSettingKey("BeamFilterKey"), (CmbBeamTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
-            UserSettings.SetString(SectionSettingKey("BraceFilterKey"), (CmbBraceTypeFilter.SelectedItem as SectionFilterOption)?.Key ?? "ALL");
-            UserSettings.SetString(SectionSettingKey("ColSec"), CmbColSec.SelectedItem as string);
-            UserSettings.SetString(SectionSettingKey("BeamSec"), CmbBeamSec.SelectedItem as string);
-            UserSettings.SetString(SectionSettingKey("BraceSec"), CmbBraceSec.SelectedItem as string);
+            UserSettings.SetString(SectionSettingKey("ColSec"), ColSpecPicker?.SelectedSectionName);
+            UserSettings.SetString(SectionSettingKey("BeamSec"), BeamSpecPicker?.SelectedSectionName);
+            UserSettings.SetString(SectionSettingKey("BraceSec"), BraceSpecPicker?.SelectedSectionName);
             UserSettings.Save();
         }
 
@@ -231,9 +188,9 @@ namespace SteelStructureSuite.Views
             TxtRotationDeg.Text = Data.RotationDeg.ToString("0.#", CultureInfo.InvariantCulture);
             TxtEndOffsetZ.Text = Data.EndPointOffsetZ.ToString("0.#", CultureInfo.InvariantCulture);
 
-            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedItem as SectionFilterOption, Data.ColumnSection);
-            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedItem as SectionFilterOption, Data.BeamSection);
-            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedItem as SectionFilterOption, Data.BraceSection);
+            ApplySectionToPickers(ColTypePicker, ColSpecPicker, Data.ColumnSection);
+            ApplySectionToPickers(BeamTypePicker, BeamSpecPicker, Data.BeamSection);
+            ApplySectionToPickers(BraceTypePicker, BraceSpecPicker, Data.BraceSection);
         }
 
         private void ReloadPresetsForCurrentType()
@@ -336,56 +293,40 @@ namespace SteelStructureSuite.Views
             input.Visibility = v;
         }
 
-        private static void SetSectionRowVisible(TextBlock lbl, ComboBox filter, ComboBox sec, bool visible)
+        private static void SetSectionRowVisible(TextBlock lbl, SectionTypePickerControl typePicker, SectionPickerControl specPicker, bool visible)
         {
             Visibility v = visible ? Visibility.Visible : Visibility.Collapsed;
             lbl.Visibility = v;
-            filter.Visibility = v;
-            sec.Visibility = v;
+            if (typePicker != null) typePicker.Visibility = v;
+            if (specPicker != null) specPicker.Visibility = v;
         }
 
-        private static void PopulateSectionCombo(ComboBox cmb, SectionFilterOption filter, string preferredName)
-        {
-            if (cmb == null) return;
-            List<string> names;
-            if (filter?.ShapeType != null)
-            {
-                names = SectionCatalogService.GetByShapeType(filter.ShapeType.Value).Select(x => x.Name).ToList();
-            }
-            else if (filter?.Category != null)
-            {
-                names = SectionCatalogService.GetByCategory(filter.Category.Value).Select(x => x.Name).ToList();
-            }
-            else
-            {
-                names = SectionCatalogService.GetAllNames();
-            }
-
-            cmb.Items.Clear();
-            foreach (string n in names) cmb.Items.Add(n);
-
-            if (!string.IsNullOrEmpty(preferredName) && names.Contains(preferredName))
-                cmb.SelectedItem = preferredName;
-            else if (cmb.Items.Count > 0)
-                cmb.SelectedIndex = 0;
-        }
-
-        private void OnColFilterChanged(object sender, SelectionChangedEventArgs e)
+        private void OnColTypeChanged(object sender, EventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbColSec, CmbColTypeFilter.SelectedItem as SectionFilterOption, CmbColSec.SelectedItem as string);
+            ApplySectionType(ColTypePicker, ColSpecPicker);
         }
 
-        private void OnBeamFilterChanged(object sender, SelectionChangedEventArgs e)
+        private void OnBeamTypeChanged(object sender, EventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbBeamSec, CmbBeamTypeFilter.SelectedItem as SectionFilterOption, CmbBeamSec.SelectedItem as string);
+            ApplySectionType(BeamTypePicker, BeamSpecPicker);
         }
 
-        private void OnBraceFilterChanged(object sender, SelectionChangedEventArgs e)
+        private void OnBraceTypeChanged(object sender, EventArgs e)
         {
             if (_isInitializing) return;
-            PopulateSectionCombo(CmbBraceSec, CmbBraceTypeFilter.SelectedItem as SectionFilterOption, CmbBraceSec.SelectedItem as string);
+            ApplySectionType(BraceTypePicker, BraceSpecPicker);
+        }
+
+        /// <summary>“类型”变更后，把筛选同步到“规格”下拉，并保证规格选中项落在筛选结果内。</summary>
+        private void ApplySectionType(SectionTypePickerControl typePicker, SectionPickerControl specPicker)
+        {
+            if (specPicker == null) return;
+            specPicker.FilterCategory = typePicker?.SelectedCategory;
+            specPicker.FilterShapeType = typePicker?.SelectedShapeType;
+            specPicker.EnsureSelectionInFilteredList();
+            RefreshLivePreview();
         }
 
         private void OnStructureTypeChanged(object sender, SelectionChangedEventArgs e)
@@ -433,9 +374,9 @@ namespace SteelStructureSuite.Views
             SetRowVisible(LblSubHeight, TxtSubHeight, true);
             SetRowVisible(LblBayCount, TxtBayCount, false);
             SetRowVisible(LblEndDz, TxtEndOffsetZ, false);
-            SetSectionRowVisible(LblColSec, CmbColTypeFilter, CmbColSec, true);
-            SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, true);
-            SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, true);
+            SetSectionRowVisible(LblColSec, ColTypePicker, ColSpecPicker, true);
+            SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, true);
+            SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, true);
 
             switch (st)
             {
@@ -446,7 +387,7 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblSubHeight, TxtSubHeight, false);
                     LblColSec.Text = "立柱截面:";
                     LblBeamSec.Text = "主梁截面:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.MultiSpanPortalFrame:
@@ -568,7 +509,7 @@ namespace SteelStructureSuite.Views
                     LblSubHeight.Text = "起笼高度 h1:";
                     LblColSec.Text = "立管截面:";
                     LblBeamSec.Text = "踏棍/护笼:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.HandrailGuardrail:
@@ -578,7 +519,7 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblLength, TxtLength, false);
                     LblColSec.Text = "立柱截面:";
                     LblBeamSec.Text = "扶手横杆:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.LinearSteelMember:
@@ -588,8 +529,8 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblSubHeight, TxtSubHeight, false);
                     SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
                     LblColSec.Text = "型钢截面:";
-                    SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.ArcSteelMember:
@@ -599,8 +540,8 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblHeight, TxtHeight, false);
                     SetRowVisible(LblEndDz, TxtEndOffsetZ, true);
                     LblColSec.Text = "型钢截面:";
-                    SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.SpiralSteelMember:
@@ -610,8 +551,8 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblHeight, TxtHeight, false);
                     SetRowVisible(LblEndDz, TxtEndOffsetZ, false);
                     LblColSec.Text = "型钢截面:";
-                    SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.VesselSupport:
@@ -621,7 +562,7 @@ namespace SteelStructureSuite.Views
                     LblSubHeight.Text = "包角 (°):";
                     LblColSec.Text = "底板/腹板:";
                     LblBeamSec.Text = "弧面板截面:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.TowerCircularPlatform:
@@ -642,8 +583,8 @@ namespace SteelStructureSuite.Views
                     LblBayCount.Text = "座圈筋板数:";
                     SetRowVisible(LblBayCount, TxtBayCount, true);
                     LblColSec.Text = "筒壁参考:";
-                    SetSectionRowVisible(LblBeamSec, CmbBeamTypeFilter, CmbBeamSec, false);
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.PipeShoeSupport:
@@ -663,7 +604,7 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblLength, TxtLength, false);
                     LblColSec.Text = "栏杆立柱:";
                     LblBeamSec.Text = "环形扶手管:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.SubstationGantryFrame:
@@ -685,7 +626,7 @@ namespace SteelStructureSuite.Views
                     SetRowVisible(LblBayCount, TxtBayCount, true);
                     LblColSec.Text = "预埋槽钢柱:";
                     LblBeamSec.Text = "角钢托臂:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.CraneRunwayGirder:
@@ -695,7 +636,7 @@ namespace SteelStructureSuite.Views
                     LblSubHeight.Text = "加劲肋间距 s:";
                     LblColSec.Text = "主梁参考:";
                     LblBeamSec.Text = "制动边梁:";
-                    SetSectionRowVisible(LblBraceSec, CmbBraceTypeFilter, CmbBraceSec, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
                     break;
 
                 case ParametricStructureType.CrossBracingFrame:
@@ -760,9 +701,9 @@ namespace SteelStructureSuite.Views
             Data.Length = len;
             Data.Height = h;
             Data.SubHeight = subH;
-            Data.ColumnSection = (CmbColSec.SelectedItem as string) ?? Data.ColumnSection;
-            Data.BeamSection = (CmbBeamSec.SelectedItem as string) ?? Data.BeamSection;
-            Data.BraceSection = (CmbBraceSec.SelectedItem as string) ?? Data.BraceSection;
+            if (!string.IsNullOrWhiteSpace(ColSpecPicker?.SelectedSectionName)) Data.ColumnSection = ColSpecPicker.SelectedSectionName;
+            if (!string.IsNullOrWhiteSpace(BeamSpecPicker?.SelectedSectionName)) Data.BeamSection = BeamSpecPicker.SelectedSectionName;
+            if (!string.IsNullOrWhiteSpace(BraceSpecPicker?.SelectedSectionName)) Data.BraceSection = BraceSpecPicker.SelectedSectionName;
             return true;
         }
 
@@ -796,8 +737,7 @@ namespace SteelStructureSuite.Views
 
         private void ApplyActionStyle(System.Windows.Controls.Button button, bool primary)
         {
-            if (button == null) return;
-            button.Style = (System.Windows.Style)FindResource(primary ? "Button.Primary" : "Button.Secondary");
+            // 主题样式已移除，统一使用 WPF 默认按钮外观。
         }
         private void OnCancelClick(object sender, RoutedEventArgs e)
         {

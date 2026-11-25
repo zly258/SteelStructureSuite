@@ -1,0 +1,97 @@
+<UserControl x:Class="SteelStructureSuite.Views.Controls.SectionPickerControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             SnapsToDevicePixels="True"
+             UseLayoutRounding="True"
+             Focusable="False">
+    <UserControl.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </UserControl.Resources>
+
+    <Grid>
+        <ToggleButton x:Name="BtnToggle"
+                      HorizontalAlignment="Stretch"
+                      HorizontalContentAlignment="Left" />
+
+        <Popup x:Name="Pop"
+               Placement="Bottom"
+               PlacementTarget="{Binding ElementName=BtnToggle}"
+               VerticalOffset="2"
+               StaysOpen="False"
+               Width="{Binding ActualWidth, ElementName=BtnToggle}"
+               MinWidth="300"
+               Opened="OnPopupOpened"
+               Closed="OnPopupClosed"
+               IsOpen="{Binding IsChecked, ElementName=BtnToggle, Mode=TwoWay}">
+            <Border Background="{x:Static SystemColors.WindowBrush}"
+                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
+                    BorderThickness="1"
+                    Padding="6">
+                <Grid>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <Grid Grid.Row="0">
+                        <TextBox x:Name="TxtSearch"
+                                 TextChanged="OnSearchTextChanged"
+                                 PreviewKeyDown="OnSearchPreviewKeyDown" />
+                        <TextBlock Text="搜索截面代号或类型"
+                                   IsHitTestVisible="False"
+                                   VerticalAlignment="Center"
+                                   Margin="6,0,0,0"
+                                   Foreground="{x:Static SystemColors.GrayTextBrush}">
+                            <TextBlock.Style>
+                                <Style TargetType="{x:Type TextBlock}">
+                                    <Setter Property="Visibility" Value="Collapsed" />
+                                    <Style.Triggers>
+                                        <DataTrigger Binding="{Binding Text.Length, ElementName=TxtSearch}" Value="0">
+                                            <Setter Property="Visibility" Value="Visible" />
+                                        </DataTrigger>
+                                    </Style.Triggers>
+                                </Style>
+                            </TextBlock.Style>
+                        </TextBlock>
+                    </Grid>
+
+                    <Border Grid.Row="1"
+                            Height="1"
+                            Background="{x:Static SystemColors.ControlDarkBrush}"
+                            Margin="0,6,0,4" />
+
+                    <ListBox x:Name="LstSections"
+                             Grid.Row="2"
+                             MaxHeight="320"
+                             SelectionMode="Single"
+                             SelectionChanged="OnListSelectionChanged">
+                        <ListBox.ItemTemplate>
+                            <DataTemplate>
+                                <StackPanel Orientation="Horizontal">
+                                    <TextBlock Text="{Binding Name}" />
+                                    <TextBlock Text="{Binding ShapeName}"
+                                               Margin="10,0,0,0"
+                                               Foreground="{x:Static SystemColors.GrayTextBrush}" />
+                                </StackPanel>
+                            </DataTemplate>
+                        </ListBox.ItemTemplate>
+                    </ListBox>
+
+                    <TextBlock x:Name="TxtNoResult"
+                               Grid.Row="3"
+                               Text="无匹配截面"
+                               Margin="0,6,0,2"
+                               HorizontalAlignment="Center"
+                               Foreground="{x:Static SystemColors.GrayTextBrush}"
+                               Visibility="Collapsed" />
+                </Grid>
+            </Border>
+        </Popup>
+    </Grid>
+</UserControl>

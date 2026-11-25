@@ -8,28 +8,23 @@
         MinHeight="420"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0" Style="{StaticResource Card}">
+        <Border Grid.Row="0">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <TextBlock x:Name="TxtManual" TextWrapping="Wrap" />
             </ScrollViewer>
@@ -37,8 +32,6 @@
 
         <Button Grid.Row="1"
                 Content="关闭"
-                MinWidth="{StaticResource Layout.ButtonMinWidth}"
-                Style="{StaticResource Button.Primary}"
                 Margin="0,8,0,0"
                 HorizontalAlignment="Right"
                 IsDefault="True"

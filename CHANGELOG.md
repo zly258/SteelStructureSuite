@@ -2,6 +2,32 @@
 
 本文件记录 SteelStructureSuite 的重要变更，格式参考 [Keep a Changelog](https://keepachangelog.com/zh-CN/1.1.0/)，版本号遵循 [语义化版本](https://semver.org/lang/zh-CN/)。
 
+## [未发布]
+
+### 变更（详图改纯符号化出图，移除 HLR）
+
+- 详图改为**纯二维工程符号**出图：不再读取实体边线、不做射线消隐，全部由「截面轮廓 + 轴线/路径 + 板厚」解析生成
+  端视截面、侧视外轮廓与翼缘/腹板线、薄板单线、圆管双母线；坐标即设计值，精度不受网格离散影响。
+- **删除**自定义 HLR 内核（`Services/Drawing/Hlr/*`：AcBr 反射、BVH 射线求交、面片离散）以及
+  `AsdkHlrApi` 引擎封装（`native/HlrApiShim`、`HlrEngineClient`）；工程文件不再引用 `acdbmgdbrep.dll`。
+- 轴测图默认关闭（`DrawingGenerationOptions.IncludeIsoView = false`），默认只出正/侧/平面三视图；
+  件号引线改标在正立面图两侧，与材料表件号一一对应。
+- 件号引线不再使用 `Leader` 实体（箭头随比例放大、引线横穿图面），改为「直线 + 实心三角 + 文字」，箭头按纸面 `textH` 定尺。
+
+### 变更（UI 全面改用 WPF 默认样式 + 自定义截面下拉）
+
+- **移除整套自定义主题**（`Theme/Tokens|Controls|DataControls|Extras|Icons|Density.*|Theme.*.xaml`，共 12 个文件），
+  全部窗口改用 WPF 系统默认控件外观；仅保留 `Views/Styles/DefaultMetrics.xaml` 统一尺寸、内边距、行距、
+  垂直居中与白色背景，不覆盖任何 Template。
+- **新增自定义截面下拉**：
+  - `SectionTypePickerControl`：类型下拉，展开为「全部类型 → 大类 → 截面类型」可搜索树面板；
+  - `SectionPickerControl`：规格下拉，展开为可搜索规格列表（代号 + 类型名），支持按大类/类型过滤。
+  - 建模窗口「截面规格」区由原来的「类型 ComboBox + 规格 ComboBox」改为上述两个控件联动，
+    选类型后规格列表自动收窄，选规格后类型自动反推。
+- 全部窗口根容器加 12px 内边距，GroupBox 加内边距与组间距，表单标签与控件同行垂直居中；
+  DataGrid 行高 26、表头 28，行内容与表头文字垂直居中。
+- 修复 `tools/Publish.ps1` 多余大括号导致的脚本解析失败。
+
 ## [1.1.0] - 2026-11-24
 
 ### 新增与优化
@@ -102,6 +128,9 @@
 - 新增批量 DWG 转 DXF（`SS_DWG2DXF`）和按模型范围合并图纸（`SS_DWGMERGE`）。
 - 全部 WPF 窗口统一采用紧凑主题：正文 12px、控件高 26px、表格行高 24px、窗口根边距 8px；每个窗口只有一个主按钮，删除、清空和恢复默认使用危险色。
 - 主题新增紧凑 / 中等 / 宽松三档整包入口（`Theme.Compact.xaml` / `Theme.Medium.xaml` / `Theme.Relaxed.xaml`），产品默认使用紧凑档；尺寸全部由 `Layout.*` 密度令牌驱动。
+
+
+
 
 
 

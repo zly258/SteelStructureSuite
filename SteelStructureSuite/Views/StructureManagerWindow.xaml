@@ -8,23 +8,18 @@
         MinHeight="440"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
+
     <!-- layout-check: allow-fixed-window-height（模型管理器树与表格需要固定视口，数据区独立滚动） -->
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto" />
             <RowDefinition Height="*" />
@@ -33,7 +28,7 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部检索工具栏 -->
-        <Border Grid.Row="0" Style="{StaticResource ToolStrip}" Margin="0,0,0,8">
+        <Border Grid.Row="0" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -46,7 +41,6 @@
                 </Grid.ColumnDefinitions>
                 <TextBlock Grid.Column="0"
                            Text="检索构件"
-                           Style="{StaticResource Text.FieldLabel}"
                            VerticalAlignment="Center" />
                 <TextBox x:Name="TxtSearch"
                          Grid.Column="2"
@@ -54,17 +48,12 @@
                          TextChanged="OnSearchTextChanged" />
                 <Button Grid.Column="4"
                         Content="清除"
-                        MinWidth="{StaticResource Layout.ButtonMinWidth.Small}"
                         Click="OnClearSearchClick" />
                 <Border Grid.Column="6"
-                        Background="{StaticResource Brush.Accent.Subtle}"
-                        CornerRadius="{StaticResource Radius.Pill}"
                         Padding="8,3"
                         VerticalAlignment="Center">
                     <TextBlock x:Name="TxtFilterCount"
-                               Text="0 项"
-                               Foreground="{StaticResource Brush.Accent}"
-                               FontSize="{DynamicResource FontSize.Caption}" />
+                               Text="0 项" />
                 </Border>
             </Grid>
         </Border>
@@ -105,7 +94,7 @@
             </GroupBox>
         </Grid>
 
-        <TextBlock x:Name="TxtStatus" Grid.Row="2" Style="{StaticResource Text.Caption}" TextWrapping="Wrap" Margin="0,0,0,8" />
+        <TextBlock x:Name="TxtStatus" Grid.Row="2" TextWrapping="Wrap" Margin="0,0,0,8" />
 
         <Grid Grid.Row="3">
             <Grid.ColumnDefinitions>
@@ -114,14 +103,14 @@
                 <ColumnDefinition Width="Auto" />
             </Grid.ColumnDefinitions>
             <StackPanel Grid.Column="0" Orientation="Horizontal">
-                <Button Content="刷新" MinWidth="{StaticResource Layout.ButtonMinWidth}" Click="OnRefreshClick" />
+                <Button Content="刷新" Click="OnRefreshClick" />
             </StackPanel>
             <StackPanel Grid.Column="2" Orientation="Horizontal">
-                <Button Content="定位高亮" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnLocateAndHighlightClick" />
-                <Button Content="编辑参数" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnEditSelectedClick" />
-                <Button Content="施工详图" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnDrawSelectedClick" />
-                <Button Content="删除构件" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Danger}" Margin="0,0,8,0" Click="OnDeleteSelectedClick" />
-                <Button Content="关闭" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCloseClick" />
+                <Button Content="定位高亮" Margin="0,0,8,0" Click="OnLocateAndHighlightClick" />
+                <Button Content="编辑参数" Margin="0,0,8,0" Click="OnEditSelectedClick" />
+                <Button Content="施工详图" Margin="0,0,8,0" Click="OnDrawSelectedClick" />
+                <Button Content="删除构件" Margin="0,0,8,0" Click="OnDeleteSelectedClick" />
+                <Button Content="关闭" IsCancel="True" Click="OnCloseClick" />
             </StackPanel>
         </Grid>
     </Grid>

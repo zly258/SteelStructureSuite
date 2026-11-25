@@ -1,0 +1,105 @@
+<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <!--
+        仅设置“尺寸 / 内边距 / 上下间隔 / 对齐 / 背景白”的全局默认度量，
+        不设置任何 Template 或自定义配色；控件外观仍为 WPF 系统默认模板，仅把背景统一为白色。
+    -->
+
+    <Style TargetType="{x:Type TextBlock}">
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type Button}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="Padding" Value="10,3" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type ToggleButton}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="MinWidth" Value="64" />
+        <Setter Property="Padding" Value="8,3" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type TextBox}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="5,3" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type PasswordBox}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="Padding" Value="5,3" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type ComboBox}">
+        <Setter Property="MinHeight" Value="26" />
+        <Setter Property="MinWidth" Value="90" />
+        <Setter Property="Padding" Value="5,3" />
+        <Setter Property="Margin" Value="0,2" />
+        <Setter Property="Background" Value="White" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type CheckBox}">
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="2,1" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type RadioButton}">
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="2,1" />
+        <Setter Property="Margin" Value="0,1" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type TreeViewItem}">
+        <Setter Property="MinHeight" Value="24" />
+        <Setter Property="Padding" Value="2,2" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type ListBoxItem}">
+        <Setter Property="MinHeight" Value="22" />
+        <Setter Property="Padding" Value="2,2" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- 分组框：内容与边框留出内边距，组与组之间留出间距 -->
+    <Style TargetType="{x:Type GroupBox}">
+        <Setter Property="Padding" Value="8" />
+        <Setter Property="Margin" Value="0,0,0,8" />
+    </Style>
+
+    <!-- DataGrid：内容行垂直居中，行高与表头适度 -->
+    <Style TargetType="{x:Type DataGrid}">
+        <Setter Property="RowHeight" Value="26" />
+        <Setter Property="ColumnHeaderHeight" Value="28" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridRow}">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridCell}">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <Style TargetType="{x:Type DataGridColumnHeader}">
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+</ResourceDictionary>

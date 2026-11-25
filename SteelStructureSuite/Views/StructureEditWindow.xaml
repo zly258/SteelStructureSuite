@@ -9,22 +9,17 @@
         MinHeight="460"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
-        FontSize="{DynamicResource FontSize.Body}"
-        Background="{DynamicResource Brush.WindowBackground}"
-        Foreground="{DynamicResource Brush.Text.Primary}"
         UseLayoutRounding="True"
         TextOptions.TextFormattingMode="Display">
-    <Window.FontFamily>
-        <DynamicResource ResourceKey="Font.Ui" />
-    </Window.FontFamily>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Theme/Theme.xaml" />
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>
     </Window.Resources>
-    <Grid Margin="{StaticResource Layout.WindowPadding}">
+
+    <Grid Margin="12">
         <Grid.RowDefinitions>
             <RowDefinition Height="*" />
             <RowDefinition Height="Auto" />
@@ -43,8 +38,8 @@
                             <GroupBox Header="基本属性">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
-                                        <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="EditFormLabel" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
@@ -52,21 +47,21 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock x:Name="LblType" Grid.Row="0" Grid.Column="0" Text="结构类型" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <ComboBox x:Name="CmbStructureType" Grid.Row="0" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnStructureTypeChanged" />
+                                    <TextBlock x:Name="LblType" Grid.Row="0" Grid.Column="0" Text="结构类型" />
+                                    <ComboBox x:Name="CmbStructureType" Grid.Row="0" Grid.Column="1" SelectionChanged="OnStructureTypeChanged" />
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="工程预设" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <ComboBox x:Name="CmbPreset" Grid.Row="1" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnPresetSelectionChanged" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="工程预设" />
+                                    <ComboBox x:Name="CmbPreset" Grid.Row="1" Grid.Column="1" SelectionChanged="OnPresetSelectionChanged" />
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="构件位号" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <Grid Grid.Row="2" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}">
+                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="构件位号" />
+                                    <Grid Grid.Row="2" Grid.Column="1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" MinWidth="120" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" MinWidth="100" />
                                         </Grid.ColumnDefinitions>
                                         <TextBox x:Name="TxtTag" Grid.Column="0" />
-                                        <TextBlock Grid.Column="1" Text="材质" Style="{StaticResource Text.Label}" Margin="10,0,8,0" />
+                                        <TextBlock Grid.Column="1" Text="材质" Margin="10,0,8,0" />
                                         <ComboBox x:Name="CmbMaterial" Grid.Column="2" SelectionChanged="OnAnyParameterChanged" />
                                     </Grid>
                                 </Grid>
@@ -75,8 +70,8 @@
                             <GroupBox Header="几何参数">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
-                                        <ColumnDefinition Width="*" MinWidth="{StaticResource Layout.InputMinWidth}" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="EditFormLabel" />
+                                        <ColumnDefinition Width="*" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
@@ -87,30 +82,30 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock x:Name="LblSpan" Grid.Row="0" Grid.Column="0" Text="跨度 B (mm)" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <TextBox x:Name="TxtSpan" Grid.Row="0" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" TextChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblSpan" Grid.Row="0" Grid.Column="0" Text="跨度 B (mm)" />
+                                    <TextBox x:Name="TxtSpan" Grid.Row="0" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblLength" Grid.Row="1" Grid.Column="0" Text="宽度 L (mm)" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <TextBox x:Name="TxtLength" Grid.Row="1" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" TextChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblLength" Grid.Row="1" Grid.Column="0" Text="宽度 L (mm)" />
+                                    <TextBox x:Name="TxtLength" Grid.Row="1" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblHeight" Grid.Row="2" Grid.Column="0" Text="高度 H (mm)" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <TextBox x:Name="TxtHeight" Grid.Row="2" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" TextChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblHeight" Grid.Row="2" Grid.Column="0" Text="高度 H (mm)" />
+                                    <TextBox x:Name="TxtHeight" Grid.Row="2" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblSubHeight" Grid.Row="3" Grid.Column="0" Text="次层高 h1 (mm)" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <TextBox x:Name="TxtSubHeight" Grid.Row="3" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" TextChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblSubHeight" Grid.Row="3" Grid.Column="0" Text="次层高 h1 (mm)" />
+                                    <TextBox x:Name="TxtSubHeight" Grid.Row="3" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblBayCount" Grid.Row="4" Grid.Column="0" Text="跨数 / 层数" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <TextBox x:Name="TxtBayCount" Grid.Row="4" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" TextChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblBayCount" Grid.Row="4" Grid.Column="0" Text="跨数 / 层数" />
+                                    <TextBox x:Name="TxtBayCount" Grid.Row="4" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblAngleAndDz" Grid.Row="5" Grid.Column="0" Text="平面旋转角 (°)" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <Grid Grid.Row="5" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}">
+                                    <TextBlock x:Name="LblAngleAndDz" Grid.Row="5" Grid.Column="0" Text="平面旋转角 (°)" />
+                                    <Grid Grid.Row="5" Grid.Column="1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" MinWidth="80" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="*" MinWidth="80" />
                                         </Grid.ColumnDefinitions>
                                         <TextBox x:Name="TxtRotationDeg" Grid.Column="0" TextChanged="OnAnyParameterChanged" />
-                                        <TextBlock x:Name="LblEndDz" Grid.Column="1" Text="终点高差 (mm)" Style="{StaticResource Text.Label}" Margin="10,0,8,0" />
+                                        <TextBlock x:Name="LblEndDz" Grid.Column="1" Text="终点高差 (mm)" Margin="10,0,8,0" />
                                         <TextBox x:Name="TxtEndOffsetZ" Grid.Column="2" TextChanged="OnAnyParameterChanged" />
                                     </Grid>
                                 </Grid>
@@ -119,10 +114,10 @@
                             <GroupBox Header="截面规格" Margin="0">
                                 <Grid>
                                     <Grid.ColumnDefinitions>
-                                        <ColumnDefinition Width="Auto" MinWidth="{StaticResource Layout.FormLabelMinWidth}" SharedSizeGroup="EditFormLabel" />
-                                        <ColumnDefinition Width="*" MinWidth="120" />
+                                        <ColumnDefinition Width="Auto" SharedSizeGroup="EditFormLabel" />
+                                        <ColumnDefinition Width="150" MinWidth="130" />
                                         <ColumnDefinition Width="8" />
-                                        <ColumnDefinition Width="2*" MinWidth="160" />
+                                        <ColumnDefinition Width="*" MinWidth="160" />
                                     </Grid.ColumnDefinitions>
                                     <Grid.RowDefinitions>
                                         <RowDefinition Height="Auto" />
@@ -130,17 +125,17 @@
                                         <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
-                                    <TextBlock x:Name="LblColSec" Grid.Row="0" Grid.Column="0" Text="立柱截面" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <ComboBox x:Name="CmbColTypeFilter" Grid.Row="0" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnColFilterChanged" />
-                                    <ComboBox x:Name="CmbColSec" Grid.Row="0" Grid.Column="3" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblColSec" Grid.Row="0" Grid.Column="0" Text="立柱截面" VerticalAlignment="Center" />
+                                    <controls:SectionTypePickerControl x:Name="ColTypePicker" Grid.Row="0" Grid.Column="1" Placeholder="全部类型" SelectionChanged="OnColTypeChanged" />
+                                    <controls:SectionPickerControl x:Name="ColSpecPicker" Grid.Row="0" Grid.Column="3" Placeholder="选择规格" SelectionChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblBeamSec" Grid.Row="1" Grid.Column="0" Text="主梁截面" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <ComboBox x:Name="CmbBeamTypeFilter" Grid.Row="1" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnBeamFilterChanged" />
-                                    <ComboBox x:Name="CmbBeamSec" Grid.Row="1" Grid.Column="3" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblBeamSec" Grid.Row="1" Grid.Column="0" Text="主梁截面" VerticalAlignment="Center" />
+                                    <controls:SectionTypePickerControl x:Name="BeamTypePicker" Grid.Row="1" Grid.Column="1" Placeholder="全部类型" SelectionChanged="OnBeamTypeChanged" />
+                                    <controls:SectionPickerControl x:Name="BeamSpecPicker" Grid.Row="1" Grid.Column="3" Placeholder="选择规格" SelectionChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblBraceSec" Grid.Row="2" Grid.Column="0" Text="斜撑截面" Style="{StaticResource Text.Label}" Margin="{StaticResource Layout.FormRowMargin}" />
-                                    <ComboBox x:Name="CmbBraceTypeFilter" Grid.Row="2" Grid.Column="1" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnBraceFilterChanged" />
-                                    <ComboBox x:Name="CmbBraceSec" Grid.Row="2" Grid.Column="3" Margin="{StaticResource Layout.FormRowMargin}" SelectionChanged="OnAnyParameterChanged" />
+                                    <TextBlock x:Name="LblBraceSec" Grid.Row="2" Grid.Column="0" Text="斜撑截面" VerticalAlignment="Center" />
+                                    <controls:SectionTypePickerControl x:Name="BraceTypePicker" Grid.Row="2" Grid.Column="1" Placeholder="全部类型" SelectionChanged="OnBraceTypeChanged" />
+                                    <controls:SectionPickerControl x:Name="BraceSpecPicker" Grid.Row="2" Grid.Column="3" Placeholder="选择规格" SelectionChanged="OnAnyParameterChanged" />
                                 </Grid>
                             </GroupBox>
                         </StackPanel>
@@ -154,7 +149,7 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock x:Name="TxtLiveWeightSummary" Grid.Row="0" Style="{StaticResource Text.Title}" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
+                    <TextBlock x:Name="TxtLiveWeightSummary" Grid.Row="0" FontWeight="SemiBold" TextWrapping="Wrap" Margin="0,0,0,8" />
                     <DataGrid x:Name="DgPreviewBom" Grid.Row="1"
                               AutoGenerateColumns="False"
                               CanUserAddRows="False"
@@ -176,10 +171,10 @@
         </TabControl>
 
         <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button x:Name="BtnUpdate" Content="更新模型" MinWidth="{StaticResource Layout.ButtonMinWidth}" Style="{StaticResource Button.Primary}" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
-            <Button x:Name="BtnSinglePt" Content="单点放置" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
-            <Button x:Name="BtnLinearTwoPt" Content="两点线性绘制" MinWidth="{StaticResource Layout.ButtonMinWidth}" Margin="0,0,8,0" Click="OnLinearDrawConfirmClick" />
-            <Button x:Name="BtnCancel" Content="取消" MinWidth="{StaticResource Layout.ButtonMinWidth}" IsCancel="True" Click="OnCancelClick" />
+            <Button x:Name="BtnUpdate" Content="更新模型" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
+            <Button x:Name="BtnSinglePt" Content="单点放置" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
+            <Button x:Name="BtnLinearTwoPt" Content="两点线性绘制" Margin="0,0,8,0" Click="OnLinearDrawConfirmClick" />
+            <Button x:Name="BtnCancel" Content="取消" IsCancel="True" Click="OnCancelClick" />
         </StackPanel>
     </Grid>
 </Window>

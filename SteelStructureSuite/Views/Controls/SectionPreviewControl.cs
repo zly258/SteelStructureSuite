@@ -35,12 +35,12 @@ namespace SteelStructureSuite.Views.Controls
             double h = ActualHeight;
             if (w < 40 || h < 40) return;
 
-            Brush bgBrush = TryFindResource("Brush.SurfaceSunken") as Brush ?? Brushes.WhiteSmoke;
-            Brush borderBrush = TryFindResource("Brush.Border") as Brush ?? Brushes.LightGray;
-            Brush fillBrush = TryFindResource("Brush.Accent.Subtle") as Brush ?? new SolidColorBrush(Color.FromRgb(228, 238, 245));
-            Brush strokeBrush = TryFindResource("Brush.Accent") as Brush ?? new SolidColorBrush(Color.FromRgb(47, 111, 159));
-            Brush textBrush = TryFindResource("Brush.Text.Secondary") as Brush ?? Brushes.DimGray;
-            Brush axisBrush = TryFindResource("Brush.Border.Strong") as Brush ?? Brushes.Silver;
+            Brush bgBrush = SystemColors.WindowBrush;
+            Brush borderBrush = SystemColors.ControlDarkBrush;
+            Brush fillBrush = SystemColors.ControlBrush;
+            Brush strokeBrush = SystemColors.ControlTextBrush;
+            Brush textBrush = SystemColors.GrayTextBrush;
+            Brush axisBrush = SystemColors.ControlDarkBrush;
 
             dc.DrawRectangle(bgBrush, new Pen(borderBrush, 1.0), new Rect(0.5, 0.5, w - 1, h - 1));
 

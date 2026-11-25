@@ -81,6 +81,23 @@
     <!-- 6. Views (WPF XAML 界面与自定义示意图控件) -->
     <Compile Include="Views\Controls\StructureSchematicControl.cs" />
     <Compile Include="Views\Controls\SectionPreviewControl.cs" />
+    <Page Include="Views\Controls\SectionPickerControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\Controls\SectionPickerControl.xaml.cs">
+      <DependentUpon>SectionPickerControl.xaml</DependentUpon>
+    </Compile>
+    <Page Include="Views\Controls\SectionTypePickerControl.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\Controls\SectionTypePickerControl.xaml.cs">
+      <DependentUpon>SectionTypePickerControl.xaml</DependentUpon>
+    </Compile>
+    <Page Include="Views\Styles\DefaultMetrics.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
 
     <Page Include="Views\StructureEditWindow.xaml">
       <SubType>Designer</SubType>
@@ -159,42 +176,6 @@
       <Generator>MSBuild:Compile</Generator>
     </Page>
 
-    <Page Include="Theme\Tokens.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Controls.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\DataControls.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Icons.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Extras.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Theme.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Theme.Compact.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Theme.Medium.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Theme.Relaxed.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Density.Compact.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Density.Medium.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Page Include="Theme\Density.Relaxed.xaml">
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
     <Compile Include="Views\AboutWindow.xaml.cs">
       <DependentUpon>AboutWindow.xaml</DependentUpon>
     </Compile>
@@ -221,10 +202,6 @@
     </Reference>
     <Reference Include="AdWindows">
       <HintPath>$(AutoCADDir)\AdWindows.dll</HintPath>
-      <Private>False</Private>
-    </Reference>
-    <Reference Include="acdbmgdbrep">
-      <HintPath>$(AutoCADDir)\acdbmgdbrep.dll</HintPath>
       <Private>False</Private>
     </Reference>
   </ItemGroup>
