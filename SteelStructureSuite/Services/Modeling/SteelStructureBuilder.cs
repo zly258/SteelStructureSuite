@@ -696,17 +696,6 @@ namespace SteelStructureSuite.Services.Modeling
                 }
             }
 
-            // 连接处斜接/切割：只改实体几何，StartPt/EndPt 保持不变，
-            // 因此材料明细与下料长度仍是「切割前的真实长度」。
-            try
-            {
-                SteelJointService.ApplyJointTrims(parts, LastBuildWarnings);
-            }
-            catch (Exception ex)
-            {
-                LastBuildWarnings.Add("接头斜接处理失败，已保留原始几何：" + ex.Message);
-            }
-
             return parts;
         }
 

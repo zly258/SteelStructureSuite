@@ -30,15 +30,15 @@ namespace SteelStructureSuite.Ribbon
             Compact = 1
         }
 
-        /// <summary>当前显示模式（持久化在本地设置）。</summary>
+        /// <summary>当前显示模式（持久化在本地设置，默认使用极简菜单）。</summary>
         public static RibbonDisplayMode DisplayMode
         {
             get
             {
-                int v = UserSettings.GetInt(DisplayModeKey, (int)RibbonDisplayMode.Detailed);
-                return v == (int)RibbonDisplayMode.Compact
-                    ? RibbonDisplayMode.Compact
-                    : RibbonDisplayMode.Detailed;
+                int v = UserSettings.GetInt(DisplayModeKey, (int)RibbonDisplayMode.Compact);
+                return v == (int)RibbonDisplayMode.Detailed
+                    ? RibbonDisplayMode.Detailed
+                    : RibbonDisplayMode.Compact;
             }
             set
             {
@@ -64,11 +64,21 @@ namespace SteelStructureSuite.Ribbon
             public List<MemberEntry> Members = new List<MemberEntry>();
         }
 
-        /// <summary>参数化构件大类清单（Ribbon 与极简菜单共用同一份数据）。</summary>
+        /// <summary>参数化构件大类清单（Ribbon 与极简菜单共用同一份数据：单根型钢放第一，区域组合放最后）。</summary>
         private static List<MemberGroup> GetMemberGroups()
         {
             return new List<MemberGroup>
             {
+                new MemberGroup
+                {
+                    Title = "单根型钢", Glyph = "member",
+                    Members =
+                    {
+                        new MemberEntry { Text = "直线型钢", Command = "SS_MEMBER ", Tooltip = "两点绘制直线型钢", Glyph = "member" },
+                        new MemberEntry { Text = "弧形型钢", Command = "SS_ARC ", Tooltip = "截面沿圆弧扫掠", Glyph = "arc" },
+                        new MemberEntry { Text = "螺旋型钢", Command = "SS_SPIRAL ", Tooltip = "截面沿螺旋线扫掠", Glyph = "helix" },
+                    }
+                },
                 new MemberGroup
                 {
                     Title = "厂房框架", Glyph = "portal",
@@ -81,17 +91,6 @@ namespace SteelStructureSuite.Ribbon
                         new MemberEntry { Text = "装置框架", Command = "SS_SPACEFRAME ", Tooltip = "多层空间装置钢框架", Glyph = "space" },
                         new MemberEntry { Text = "屋面桁架", Command = "SS_TRUSS ", Tooltip = "双坡屋面钢桁架", Glyph = "truss" },
                         new MemberEntry { Text = "管廊桁桥", Command = "SS_PIPEBRIDGE ", Tooltip = "空间管廊桁架桥", Glyph = "bridge" },
-                    }
-                },
-                new MemberGroup
-                {
-                    Title = "区域组合", Glyph = "zoneplat",
-                    Members =
-                    {
-                        new MemberEntry { Text = "钢平台成套", Command = "SS_ZONE_PLATFORM ", Tooltip = "柱+梁+板+栏杆+斜梯", Glyph = "zoneplat" },
-                        new MemberEntry { Text = "厂房柱列", Command = "SS_ZONE_COLROW ", Tooltip = "柱+支撑+吊车梁+系杆", Glyph = "zonecol" },
-                        new MemberEntry { Text = "管廊成套", Command = "SS_ZONE_PIPERACK ", Tooltip = "多层管廊按跨数生成", Glyph = "zonerack" },
-                        new MemberEntry { Text = "楼梯成套", Command = "SS_ZONE_STAIR ", Tooltip = "梯梁+踏步+扶手+平台", Glyph = "zonestair" },
                     }
                 },
                 new MemberGroup
@@ -133,12 +132,13 @@ namespace SteelStructureSuite.Ribbon
                 },
                 new MemberGroup
                 {
-                    Title = "单根型钢", Glyph = "member",
+                    Title = "区域组合", Glyph = "zoneplat",
                     Members =
                     {
-                        new MemberEntry { Text = "直线型钢", Command = "SS_MEMBER ", Tooltip = "两点绘制直线型钢", Glyph = "member" },
-                        new MemberEntry { Text = "弧形型钢", Command = "SS_ARC ", Tooltip = "截面沿圆弧扫掠", Glyph = "arc" },
-                        new MemberEntry { Text = "螺旋型钢", Command = "SS_SPIRAL ", Tooltip = "截面沿螺旋线扫掠", Glyph = "helix" },
+                        new MemberEntry { Text = "钢平台成套", Command = "SS_ZONE_PLATFORM ", Tooltip = "柱+梁+板+栏杆+斜梯", Glyph = "zoneplat" },
+                        new MemberEntry { Text = "厂房柱列", Command = "SS_ZONE_COLROW ", Tooltip = "柱+支撑+吊车梁+系杆", Glyph = "zonecol" },
+                        new MemberEntry { Text = "管廊成套", Command = "SS_ZONE_PIPERACK ", Tooltip = "多层管廊按跨数生成", Glyph = "zonerack" },
+                        new MemberEntry { Text = "楼梯成套", Command = "SS_ZONE_STAIR ", Tooltip = "梯梁+踏步+扶手+平台", Glyph = "zonestair" },
                     }
                 },
             };
@@ -210,38 +210,26 @@ namespace SteelStructureSuite.Ribbon
             }
             else
             {
-                // 详细：每个大类一个面板，每个构件一个按钮
+                // 详细：每个大类一个面板，每个构件一个按钮（每列最多 3 行，避免面板过高）
                 foreach (MemberGroup g in groups)
                 {
                     RibbonPanelSource panel = CreatePanel(tab, g.Title);
-                    RibbonRowPanel col = new RibbonRowPanel();
-                    for (int i = 0; i < g.Members.Count; i++)
-                    {
-                        if (i > 0) col.Items.Add(CreateRowBreak());
-                        MemberEntry m = g.Members[i];
-                        col.Items.Add(CreateSmallButton(m.Text, m.Command, m.Tooltip, m.Glyph));
-                    }
-                    panel.Items.Add(col);
+                    AddSmallButtonColumns(panel, g.Members);
                 }
             }
 
-            // ---------- 面板 4：定位复写 ----------
+            // ---------- 面板 4：定位复写（每列最多 3 行） ----------
             RibbonPanelSource locatePanel = CreatePanel(tab, "定位复写");
-            RibbonRowPanel alignCol = new RibbonRowPanel();
-            alignCol.Items.Add(CreateSmallButton("连续绘制", "SS_LINEAR_CHAIN ", "连续折线绘制栏杆、走道、钢梁等", "chain"));
-            alignCol.Items.Add(CreateRowBreak());
-            alignCol.Items.Add(CreateSmallButton("三维对齐", "SS_ALIGN ", "按 X/Y/Z 或中心对齐", "align"));
-            alignCol.Items.Add(CreateRowBreak());
-            alignCol.Items.Add(CreateSmallButton("阵列复制", "SS_ARRAY ", "定距阵列并递增位号", "array"));
-            alignCol.Items.Add(CreateRowBreak());
-            alignCol.Items.Add(CreateSmallButton("标高归零", "SS_DROPZ0 ", "构件底部归零至 Z=0", "drop"));
-            locatePanel.Items.Add(alignCol);
-
-            RibbonRowPanel overruleCol = new RibbonRowPanel();
-            overruleCol.Items.Add(CreateSmallButton("开启复写", "SS_OVERRULE_ON ", "开启夹点复写", "gripon"));
-            overruleCol.Items.Add(CreateRowBreak());
-            overruleCol.Items.Add(CreateSmallButton("关闭复写", "SS_OVERRULE_OFF ", "关闭夹点复写", "gripoff"));
-            locatePanel.Items.Add(overruleCol);
+            var locateItems = new List<MemberEntry>
+            {
+                new MemberEntry { Text = "连续绘制", Command = "SS_LINEAR_CHAIN ", Tooltip = "连续折线绘制栏杆、走道、钢梁等", Glyph = "chain" },
+                new MemberEntry { Text = "三维对齐", Command = "SS_ALIGN ", Tooltip = "按 X/Y/Z 或中心对齐", Glyph = "align" },
+                new MemberEntry { Text = "阵列复制", Command = "SS_ARRAY ", Tooltip = "定距阵列并递增位号", Glyph = "array" },
+                new MemberEntry { Text = "标高归零", Command = "SS_DROPZ0 ", Tooltip = "构件底部归零至 Z=0", Glyph = "drop" },
+                new MemberEntry { Text = "开启复写", Command = "SS_OVERRULE_ON ", Tooltip = "开启夹点复写", Glyph = "gripon" },
+                new MemberEntry { Text = "关闭复写", Command = "SS_OVERRULE_OFF ", Tooltip = "关闭夹点复写", Glyph = "gripoff" }
+            };
+            AddSmallButtonColumns(locatePanel, locateItems);
 
             // ---------- 面板 5：图纸与出图 ----------
             RibbonPanelSource outPanel = CreatePanel(tab, "统计出图");
@@ -260,13 +248,13 @@ namespace SteelStructureSuite.Ribbon
             RibbonRowPanel helpCol = new RibbonRowPanel();
             helpCol.Items.Add(CreateSmallButton("使用说明", "SS_HELP ", "查看完整功能说明", "help"));
             helpCol.Items.Add(CreateRowBreak());
-            helpCol.Items.Add(CreateSmallButton("关于", "SS_ABOUT ", "版本与许可证", "about"));
-            helpCol.Items.Add(CreateRowBreak());
             helpCol.Items.Add(CreateSmallButton(
-                compact ? "切换到详细" : "切换到极简",
+                compact ? "详细菜单" : "极简菜单",
                 "SS_RIBBONMODE ",
-                compact ? "当前极简模式：显示全部构件按钮" : "当前详细模式：按大类折叠构件菜单",
-                "regen"));
+                compact ? "当前极简菜单：点击切换为详细菜单（显示全部构件按钮）" : "当前详细菜单：点击切换为极简菜单（按大类折叠构件）",
+                "ribbonmode"));
+            helpCol.Items.Add(CreateRowBreak());
+            helpCol.Items.Add(CreateSmallButton("关于", "SS_ABOUT ", "版本与许可证", "about"));
             helpPanel.Items.Add(helpCol);
 
             ribbon.Tabs.Add(tab);
@@ -310,6 +298,28 @@ namespace SteelStructureSuite.Ribbon
             }
 
             return menu;
+        }
+
+        /// <summary>
+        /// 把一组小按钮按「每列最多 maxRows 行」分列排布，保证面板高度不超过 maxRows 行。
+        /// Ribbon 面板高度是按行计价的，超过 3 行会显得臃肿且在小屏上放不下。
+        /// </summary>
+        private static void AddSmallButtonColumns(RibbonPanelSource panel, IList<MemberEntry> items, int maxRows = 3)
+        {
+            if (items == null || items.Count == 0) return;
+
+            for (int start = 0; start < items.Count; start += maxRows)
+            {
+                var col = new RibbonRowPanel();
+                int end = Math.Min(start + maxRows, items.Count);
+                for (int i = start; i < end; i++)
+                {
+                    if (i > start) col.Items.Add(CreateRowBreak());
+                    MemberEntry m = items[i];
+                    col.Items.Add(CreateSmallButton(m.Text, m.Command, m.Tooltip, m.Glyph));
+                }
+                panel.Items.Add(col);
+            }
         }
 
         private static RibbonPanelSource CreatePanel(RibbonTab tab, string title)

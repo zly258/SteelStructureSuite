@@ -760,34 +760,6 @@ namespace SteelStructureSuite.Services.Drawing
                             simSunTextStyleId, textH);
                     }
 
-                    // 接头局部放大示意图：把斜接/切割位置单独放大并标注角度与切口尺寸
-                    if (options.IncludeJointDetailViews && !groupSheet)
-                    {
-                        try
-                        {
-                            List<JointDetailDrawingService.JointNode> joints =
-                                JointDetailDrawingService.CollectJointNodes(parts3d);
-                            if (joints.Count > 0)
-                            {
-                                double jointAreaTop = rightTableTop;
-                                double jointAreaBottom = innerY0 + margin + titleH * 0.0 + bomRowH;
-                                double jointAvailH = Math.Max(0.0, jointAreaTop - jointAreaBottom);
-                                if (jointAvailH > textH * 6.0)
-                                {
-                                    JointDetailDrawingService.DrawJointDetails(
-                                        tr, ms, joints,
-                                        new Point3d(innerX0 + margin, jointAreaBottom, 0),
-                                        Math.Min(rightZoneW, titleW) + textH * 6.0,
-                                        simSunTextStyleId, textH, LayerFrame);
-                                }
-                            }
-                        }
-                        catch
-                        {
-                            // 接头示意图失败不应影响整张详图
-                        }
-                    }
-
                     tr.Commit();
                 }
             }

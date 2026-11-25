@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
@@ -12,18 +11,16 @@ namespace SteelStructureSuite.Services.Modeling
     ///
     /// 设计原则：
     ///   · 内部只产出 <see cref="SteelStructureBuilder.SolidMemberPart"/>，
-    ///     因此材料表、详图、批量出图、接头斜接全部自动兼容；
-    ///   · 复用与单构件相同的截面与构造习惯，尺寸参数用现有的
-    ///     Span / Length / Height / SubHeight / BayCount，不新增字段；
-    ///   · 每个区域构件都按「可调跨数 / 柱距 / 层数」参数化，
-    ///     而不是写死固定数量。
+    ///     材料表、详图、批量出图全部自动兼容；
+    ///   · 所有节点、柱脚、护栏、踏步、梯梁、平台支撑均按真实钢结构构造对齐，
+    ///     杜绝悬空平台、栏杆堵死梯口、斜撑过密、角钢冒充踏步板等造型错误。
     /// </summary>
     internal static class ZoneAssemblyBuilder
     {
-        private const double JointOverlap = 22.0;
+        private const double JointOverlap = 20.0;
 
         // ==================================================================
-        // 1. 钢平台成套：柱 + 主次梁 + 铺板 + 四周栏杆 + 单跑斜梯
+        // 1. 钢平台成套：柱 + 主次梁 + 铺板 + 四周栏杆（留梯口） + 单跑斜梯
         // ==================================================================
         /// <summary>
         /// 钢平台成套。
@@ -42,20 +39,28 @@ namespace SteelStructureSuite.Services.Modeling
         {
             if (parts == null) return;
 
-            span = Math.Max(span, 1200.0);
-            len = Math.Max(len, 1200.0);
-            h = Math.Max(h, 800.0);
+            span = Math.Max(span, 1800.0);
+            len = Math.Max(len, 1500.0);
+            h = Math.Max(h, 1200.0);
             railH = Math.Max(railH, 1050.0);
-            int baysX = Math.Max(1, Math.Min(8, bayCount));
-            int baysY = Math.Max(1, Math.Min(6, Math.Max(1, bayCount - 1)));
+
+            // 合理控制柱距（最小约 2200mm），避免短跨平台塞入过密立柱与支撑
+            int maxBaysX = Math.Max(1, (int)Math.Floor(span / 2200.0));
+            int maxBaysY = Math.Max(1, (int)Math.Floor(len / 2200.0));
+            int baysX = Math.Max(1, Math.Min(Math.Min(6, bayCount), maxBaysX));
+            int baysY = Math.Max(1, Math.Min(Math.Min(4, Math.Max(1, bayCount - 1)), maxBaysY));
 
             SectionProfile pipeProf = SectionCatalogService.GetByName("P42x3.5");
+            // 斜梯采用标准槽钢梯梁，避免用粗大柱截面当梯梁
+            SectionProfile stairStringerProf = SectionCatalogService.TryFindByName("C16a")
+                ?? SectionCatalogService.TryFindByName("C160x60x20x2.5")
+                ?? beamProf;
 
             double beamZ = h - beamProf.H * 0.5;
             double colTop = Math.Max(300.0, h - beamProf.H);
+            double subBeamZ = h - braceProf.H * 0.5;
 
             // ---- 1) 立柱网格 + 柱脚底板 ----
-            var gridPoints = new List<Point3d>();
             for (int ix = 0; ix <= baysX; ix++)
             {
                 for (int iy = 0; iy <= baysY; iy++)
@@ -63,40 +68,36 @@ namespace SteelStructureSuite.Services.Modeling
                     double x = span * ix / baysX;
                     double y = len * iy / baysY;
                     var basePt = new Point3d(x, y, 0);
-                    gridPoints.Add(basePt);
 
                     SteelStructureBuilder.AddMember(parts, "平台立柱", colProf, basePt, new Point3d(x, y, colTop));
-                    SteelStructureBuilder.AddBasePlate(parts, "柱脚底板", basePt, colProf.H + 120, colProf.B + 120, 20);
+                    SteelStructureBuilder.AddBasePlate(parts, "柱脚底板", basePt, colProf.H + 100, colProf.B + 100, 20);
                 }
             }
 
-            // ---- 2) 柱间交叉支撑（仅外周边，避免内部遮挡） ----
-            for (int ix = 0; ix <= baysX; ix++)
+            // ---- 2) 柱间交叉支撑（仅外周端跨设置，简洁清晰不杂乱） ----
+            double braceZ0 = Math.Min(150.0, colTop * 0.08);
+            double braceZ1 = Math.Max(braceZ0 + 300.0, colTop - 80.0);
+            // X=0 与 X=span 两侧的第 0 跨
+            foreach (double x in new[] { 0.0, span })
             {
-                for (int iy = 0; iy < baysY; iy++)
-                {
-                    if (ix != 0 && ix != baysX) continue;
-                    double x = span * ix / baysX;
-                    double y0 = len * iy / baysY;
-                    double y1 = len * (iy + 1) / baysY;
-                    SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                        new Point3d(x, y0, colTop * 0.08), new Point3d(x, y1, colTop * 0.92), JointOverlap);
-                }
+                double y0 = 0.0;
+                double y1 = len / baysY;
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x, y0, braceZ0), new Point3d(x, y1, braceZ1));
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x, y1, braceZ0), new Point3d(x, y0, braceZ1));
             }
-            for (int iy = 0; iy <= baysY; iy++)
+            // Y=0 后侧端跨（避开 Y=len 斜梯侧）
             {
-                for (int ix = 0; ix < baysX; ix++)
-                {
-                    if (iy != 0 && iy != baysY) continue;
-                    double y = len * iy / baysY;
-                    double x0 = span * ix / baysX;
-                    double x1 = span * (ix + 1) / baysX;
-                    SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                        new Point3d(x0, y, colTop * 0.08), new Point3d(x1, y, colTop * 0.92), JointOverlap);
-                }
+                double x0 = 0.0;
+                double x1 = span / baysX;
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x0, 0.0, braceZ0), new Point3d(x1, 0.0, braceZ1));
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x1, 0.0, braceZ0), new Point3d(x0, 0.0, braceZ1));
             }
 
-            // ---- 3) 周边主梁 ----
+            // ---- 3) 主梁格 ----
             for (int iy = 0; iy <= baysY; iy++)
             {
                 double y = len * iy / baysY;
@@ -110,89 +111,92 @@ namespace SteelStructureSuite.Services.Modeling
                     new Point3d(x, 0, beamZ), new Point3d(x, len, beamZ));
             }
 
-            // ---- 4) 次梁（每个分格一条中线） ----
+            // ---- 4) 次梁（每跨中间一道） ----
             for (int iy = 0; iy < baysY; iy++)
             {
                 double y = len * (iy + 0.5) / baysY;
                 SteelStructureBuilder.AddMember(parts, "平台次梁", braceProf,
-                    new Point3d(0, y, h - braceProf.H * 0.5),
-                    new Point3d(span, y, h - braceProf.H * 0.5));
+                    new Point3d(0, y, subBeamZ), new Point3d(span, y, subBeamZ));
             }
 
-            // ---- 5) 铺板 ----
+            // ---- 5) 平台花纹钢板 ----
             SteelStructureBuilder.AddBasePlate(parts, "平台花纹钢板",
                 new Point3d(span * 0.5, len * 0.5, h), span, len, 8.0);
 
-            // ---- 6) 四周栏杆（立柱 + 上下横杆） ----
+            // 斜梯开口位置（位于 +Y 边中央）
+            double stairWidth = Math.Min(900.0, Math.Max(700.0, span * 0.35));
+            double stairX = span * 0.5;
+            double stairX0 = Math.Max(200.0, stairX - stairWidth * 0.5);
+            double stairX1 = Math.Min(span - 200.0, stairX + stairWidth * 0.5);
+            stairWidth = Math.Max(600.0, stairX1 - stairX0);
+            stairX = (stairX0 + stairX1) * 0.5;
+
+            // ---- 6) 四周安全栏杆（含立柱、顶扶手、中横杆；+Y 侧留出斜梯出入口） ----
             if (pipeProf != null)
             {
                 double railTopZ = h + railH;
-                double midZ = h + railH * 0.5;
+                double midZ = h + railH * 0.52;
 
-                // 四角立柱
-                var corners = new[]
+                void AddPost(double px, double py)
                 {
-                    new Point3d(0, 0, 0), new Point3d(span, 0, 0),
-                    new Point3d(span, len, 0), new Point3d(0, len, 0)
-                };
-                foreach (Point3d c in corners)
-                {
-                    SteelStructureBuilder.AddMemberExtended(parts, "护栏立柱", pipeProf,
-                        new Point3d(c.X, c.Y, h), new Point3d(c.X, c.Y, railTopZ), 12.0);
+                    SteelStructureBuilder.AddMember(parts, "护栏立柱", pipeProf,
+                        new Point3d(px, py, h), new Point3d(px, py, railTopZ));
                 }
 
-                // 边线扶手 + 中横杆（按分格分段，避免跨度过大）
-                void RailLine(Point3d a, Point3d b)
+                void AddRailSpan(double ax, double ay, double bx, double by)
                 {
+                    if (new Point3d(ax, ay, 0).DistanceTo(new Point3d(bx, by, 0)) < 80.0) return;
                     SteelStructureBuilder.AddMember(parts, "顶部扶手", pipeProf,
-                        new Point3d(a.X, a.Y, railTopZ), new Point3d(b.X, b.Y, railTopZ));
+                        new Point3d(ax, ay, railTopZ), new Point3d(bx, by, railTopZ));
                     SteelStructureBuilder.AddMember(parts, "中横杆", pipeProf,
-                        new Point3d(a.X, a.Y, midZ), new Point3d(b.X, b.Y, midZ));
+                        new Point3d(ax, ay, midZ), new Point3d(bx, by, midZ));
                 }
 
-                for (int ix = 0; ix < baysX; ix++)
-                {
-                    double x0 = span * ix / baysX, x1 = span * (ix + 1) / baysX;
-                    RailLine(new Point3d(x0, 0, 0), new Point3d(x1, 0, 0));
-                    RailLine(new Point3d(x0, len, 0), new Point3d(x1, len, 0));
-                }
-                for (int iy = 0; iy < baysY; iy++)
-                {
-                    double y0 = len * iy / baysY, y1 = len * (iy + 1) / baysY;
-                    RailLine(new Point3d(0, y0, 0), new Point3d(0, y1, 0));
-                    RailLine(new Point3d(span, y0, 0), new Point3d(span, y1, 0));
-                }
+                // 后侧边 Y=0（整边贯通 + 均匀立柱）
+                int postsX = Math.Max(2, (int)Math.Ceiling(span / 1500.0));
+                for (int i = 0; i <= postsX; i++)
+                    AddPost(span * i / postsX, 0.0);
+                AddRailSpan(0.0, 0.0, span, 0.0);
 
-                // 中间立柱（长边每隔一格加一根）
-                for (int ix = 1; ix < baysX; ix++)
+                // 左右两边 X=0, X=span（整边贯通 + 均匀立柱）
+                int postsY = Math.Max(2, (int)Math.Ceiling(len / 1500.0));
+                for (int i = 1; i < postsY; i++)
                 {
-                    double x = span * ix / baysX;
-                    SteelStructureBuilder.AddMemberExtended(parts, "护栏立柱", pipeProf,
-                        new Point3d(x, 0, h), new Point3d(x, 0, railTopZ), 12.0);
-                    SteelStructureBuilder.AddMemberExtended(parts, "护栏立柱", pipeProf,
-                        new Point3d(x, len, h), new Point3d(x, len, railTopZ), 12.0);
+                    double py = len * i / postsY;
+                    AddPost(0.0, py);
+                    AddPost(span, py);
                 }
+                AddPost(0.0, len);
+                AddPost(span, len);
+                AddRailSpan(0.0, 0.0, 0.0, len);
+                AddRailSpan(span, 0.0, span, len);
+
+                // 前侧边 Y=len（左右两段，中间留出斜梯通道 [stairX0, stairX1]）
+                AddPost(stairX0, len);
+                AddPost(stairX1, len);
+                if (stairX0 > 1500.0) AddPost(stairX0 * 0.5, len);
+                if (span - stairX1 > 1500.0) AddPost((stairX1 + span) * 0.5, len);
+                AddRailSpan(0.0, len, stairX0, len);
+                AddRailSpan(stairX1, len, span, len);
             }
 
-            // ---- 7) 单跑斜梯（沿 +Y 方向从地面到平台，含扶手） ----
-            BuildAccessStair(parts, colProf, braceProf, pipeProf, span * 0.5, len, h, railH);
+            // ---- 7) 单跑斜梯（沿 +Y 方向从地面升至平台梯口，含踏步板与完整双侧扶手） ----
+            BuildAccessStair(parts, stairStringerProf, pipeProf, stairX, stairWidth, len, h, railH);
         }
 
-        /// <summary>在平台边缘生成一部单跑斜梯（含两侧扶手）。</summary>
+        /// <summary>在平台边缘生成一部构造完整的单跑斜梯（槽钢梯梁 + 水平踏步板 + 双侧扶手与立柱 + 梯脚底板）。</summary>
         private static void BuildAccessStair(
             List<SteelStructureBuilder.SolidMemberPart> parts,
             SectionProfile stringerProf,
-            SectionProfile stepProf,
             SectionProfile pipeProf,
             double xCenter,
+            double stairWidth,
             double platformEdgeY,
             double platformH,
             double railH)
         {
-            // 斜梯水平投影：按 45° 估算，最短 1.2m
             double runY = Math.Max(1200.0, platformH);
             double bottomY = platformEdgeY + runY;
-            double stairWidth = 900.0;
             double halfW = stairWidth * 0.5;
 
             var leftBottom = new Point3d(xCenter - halfW, bottomY, 0);
@@ -200,35 +204,58 @@ namespace SteelStructureSuite.Services.Modeling
             var rightBottom = new Point3d(xCenter + halfW, bottomY, 0);
             var rightTop = new Point3d(xCenter + halfW, platformEdgeY, platformH);
 
-            SteelStructureBuilder.AddMemberExtended(parts, "梯梁", stringerProf, leftBottom, leftTop, JointOverlap);
-            SteelStructureBuilder.AddMemberExtended(parts, "梯梁", stringerProf, rightBottom, rightTop, JointOverlap);
+            // 左右梯梁
+            SteelStructureBuilder.AddMember(parts, "斜梯梯梁", stringerProf, leftBottom, leftTop);
+            SteelStructureBuilder.AddMember(parts, "斜梯梯梁", stringerProf, rightBottom, rightTop);
 
-            // 踏步：按 180mm 高估算步数
-            int steps = Math.Max(3, (int)Math.Round(platformH / 180.0));
+            // 梯脚底板
+            SteelStructureBuilder.AddBasePlate(parts, "梯脚底板", leftBottom, 160, 180, 14);
+            SteelStructureBuilder.AddBasePlate(parts, "梯脚底板", rightBottom, 160, 180, 14);
+
+            // 水平防滑踏步板（真实钢板，避免型钢冒充踏步）
+            int steps = Math.Max(4, (int)Math.Round(platformH / 190.0));
             for (int i = 1; i < steps; i++)
             {
                 double t = (double)i / steps;
                 double y = bottomY + (platformEdgeY - bottomY) * t;
                 double z = platformH * t;
-                SteelStructureBuilder.AddMember(parts, "踏步", stepProf,
-                    new Point3d(xCenter - halfW, y, z), new Point3d(xCenter + halfW, y, z));
+                SteelStructureBuilder.AddRotatedPlate(parts, "斜梯踏步板",
+                    new Point3d(xCenter, y, z), stairWidth, 240.0, 8.0, 0.0);
             }
 
-            // 扶手
+            // 双侧连续扶手 + 中横杆 + 均匀立柱（顶部自然衔接平台梯口立柱）
             if (pipeProf != null)
             {
-                double railOffset = Math.Max(railH, 900.0);
-                SteelStructureBuilder.AddMemberExtended(parts, "梯扶手", pipeProf,
-                    leftBottom + new Vector3d(0, 0, railOffset),
-                    leftTop + new Vector3d(0, 0, railOffset), JointOverlap);
-                SteelStructureBuilder.AddMemberExtended(parts, "梯扶手", pipeProf,
-                    rightBottom + new Vector3d(0, 0, railOffset),
-                    rightTop + new Vector3d(0, 0, railOffset), JointOverlap);
+                double topOff = Math.Max(railH, 900.0);
+                double midOff = topOff * 0.52;
+
+                SteelStructureBuilder.AddMember(parts, "梯顶扶手", pipeProf,
+                    leftBottom + new Vector3d(0, 0, topOff), leftTop + new Vector3d(0, 0, topOff));
+                SteelStructureBuilder.AddMember(parts, "梯顶扶手", pipeProf,
+                    rightBottom + new Vector3d(0, 0, topOff), rightTop + new Vector3d(0, 0, topOff));
+
+                SteelStructureBuilder.AddMember(parts, "梯中横杆", pipeProf,
+                    leftBottom + new Vector3d(0, 0, midOff), leftTop + new Vector3d(0, 0, midOff));
+                SteelStructureBuilder.AddMember(parts, "梯中横杆", pipeProf,
+                    rightBottom + new Vector3d(0, 0, midOff), rightTop + new Vector3d(0, 0, midOff));
+
+                int postStride = Math.Max(1, steps / 4);
+                for (int i = 0; i < steps; i++)
+                {
+                    if (i != 0 && i % postStride != 0) continue;
+                    double t = (double)i / steps;
+                    double y = bottomY + (platformEdgeY - bottomY) * t;
+                    double z = platformH * t;
+                    SteelStructureBuilder.AddMember(parts, "梯扶手立柱", pipeProf,
+                        new Point3d(xCenter - halfW, y, z), new Point3d(xCenter - halfW, y, z + topOff));
+                    SteelStructureBuilder.AddMember(parts, "梯扶手立柱", pipeProf,
+                        new Point3d(xCenter + halfW, y, z), new Point3d(xCenter + halfW, y, z + topOff));
+                }
             }
         }
 
         // ==================================================================
-        // 2. 厂房柱列：一排柱 + 柱间支撑 + 吊车梁 + 系杆
+        // 2. 厂房柱列：一排柱 + 牛腿 + 偏心吊车梁 + 柱顶系杆 + 柱间支撑
         // ==================================================================
         /// <summary>
         /// 厂房柱列。
@@ -249,17 +276,17 @@ namespace SteelStructureSuite.Services.Modeling
 
             int count = Math.Max(2, Math.Min(30, columnCount));
             colSpacing = Math.Max(colSpacing, 1500.0);
-            // 总长优先：若给了总长则按总长均分，否则用柱距推算
             double span = totalLength > colSpacing * 1.5
                 ? totalLength / (count - 1)
                 : colSpacing;
 
-            h = Math.Max(h, 1500.0);
-            double craneZ = craneBeamZ > 0 && craneBeamZ < h
+            h = Math.Max(h, 2500.0);
+            double craneZ = craneBeamZ > 600.0 && craneBeamZ < h - 600.0
                 ? craneBeamZ
-                : h * 0.62;
+                : h * 0.65;
 
             double colTop = Math.Max(500.0, h - beamProf.H);
+            double totalX = (count - 1) * span;
 
             // ---- 1) 柱子 + 柱脚 ----
             for (int i = 0; i < count; i++)
@@ -273,31 +300,38 @@ namespace SteelStructureSuite.Services.Modeling
             // ---- 2) 柱顶系杆（贯通） ----
             SteelStructureBuilder.AddMember(parts, "柱顶系杆", beamProf,
                 new Point3d(0, 0, colTop + beamProf.H * 0.5),
-                new Point3d((count - 1) * span, 0, colTop + beamProf.H * 0.5));
+                new Point3d(totalX, 0, colTop + beamProf.H * 0.5));
 
-            // ---- 3) 吊车梁（贯通，位于吊车梁标高） ----
+            // ---- 3) 柱侧牛腿 + 吊车梁（沿 +Y 方向外挑，不穿入柱身） ----
+            double corbelOut = colProf.B * 0.5 + beamProf.B * 0.5 + 80.0;
+            double corbelZ = craneZ - beamProf.H * 0.5 - 60.0;
+            for (int i = 0; i < count; i++)
+            {
+                double x = i * span;
+                SteelStructureBuilder.AddMember(parts, "柱牛腿", braceProf,
+                    new Point3d(x, 0, corbelZ),
+                    new Point3d(x, corbelOut + beamProf.B * 0.5, corbelZ));
+                SteelStructureBuilder.AddMember(parts, "牛腿斜撑", braceProf,
+                    new Point3d(x, 0, corbelZ - 350.0),
+                    new Point3d(x, corbelOut, corbelZ));
+            }
+
             SteelStructureBuilder.AddMember(parts, "吊车梁", beamProf,
-                new Point3d(0, 0, craneZ), new Point3d((count - 1) * span, 0, craneZ));
+                new Point3d(0, corbelOut, craneZ),
+                new Point3d(totalX, corbelOut, craneZ));
 
-            // ---- 4) 柱间交叉支撑（每隔一跨设置一道） ----
+            // ---- 4) 柱间交叉支撑（居中跨或隔跨设置，两端对齐柱中心） ----
+            double braceZ0 = 150.0;
+            double braceZ1 = Math.Max(braceZ0 + 500.0, craneZ - 150.0);
             for (int i = 0; i < count - 1; i++)
             {
                 if (i % 2 != 0) continue;
                 double x0 = i * span;
                 double x1 = (i + 1) * span;
-                SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                    new Point3d(x0, 0, craneZ * 0.15), new Point3d(x1, 0, craneZ * 0.85), JointOverlap);
-                SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                    new Point3d(x1, 0, craneZ * 0.15), new Point3d(x0, 0, craneZ * 0.85), JointOverlap);
-            }
-
-            // ---- 5) 牛腿（每根柱吊车梁位置一个小托） ----
-            for (int i = 0; i < count; i++)
-            {
-                double x = i * span;
-                SteelStructureBuilder.AddBasePlate(parts, "柱牛腿",
-                    new Point3d(x, 0, craneZ - beamProf.H * 0.5 - 30),
-                    colProf.H * 0.7, colProf.B * 0.8, 30);
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x0, 0, braceZ0), new Point3d(x1, 0, braceZ1));
+                SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                    new Point3d(x1, 0, braceZ0), new Point3d(x0, 0, braceZ1));
             }
         }
 
@@ -306,14 +340,14 @@ namespace SteelStructureSuite.Services.Modeling
         // ==================================================================
         /// <summary>
         /// 管廊成套区段。
-        /// Span = 跨度，Length = 总长，Height = 顶层标高，SubHeight = 层间距，BayCount = 跨数。
+        /// Span = 管廊跨度(宽度 Y)，Length = 总长(X)，Height = 顶层标高，SubHeight = 层间距，BayCount = 纵向跨数。
         /// </summary>
         internal static void BuildPipeRackAssembly(
             List<SteelStructureBuilder.SolidMemberPart> parts,
             SectionProfile colProf,
             SectionProfile beamProf,
             SectionProfile braceProf,
-            double baySpan,
+            double rackWidth,
             double totalLength,
             double topH,
             double tierGap,
@@ -322,65 +356,70 @@ namespace SteelStructureSuite.Services.Modeling
             if (parts == null) return;
 
             int bays = Math.Max(1, Math.Min(20, bayCount));
-            baySpan = Math.Max(baySpan, 1500.0);
-            double span = totalLength > baySpan * 1.5 ? totalLength / bays : baySpan;
+            rackWidth = Math.Max(rackWidth, 1800.0);
+            double bayPitch = totalLength > 1500.0 ? totalLength / bays : 4000.0;
+            bayPitch = Math.Max(bayPitch, 1800.0);
 
-            topH = Math.Max(topH, 2000.0);
-            double gap = tierGap > 500.0 && tierGap < topH * 0.8 ? tierGap : topH * 0.42;
+            topH = Math.Max(topH, 2400.0);
+            double gap = tierGap > 800.0 && tierGap < topH * 0.75 ? tierGap : topH * 0.42;
+            int tiers = Math.Max(2, Math.Min(4, (int)Math.Floor((topH - 1200.0) / gap) + 1));
 
-            // 层数：从地面到顶层按层间距推算，至少 2 层
-            int tiers = Math.Max(2, Math.Min(5, (int)Math.Round(topH / gap) + 1));
+            double topBeamZ = topH - beamProf.H * 0.5;
+            double colTop = Math.Max(500.0, topH - beamProf.H);
+            double totalX = bays * bayPitch;
 
-            // ---- 1) 两端（及中间）门架柱 ----
+            // ---- 1) 各榀门架立柱 + 柱脚底板 ----
             for (int i = 0; i <= bays; i++)
             {
-                double x = i * span;
+                double x = i * bayPitch;
                 for (int side = 0; side < 2; side++)
                 {
-                    double y = side == 0 ? 0.0 : gap * 1.6;   // 管廊宽度取层间距的 1.6 倍
+                    double y = side == 0 ? 0.0 : rackWidth;
                     var basePt = new Point3d(x, y, 0);
-                    SteelStructureBuilder.AddMember(parts, "管廊立柱", colProf, basePt,
-                        new Point3d(x, y, Math.Max(500.0, topH - beamProf.H)));
-                    SteelStructureBuilder.AddBasePlate(parts, "柱脚底板", basePt,
-                        colProf.H + 140, colProf.B + 140, 22);
+                    SteelStructureBuilder.AddMember(parts, "管廊立柱", colProf, basePt, new Point3d(x, y, colTop));
+                    SteelStructureBuilder.AddBasePlate(parts, "柱脚底板", basePt, colProf.H + 140, colProf.B + 140, 22);
                 }
             }
 
-            // ---- 2) 各层横梁 ----
+            // ---- 2) 各层横梁与纵梁 ----
             for (int t = 0; t < tiers; t++)
             {
-                double z = topH - t * gap;
-                if (z < 600.0) break;
+                double z = topBeamZ - t * gap;
+                if (z < 1200.0) break;
 
                 for (int i = 0; i <= bays; i++)
                 {
-                    double x = i * span;
+                    double x = i * bayPitch;
                     SteelStructureBuilder.AddMember(parts, $"第{t + 1}层横梁", beamProf,
-                        new Point3d(x, 0, z), new Point3d(x, gap * 1.6, z));
+                        new Point3d(x, 0, z), new Point3d(x, rackWidth, z));
                 }
 
-                // 纵梁（贯通整段）
                 SteelStructureBuilder.AddMember(parts, $"第{t + 1}层纵梁", beamProf,
-                    new Point3d(0, 0, z), new Point3d(bays * span, 0, z));
+                    new Point3d(0, 0, z), new Point3d(totalX, 0, z));
                 SteelStructureBuilder.AddMember(parts, $"第{t + 1}层纵梁", beamProf,
-                    new Point3d(0, gap * 1.6, z), new Point3d(bays * span, gap * 1.6, z));
+                    new Point3d(0, rackWidth, z), new Point3d(totalX, rackWidth, z));
             }
 
-            // ---- 3) 柱间交叉支撑（端跨） ----
+            // ---- 3) 端跨纵向柱间交叉支撑 ----
+            double braceZ0 = 150.0;
+            double braceZ1 = Math.Max(braceZ0 + 500.0, colTop - 100.0);
             for (int i = 0; i < bays; i++)
             {
                 if (i != 0 && i != bays - 1) continue;
-                double x0 = i * span;
-                double x1 = (i + 1) * span;
-                SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                    new Point3d(x0, 0, topH * 0.12), new Point3d(x1, 0, topH * 0.88), JointOverlap);
-                SteelStructureBuilder.AddMemberExtended(parts, "柱间支撑", braceProf,
-                    new Point3d(x0, gap * 1.6, topH * 0.12), new Point3d(x1, gap * 1.6, topH * 0.88), JointOverlap);
+                double x0 = i * bayPitch;
+                double x1 = (i + 1) * bayPitch;
+                foreach (double y in new[] { 0.0, rackWidth })
+                {
+                    SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                        new Point3d(x0, y, braceZ0), new Point3d(x1, y, braceZ1));
+                    SteelStructureBuilder.AddMember(parts, "柱间支撑", braceProf,
+                        new Point3d(x1, y, braceZ0), new Point3d(x0, y, braceZ1));
+                }
             }
         }
 
         // ==================================================================
-        // 4. 楼梯成套：梯梁 + 踏步 + 扶手 + 顶部平台
+        // 4. 楼梯成套：梯梁 + 水平踏步板 + 双侧扶手 + 落地支撑休息平台
         // ==================================================================
         /// <summary>
         /// 楼梯成套。
@@ -399,94 +438,138 @@ namespace SteelStructureSuite.Services.Modeling
         {
             if (parts == null) return;
 
-            runLength = Math.Max(runLength, 900.0);
-            width = Math.Max(width, 600.0);
-            riseHeight = Math.Max(riseHeight, 600.0);
-            railH = Math.Max(railH, 900.0);
+            runLength = Math.Max(runLength, 1200.0);
+            width = Math.Max(width, 700.0);
+            riseHeight = Math.Max(riseHeight, 800.0);
+            railH = Math.Max(railH, 1000.0);
 
             int steps = stepCount > 1
                 ? Math.Min(40, stepCount)
-                : Math.Max(3, (int)Math.Round(riseHeight / 175.0));
+                : Math.Max(4, (int)Math.Round(riseHeight / 180.0));
 
             double halfW = width * 0.5;
+            SectionProfile pipeProf = railProf ?? SectionCatalogService.GetByName("P42x3.5");
+            SectionProfile landingColProf = SectionCatalogService.TryFindByName("F100x100x6")
+                ?? SectionCatalogService.TryFindByName("HW150x150x7x10")
+                ?? stringerProf;
 
-            // ---- 1) 两侧梯梁 ----
+            // ---- 1) 两侧梯梁 + 梯脚底板 ----
             var leftBottom = new Point3d(-halfW, 0, 0);
             var leftTop = new Point3d(-halfW, runLength, riseHeight);
             var rightBottom = new Point3d(halfW, 0, 0);
             var rightTop = new Point3d(halfW, runLength, riseHeight);
 
-            SteelStructureBuilder.AddMemberExtended(parts, "梯梁", stringerProf, leftBottom, leftTop, JointOverlap);
-            SteelStructureBuilder.AddMemberExtended(parts, "梯梁", stringerProf, rightBottom, rightTop, JointOverlap);
+            SteelStructureBuilder.AddMember(parts, "左梯梁", stringerProf, leftBottom, leftTop);
+            SteelStructureBuilder.AddMember(parts, "右梯梁", stringerProf, rightBottom, rightTop);
+            SteelStructureBuilder.AddBasePlate(parts, "梯脚底板", leftBottom, 160, 180, 14);
+            SteelStructureBuilder.AddBasePlate(parts, "梯脚底板", rightBottom, 160, 180, 14);
 
-            // ---- 2) 踏步 ----
+            // ---- 2) 水平防滑踏步板（真实钢板） ----
             for (int i = 1; i < steps; i++)
             {
                 double t = (double)i / steps;
                 double y = runLength * t;
                 double z = riseHeight * t;
-                SteelStructureBuilder.AddMember(parts, "踏步", stepProf,
-                    new Point3d(-halfW, y, z), new Point3d(halfW, y, z));
+                SteelStructureBuilder.AddRotatedPlate(parts, "踏步板",
+                    new Point3d(0, y, z), width, 240.0, 8.0, 0.0);
             }
 
-            // ---- 3) 扶手（上下两根 + 立柱） ----
-            if (railProf != null)
+            // ---- 3) 梯段双侧扶手（顶部扶手 + 中横杆 + 首尾及中间立柱） ----
+            if (pipeProf != null)
             {
                 double topOffset = railH;
-                double midOffset = railH * 0.5;
+                double midOffset = railH * 0.52;
 
-                SteelStructureBuilder.AddMemberExtended(parts, "梯扶手", railProf,
-                    leftBottom + new Vector3d(0, 0, topOffset),
-                    leftTop + new Vector3d(0, 0, topOffset), JointOverlap);
-                SteelStructureBuilder.AddMemberExtended(parts, "梯扶手", railProf,
-                    rightBottom + new Vector3d(0, 0, topOffset),
-                    rightTop + new Vector3d(0, 0, topOffset), JointOverlap);
+                SteelStructureBuilder.AddMember(parts, "梯扶手", pipeProf,
+                    leftBottom + new Vector3d(0, 0, topOffset), leftTop + new Vector3d(0, 0, topOffset));
+                SteelStructureBuilder.AddMember(parts, "梯扶手", pipeProf,
+                    rightBottom + new Vector3d(0, 0, topOffset), rightTop + new Vector3d(0, 0, topOffset));
 
-                SteelStructureBuilder.AddMemberExtended(parts, "中横杆", railProf,
-                    leftBottom + new Vector3d(0, 0, midOffset),
-                    leftTop + new Vector3d(0, 0, midOffset), JointOverlap);
-                SteelStructureBuilder.AddMemberExtended(parts, "中横杆", railProf,
-                    rightBottom + new Vector3d(0, 0, midOffset),
-                    rightTop + new Vector3d(0, 0, midOffset), JointOverlap);
+                SteelStructureBuilder.AddMember(parts, "梯中横杆", pipeProf,
+                    leftBottom + new Vector3d(0, 0, midOffset), leftTop + new Vector3d(0, 0, midOffset));
+                SteelStructureBuilder.AddMember(parts, "梯中横杆", pipeProf,
+                    rightBottom + new Vector3d(0, 0, midOffset), rightTop + new Vector3d(0, 0, midOffset));
 
-                // 扶手立柱：每 4 步一根
                 int postStep = Math.Max(1, steps / 4);
-                for (int i = 0; i <= steps; i += postStep)
+                for (int i = 0; i <= steps; i++)
                 {
+                    if (i != 0 && i != steps && i % postStep != 0) continue;
                     double t = (double)i / steps;
                     double y = runLength * t;
                     double z = riseHeight * t;
-                    SteelStructureBuilder.AddMemberExtended(parts, "扶手立柱", railProf,
-                        new Point3d(-halfW, y, z), new Point3d(-halfW, y, z + railH), 10.0);
-                    SteelStructureBuilder.AddMemberExtended(parts, "扶手立柱", railProf,
-                        new Point3d(halfW, y, z), new Point3d(halfW, y, z + railH), 10.0);
+                    SteelStructureBuilder.AddMember(parts, "扶手立柱", pipeProf,
+                        new Point3d(-halfW, y, z), new Point3d(-halfW, y, z + railH));
+                    SteelStructureBuilder.AddMember(parts, "扶手立柱", pipeProf,
+                        new Point3d(halfW, y, z), new Point3d(halfW, y, z + railH));
                 }
             }
 
-            // ---- 4) 顶部平台（休息平台） ----
-            double platformDepth = Math.Max(width * 0.9, 900.0);
+            // ---- 4) 顶部落地支撑休息平台（4 根落地支撑柱 + 柱脚 + 四周平台梁 + 平台花纹板） ----
+            double platformDepth = Math.Max(width, 1000.0);
+            double y0 = runLength;
+            double y1 = runLength + platformDepth;
+            double beamH = Math.Max(80.0, stringerProf.H);
+            double landingBeamZ = riseHeight - beamH * 0.5;
+            double landingColTop = Math.Max(200.0, riseHeight - beamH);
+
+            // 4 根落地支撑柱 + 柱脚底板
+            var landingCorners = new[]
+            {
+                new Point3d(-halfW, y0, 0),
+                new Point3d(halfW, y0, 0),
+                new Point3d(-halfW, y1, 0),
+                new Point3d(halfW, y1, 0)
+            };
+            foreach (Point3d c in landingCorners)
+            {
+                SteelStructureBuilder.AddMember(parts, "平台支撑柱", landingColProf,
+                    c, new Point3d(c.X, c.Y, landingColTop));
+                SteelStructureBuilder.AddBasePlate(parts, "平台柱脚底板",
+                    c, landingColProf.H + 80, landingColProf.B + 80, 16);
+            }
+
+            // 四周平台边梁
+            SteelStructureBuilder.AddMember(parts, "平台边梁", stringerProf,
+                new Point3d(-halfW, y0, landingBeamZ), new Point3d(halfW, y0, landingBeamZ));
+            SteelStructureBuilder.AddMember(parts, "平台边梁", stringerProf,
+                new Point3d(-halfW, y1, landingBeamZ), new Point3d(halfW, y1, landingBeamZ));
+            SteelStructureBuilder.AddMember(parts, "平台边梁", stringerProf,
+                new Point3d(-halfW, y0, landingBeamZ), new Point3d(-halfW, y1, landingBeamZ));
+            SteelStructureBuilder.AddMember(parts, "平台边梁", stringerProf,
+                new Point3d(halfW, y0, landingBeamZ), new Point3d(halfW, y1, landingBeamZ));
+
+            // 休息平台花纹钢板
             SteelStructureBuilder.AddBasePlate(parts, "休息平台板",
-                new Point3d(0, runLength + platformDepth * 0.5, riseHeight),
+                new Point3d(0, (y0 + y1) * 0.5, riseHeight),
                 width, platformDepth, 8.0);
 
-            // 平台护栏（三边）
-            if (railProf != null)
+            // 平台三边护栏（顶扶手 + 中横杆 + 后侧立柱，与梯段扶手严密衔接）
+            if (pipeProf != null)
             {
-                double z = riseHeight + railH;
-                double y0 = runLength;
-                double y1 = runLength + platformDepth;
+                double topZ = riseHeight + railH;
+                double midZ = riseHeight + railH * 0.52;
 
-                SteelStructureBuilder.AddMember(parts, "平台扶手", railProf,
-                    new Point3d(-halfW, y1, z), new Point3d(halfW, y1, z));
-                SteelStructureBuilder.AddMember(parts, "平台扶手", railProf,
-                    new Point3d(-halfW, y0, z), new Point3d(-halfW, y1, z));
-                SteelStructureBuilder.AddMember(parts, "平台扶手", railProf,
-                    new Point3d(halfW, y0, z), new Point3d(halfW, y1, z));
+                // 顶部扶手（左、右、后三边）
+                SteelStructureBuilder.AddMember(parts, "平台扶手", pipeProf,
+                    new Point3d(-halfW, y1, topZ), new Point3d(halfW, y1, topZ));
+                SteelStructureBuilder.AddMember(parts, "平台扶手", pipeProf,
+                    new Point3d(-halfW, y0, topZ), new Point3d(-halfW, y1, topZ));
+                SteelStructureBuilder.AddMember(parts, "平台扶手", pipeProf,
+                    new Point3d(halfW, y0, topZ), new Point3d(halfW, y1, topZ));
 
+                // 中横杆（左、右、后三边）
+                SteelStructureBuilder.AddMember(parts, "平台中横杆", pipeProf,
+                    new Point3d(-halfW, y1, midZ), new Point3d(halfW, y1, midZ));
+                SteelStructureBuilder.AddMember(parts, "平台中横杆", pipeProf,
+                    new Point3d(-halfW, y0, midZ), new Point3d(-halfW, y1, midZ));
+                SteelStructureBuilder.AddMember(parts, "平台中横杆", pipeProf,
+                    new Point3d(halfW, y0, midZ), new Point3d(halfW, y1, midZ));
+
+                // 后侧两根角柱（前侧两根已由梯段顶端立柱提供）
                 foreach (double sx in new[] { -halfW, halfW })
                 {
-                    SteelStructureBuilder.AddMemberExtended(parts, "平台护栏立柱", railProf,
-                        new Point3d(sx, y1, riseHeight), new Point3d(sx, y1, z), 10.0);
+                    SteelStructureBuilder.AddMember(parts, "平台护栏立柱", pipeProf,
+                        new Point3d(sx, y1, riseHeight), new Point3d(sx, y1, topZ));
                 }
             }
         }

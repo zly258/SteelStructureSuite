@@ -10,17 +10,17 @@ using SteelStructureSuite.Domain.Models;
 namespace SteelStructureSuite.Views.Controls
 {
     /// <summary>
-    /// 26 种参数化钢结构构件专属双视图（左：主视/正立面图；右：平面/侧视/横断面图）实时带尺寸参数示意图画布
-    /// - 每种构件均按真实工程结构形态与当前输入参数实时绘制主次构件、支座、节点与尺寸标注
-    /// - 所有尺寸文字均采用自适应居中标签框与边界防裁切保护，杜绝任何参数值遮挡或显示不全
+    /// 30 种参数化钢结构构件专属三维轴测示意图画布（单图自适应视图）。
+    /// - 统一采用工程轴测投影，将三维杆件、节点、支座、护栏与尺寸标注绘制在同一画布内；
+    /// - 自动按画布当前宽高居中缩放，随窗口及分隔条拖拽实时适配，无截断、无遮挡。
     /// </summary>
     public class StructureSchematicControl : Border
     {
         private readonly Canvas _canvas;
 
         private static readonly Brush BgBrush = new SolidColorBrush(Color.FromRgb(248, 250, 252));
-        private static readonly Brush SubBoxBgBrush = new SolidColorBrush(Color.FromRgb(241, 245, 249));
         private static readonly Brush BorderLineBrush = new SolidColorBrush(Color.FromRgb(203, 213, 225));
+        private static readonly Brush RefLineBrush = new SolidColorBrush(Color.FromRgb(148, 163, 184));
         private static readonly Brush AxisLineBrush = new SolidColorBrush(Color.FromRgb(220, 38, 38));
         private static readonly Brush SteelMemberBrush = new SolidColorBrush(Color.FromRgb(15, 108, 189));
         private static readonly Brush SteelSubBrush = new SolidColorBrush(Color.FromRgb(16, 124, 65));
@@ -28,16 +28,20 @@ namespace SteelStructureSuite.Views.Controls
         private static readonly Brush DimLineBrush = new SolidColorBrush(Color.FromRgb(217, 119, 6));
         private static readonly Brush DimTextBrush = new SolidColorBrush(Color.FromRgb(180, 83, 9));
         private static readonly Brush TitleBrush = new SolidColorBrush(Color.FromRgb(30, 41, 59));
+        private static readonly Brush TriadXBrush = new SolidColorBrush(Color.FromRgb(220, 38, 38));
+        private static readonly Brush TriadYBrush = new SolidColorBrush(Color.FromRgb(22, 163, 74));
+        private static readonly Brush TriadZBrush = new SolidColorBrush(Color.FromRgb(37, 99, 235));
 
         public StructureSchematicControl()
         {
-            Height = 228;
-            MinHeight = 215;
+            HorizontalAlignment = HorizontalAlignment.Stretch;
+            VerticalAlignment = VerticalAlignment.Stretch;
+            MinHeight = 240;
             Background = BgBrush;
             BorderBrush = BorderLineBrush;
             BorderThickness = new Thickness(1);
-            CornerRadius = new CornerRadius(4);
-            Margin = new Thickness(0, 0, 0, 8);
+            CornerRadius = new CornerRadius(3);
+            Margin = new Thickness(0);
             ClipToBounds = true;
 
             _canvas = new Canvas
@@ -48,63 +52,275 @@ namespace SteelStructureSuite.Views.Controls
             Child = _canvas;
         }
 
+        private struct Pt3
+        {
+            public double X, Y, Z;
+            public Pt3(double x, double y, double z) { X = x; Y = y; Z = z; }
+        }
+
+        private sealed class Seg3
+        {
+            public Pt3 A, B;
+            public Brush Stroke;
+            public double Thickness;
+            public bool Dashed;
+            public int Layer; // 0=ref, 1=plate, 2=sub, 3=primary
+        }
+
+        private sealed class Dim3
+        {
+            public Pt3 A, B;
+            public Pt3 Offset;
+            public string Text;
+        }
+
+        private sealed class IsoScene
+        {
+            public readonly List<Seg3> Segments = new List<Seg3>();
+            public readonly List<Dim3> Dims = new List<Dim3>();
+
+            public void Line(double x1, double y1, double z1, double x2, double y2, double z2,
+                Brush stroke, double thickness = 2.2, bool dashed = false, int layer = 3)
+            {
+                Segments.Add(new Seg3
+                {
+                    A = new Pt3(x1, y1, z1),
+                    B = new Pt3(x2, y2, z2),
+                    Stroke = stroke,
+                    Thickness = thickness,
+                    Dashed = dashed,
+                    Layer = layer
+                });
+            }
+
+            public void Primary(double x1, double y1, double z1, double x2, double y2, double z2, double thickness = 2.6)
+                => Line(x1, y1, z1, x2, y2, z2, SteelMemberBrush, thickness, false, 3);
+
+            public void Sub(double x1, double y1, double z1, double x2, double y2, double z2, double thickness = 1.7)
+                => Line(x1, y1, z1, x2, y2, z2, SteelSubBrush, thickness, false, 2);
+
+            public void Plate(double x1, double y1, double z1, double x2, double y2, double z2, double thickness = 1.8)
+                => Line(x1, y1, z1, x2, y2, z2, PlateBrush, thickness, false, 1);
+
+            public void Ref(double x1, double y1, double z1, double x2, double y2, double z2, bool dashed = true)
+                => Line(x1, y1, z1, x2, y2, z2, RefLineBrush, 1.1, dashed, 0);
+
+            public void Base(double x, double y, double z = 0, double r = 0.08)
+            {
+                Plate(x - r, y - r, z, x + r, y - r, z, 2.0);
+                Plate(x + r, y - r, z, x + r, y + r, z, 2.0);
+                Plate(x + r, y + r, z, x - r, y + r, z, 2.0);
+                Plate(x - r, y + r, z, x - r, y - r, z, 2.0);
+            }
+
+            public void Box(double x0, double y0, double z0, double dx, double dy, double dz,
+                Brush stroke, double thickness = 2.0, bool dashed = false, int layer = 2)
+            {
+                double x1 = x0 + dx, y1 = y0 + dy, z1 = z0 + dz;
+                Line(x0, y0, z0, x1, y0, z0, stroke, thickness, dashed, layer);
+                Line(x1, y0, z0, x1, y1, z0, stroke, thickness, dashed, layer);
+                Line(x1, y1, z0, x0, y1, z0, stroke, thickness, dashed, layer);
+                Line(x0, y1, z0, x0, y0, z0, stroke, thickness, dashed, layer);
+
+                Line(x0, y0, z1, x1, y0, z1, stroke, thickness, dashed, layer);
+                Line(x1, y0, z1, x1, y1, z1, stroke, thickness, dashed, layer);
+                Line(x1, y1, z1, x0, y1, z1, stroke, thickness, dashed, layer);
+                Line(x0, y1, z1, x0, y0, z1, stroke, thickness, dashed, layer);
+
+                Line(x0, y0, z0, x0, y0, z1, stroke, thickness, dashed, layer);
+                Line(x1, y0, z0, x1, y0, z1, stroke, thickness, dashed, layer);
+                Line(x1, y1, z0, x1, y1, z1, stroke, thickness, dashed, layer);
+                Line(x0, y1, z0, x0, y1, z1, stroke, thickness, dashed, layer);
+            }
+
+            public void ArcXY(double cx, double cy, double cz, double r, double startDeg, double sweepDeg,
+                Brush stroke, double thickness = 2.2, bool dashed = false, int layer = 3)
+            {
+                int segs = Math.Max(14, (int)Math.Ceiling(Math.Abs(sweepDeg) / 9.0));
+                double a0 = startDeg * Math.PI / 180.0;
+                double px = cx + r * Math.Cos(a0);
+                double py = cy + r * Math.Sin(a0);
+                for (int i = 1; i <= segs; i++)
+                {
+                    double a = (startDeg + sweepDeg * i / segs) * Math.PI / 180.0;
+                    double nx = cx + r * Math.Cos(a);
+                    double ny = cy + r * Math.Sin(a);
+                    Line(px, py, cz, nx, ny, cz, stroke, thickness, dashed, layer);
+                    px = nx; py = ny;
+                }
+            }
+
+            public void ArcXZ(double cx, double cy, double cz, double r, double startDeg, double sweepDeg,
+                Brush stroke, double thickness = 2.2, bool dashed = false, int layer = 3)
+            {
+                int segs = Math.Max(14, (int)Math.Ceiling(Math.Abs(sweepDeg) / 9.0));
+                double a0 = startDeg * Math.PI / 180.0;
+                double px = cx + r * Math.Cos(a0);
+                double pz = cz + r * Math.Sin(a0);
+                for (int i = 1; i <= segs; i++)
+                {
+                    double a = (startDeg + sweepDeg * i / segs) * Math.PI / 180.0;
+                    double nx = cx + r * Math.Cos(a);
+                    double nz = cz + r * Math.Sin(a);
+                    Line(px, cy, pz, nx, cy, nz, stroke, thickness, dashed, layer);
+                    px = nx; pz = nz;
+                }
+            }
+
+            public void Dim(double x1, double y1, double z1, double x2, double y2, double z2,
+                double ox, double oy, double oz, string text)
+            {
+                Dims.Add(new Dim3
+                {
+                    A = new Pt3(x1, y1, z1),
+                    B = new Pt3(x2, y2, z2),
+                    Offset = new Pt3(ox, oy, oz),
+                    Text = text
+                });
+            }
+        }
+
+        /// <summary>经典工程轴测投影：X 向右下，Y 向右上（进深），Z 竖直向上。</summary>
+        private static Point ProjectRaw(Pt3 p)
+        {
+            double u = p.X * 0.88 + p.Y * 0.56;
+            double v = p.X * 0.28 - p.Y * 0.42 - p.Z * 0.96;
+            return new Point(u, v);
+        }
+
+        private static double ClampRatio(double value, double reference, double min, double max)
+        {
+            if (reference <= 1e-6 || value <= 1e-6) return (min + max) * 0.5;
+            double r = value / reference;
+            if (r < min) return min;
+            if (r > max) return max;
+            return r;
+        }
+
         public void RenderSchematic(SteelStructureParams p)
         {
             _canvas.Children.Clear();
             if (p == null) return;
 
-            double w = _canvas.ActualWidth > 80 ? _canvas.ActualWidth : 520;
-            double h = _canvas.ActualHeight > 80 ? _canvas.ActualHeight : 228;
+            double w = _canvas.ActualWidth > 80 ? _canvas.ActualWidth : 440;
+            double h = _canvas.ActualHeight > 80 ? _canvas.ActualHeight : 360;
 
-            // 左区：主视图 / 正立面图 (占 58% 宽度)；右区：平面 / 侧视 / 横断面图 (占 42% 宽度)
-            double splitX = Math.Round(w * 0.58);
-            double lx0 = 58;
-            double lx1 = splitX - 38;
-            double lyTop = 30;
-            double lyBot = h - 36;
-            double lMidX = (lx0 + lx1) * 0.5;
-            double lMidY = (lyTop + lyBot) * 0.5;
+            var scene = new IsoScene();
+            BuildIsoScene(scene, p);
 
-            // 右侧辅视图背景框
-            double rxBox0 = splitX + 6;
-            double ryBox0 = 8;
-            double rxBox1 = w - 8;
-            double ryBox1 = h - 8;
-            DrawFilledRect(rxBox0, ryBox0, rxBox1 - rxBox0, ryBox1 - ryBox0, SubBoxBgBrush, BorderLineBrush, 1.0);
+            // 计算全部 3D 几何与尺寸线的投影包围盒
+            double minU = double.PositiveInfinity, maxU = double.NegativeInfinity;
+            double minV = double.PositiveInfinity, maxV = double.NegativeInfinity;
 
-            double rx0 = rxBox0 + 24;
-            double rx1 = rxBox1 - 20;
-            double ryTop = ryBox0 + 30;
-            double ryBot = ryBox1 - 30;
-            double rMidX = (rx0 + rx1) * 0.5;
-            double rMidY = (ryTop + ryBot) * 0.5;
+            void IncludePt(Pt3 pt)
+            {
+                Point q = ProjectRaw(pt);
+                if (q.X < minU) minU = q.X;
+                if (q.X > maxU) maxU = q.X;
+                if (q.Y < minV) minV = q.Y;
+                if (q.Y > maxV) maxV = q.Y;
+            }
 
-            string leftTitle = "正立面示意图";
-            string rightTitle = "平面 / 断面示意图";
+            foreach (var s in scene.Segments)
+            {
+                IncludePt(s.A);
+                IncludePt(s.B);
+            }
+            foreach (var d in scene.Dims)
+            {
+                IncludePt(new Pt3(d.A.X + d.Offset.X, d.A.Y + d.Offset.Y, d.A.Z + d.Offset.Z));
+                IncludePt(new Pt3(d.B.X + d.Offset.X, d.B.Y + d.Offset.Y, d.B.Z + d.Offset.Z));
+            }
+
+            if (double.IsInfinity(minU) || double.IsInfinity(minV))
+            {
+                minU = -1; maxU = 1; minV = -1; maxV = 1;
+            }
+
+            double padL = 48, padR = 48, padT = 38, padB = 42;
+            double availW = Math.Max(60, w - padL - padR);
+            double availH = Math.Max(60, h - padT - padB);
+            double spanU = Math.Max(0.15, maxU - minU);
+            double spanV = Math.Max(0.15, maxV - minV);
+            double scale = Math.Min(availW / spanU, availH / spanV);
+
+            double midU = (minU + maxU) * 0.5;
+            double midV = (minV + maxV) * 0.5;
+            double cx = padL + availW * 0.5;
+            double cy = padT + availH * 0.5;
+
+            Point ToCanvas(Pt3 pt)
+            {
+                Point q = ProjectRaw(pt);
+                return new Point(cx + (q.X - midU) * scale, cy + (q.Y - midV) * scale);
+            }
+
+            // 按层级排序绘制线段（参考线 -> 钢板 -> 次构件 -> 主构件）
+            scene.Segments.Sort((a, b) => a.Layer.CompareTo(b.Layer));
+            foreach (var seg in scene.Segments)
+            {
+                Point p1 = ToCanvas(seg.A);
+                Point p2 = ToCanvas(seg.B);
+                DrawLine(p1.X, p1.Y, p2.X, p2.Y, seg.Stroke, seg.Thickness, seg.Dashed);
+            }
+
+            // 绘制三维尺寸标注
+            foreach (var d in scene.Dims)
+            {
+                Pt3 da = new Pt3(d.A.X + d.Offset.X, d.A.Y + d.Offset.Y, d.A.Z + d.Offset.Z);
+                Pt3 db = new Pt3(d.B.X + d.Offset.X, d.B.Y + d.Offset.Y, d.B.Z + d.Offset.Z);
+                Point a0 = ToCanvas(d.A);
+                Point b0 = ToCanvas(d.B);
+                Point a1 = ToCanvas(da);
+                Point b1 = ToCanvas(db);
+
+                DrawLine(a0.X, a0.Y, a1.X, a1.Y, DimLineBrush, 0.9, dashed: true);
+                DrawLine(b0.X, b0.Y, b1.X, b1.Y, DimLineBrush, 0.9, dashed: true);
+                DrawLine(a1.X, a1.Y, b1.X, b1.Y, DimLineBrush, 1.3);
+                DrawTick(a1, b1);
+                DrawTick(b1, a1);
+                DrawDimBadge((a1.X + b1.X) * 0.5, (a1.Y + b1.Y) * 0.5, d.Text, w, h);
+            }
+
+            // 顶部标题
+            AddTitleText(10, 7, $"轴测示意图 · {p.StructureTypeDisplayName}");
+
+            // 左下角迷你轴测坐标指示
+            DrawIsoTriad(24, h - 22);
+
+            // 右下角截面/材质摘要
+            string summary = string.IsNullOrWhiteSpace(p.ColumnSection)
+                ? (p.Material ?? "Q355B")
+                : $"{p.ColumnSection} · {p.Material ?? "Q355B"}";
+            DrawBottomRightBadge(w - 10, h - 10, summary);
+        }
+
+        private void BuildIsoScene(IsoScene s, SteelStructureParams p)
+        {
+            double B = 2.0;
+            double H = ClampRatio(p.Height, p.Span, 0.75, 1.85) * 1.45;
+            double L = ClampRatio(p.Length, p.Span, 0.45, 1.60) * 1.45;
+            double h1 = ClampRatio(p.SubHeight, p.Height > 1 ? p.Height : p.Span, 0.28, 0.75) * H;
 
             switch (p.StructureType)
             {
                 // ==================== 1. 单跨门式刚架 ====================
                 case ParametricStructureType.PortalFrame:
                 {
-                    leftTitle = "正立面 (单跨刚架)";
-                    rightTitle = "柱网平面 & 截面";
-                    DrawLine(lx0, lyBot, lx0, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx1, lyBot, lx1, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0 - 8, lyTop, lx1 + 8, lyTop, SteelMemberBrush, 3.5);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-
-                    // 右侧：柱脚+H型钢柱截面与顶梁布置
-                    DrawDashAxis(rx0, rMidY, rx1, rMidY);
-                    DrawHColumnPlanSymbol(rx0 + 10, rMidY, 16, 14);
-                    DrawHColumnPlanSymbol(rx1 - 10, rMidY, 16, 14);
-                    DrawLine(rx0 + 10, rMidY, rx1 - 10, rMidY, SteelMemberBrush, 2.4);
-                    DrawHorizDim(rx0 + 10, rx1 - 10, rMidY + 26, $"B = {p.Span:0}", w);
-                    DrawTagBadge(rMidX, ryTop + 8, $"柱: {p.ColumnSection}");
-                    DrawTagBadge(rMidX, ryBot - 6, $"梁: {p.BeamSection}");
+                    double depth = 0.22;
+                    s.Primary(0, 0, 0, 0, 0, H, 3.2);
+                    s.Primary(B, 0, 0, B, 0, H, 3.2);
+                    s.Primary(-0.08, 0, H, B + 0.08, 0, H, 3.4);
+                    // 翼缘厚度示意（轴测纵深感）
+                    s.Sub(0, depth, 0, 0, depth, H, 1.3);
+                    s.Sub(B, depth, 0, B, depth, H, 1.3);
+                    s.Sub(-0.08, depth, H, B + 0.08, depth, H, 1.3);
+                    s.Plate(0, 0, H, 0, depth, H, 1.4);
+                    s.Plate(B, 0, H, B, depth, H, 1.4);
+                    s.Base(0, depth * 0.5, 0, 0.14);
+                    s.Base(B, depth * 0.5, 0, 0.14);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
@@ -112,669 +328,578 @@ namespace SteelStructureSuite.Views.Controls
                 case ParametricStructureType.MultiSpanPortalFrame:
                 {
                     int bays = Math.Max(2, Math.Min(6, p.BayCount));
-                    leftTitle = $"正立面 ({bays}跨连续刚架)";
-                    rightTitle = "多跨柱网平面";
+                    double totalB = 2.4;
                     for (int i = 0; i <= bays; i++)
                     {
-                        double xi = lx0 + (lx1 - lx0) * i / bays;
-                        DrawLine(xi, lyBot, xi, lyTop, SteelMemberBrush, 2.8);
-                        DrawBaseSupport(xi, lyBot);
+                        double x = totalB * i / bays;
+                        s.Primary(x, 0, 0, x, 0, H, 2.8);
+                        s.Base(x, 0, 0, 0.10);
                         if (i < bays)
                         {
-                            double xNext = lx0 + (lx1 - lx0) * (i + 1) / bays;
-                            DrawLine(xi, lyTop + 14, xi + 12, lyTop, SteelSubBrush, 1.6);
-                            DrawLine(xNext, lyTop + 14, xNext - 12, lyTop, SteelSubBrush, 1.6);
+                            double xn = totalB * (i + 1) / bays;
+                            s.Sub(x, 0, H - 0.22, x + 0.18, 0, H, 1.6);
+                            s.Sub(xn, 0, H - 0.22, xn - 0.18, 0, H, 1.6);
                         }
                     }
-                    DrawLine(lx0 - 8, lyTop, lx1 + 8, lyTop, SteelMemberBrush, 3.4);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"总跨 B = {p.Span:0} ({bays}跨)", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-
-                    DrawDashAxis(rx0, rMidY, rx1, rMidY);
+                    s.Primary(-0.08, 0, H, totalB + 0.08, 0, H, 3.2);
+                    // 后排浅色示意纵向延展
+                    double d = 0.7;
                     for (int i = 0; i <= bays; i++)
                     {
-                        double rxi = rx0 + (rx1 - rx0) * i / bays;
-                        DrawLine(rxi, ryTop + 10, rxi, ryBot - 16, AxisLineBrush, 0.9, true);
-                        DrawHColumnPlanSymbol(rxi, rMidY, 12, 10);
+                        double x = totalB * i / bays;
+                        s.Ref(x, d, 0, x, d, H);
+                        s.Ref(x, 0, H, x, d, H);
                     }
-                    DrawLine(rx0, rMidY, rx1, rMidY, SteelMemberBrush, 2.2);
-                    DrawHorizDim(rx0, rx1, ryBot + 6, $"单跨 B/{bays} = {p.Span / bays:0}", w);
+                    s.Ref(0, d, H, totalB, d, H);
+                    s.Dim(0, 0, 0, totalB, 0, 0, 0, -0.35, 0, $"总跨 B={p.Span:0} ({bays}跨)");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 3. 带人字斜撑框架 ====================
                 case ParametricStructureType.BracedFrame:
                 {
-                    leftTitle = "正立面 (人字撑架)";
-                    rightTitle = "侧视 & 撑杆节点";
-                    DrawLine(lx0, lyBot, lx0, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx1, lyBot, lx1, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0 - 6, lyTop, lx1 + 6, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0, lMidY + 6, lx1, lMidY + 6, SteelMemberBrush, 2.6);
-                    DrawLine(lx0, lMidY + 6, lMidX, lyTop, SteelSubBrush, 2.2);
-                    DrawLine(lx1, lMidY + 6, lMidX, lyTop, SteelSubBrush, 2.2);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 18, lyBot, lMidY + 6, $"h1={p.SubHeight:0}", h);
-
-                    DrawLine(rMidX, ryBot, rMidX, ryTop, SteelMemberBrush, 3.2);
-                    DrawBaseSupport(rMidX, ryBot);
-                    DrawFilledRect(rMidX - 10, ryTop, 20, 12, PlateBrush, SteelMemberBrush, 1.2);
-                    DrawFilledRect(rMidX - 10, rMidY, 20, 12, PlateBrush, SteelSubBrush, 1.2);
-                    DrawTagBadge(rMidX, ryBot - 10, $"斜撑: {p.BraceSection}");
+                    s.Primary(0, 0, 0, 0, 0, H, 3.0);
+                    s.Primary(B, 0, 0, B, 0, H, 3.0);
+                    s.Primary(-0.06, 0, H, B + 0.06, 0, H, 3.0);
+                    s.Primary(0, 0, h1, B, 0, h1, 2.6);
+                    s.Sub(0, 0, h1, B * 0.5, 0, H, 2.2);
+                    s.Sub(B, 0, h1, B * 0.5, 0, H, 2.2);
+                    s.Base(0, 0, 0, 0.12);
+                    s.Base(B, 0, 0, 0.12);
+                    // 纵深参考
+                    s.Ref(0, 0.45, 0, 0, 0.45, H);
+                    s.Ref(B, 0.45, 0, B, 0.45, H);
+                    s.Ref(0, 0, H, 0, 0.45, H);
+                    s.Ref(B, 0, H, B, 0.45, H);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, 0, 0, B, 0, h1, 0.30, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 4. 双层管廊支架 ====================
                 case ParametricStructureType.DoubleTierFrame:
                 {
-                    leftTitle = "正立面 (双层管廊架)";
-                    rightTitle = "管廊层高断面";
-                    DrawLine(lx0, lyBot, lx0, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx1, lyBot, lx1, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0 - 8, lyTop, lx1 + 8, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0 - 8, lMidY + 8, lx1 + 8, lMidY + 8, SteelMemberBrush, 2.8);
-                    DrawLine(lx0, lMidY + 24, lx0 + 20, lMidY + 8, SteelSubBrush, 1.8);
-                    DrawLine(lx1, lMidY + 24, lx1 - 20, lMidY + 8, SteelSubBrush, 1.8);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"管廊跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 18, lyBot, lMidY + 8, $"h1={p.SubHeight:0}", h);
-
-                    // 右侧：显示双层横梁上的工艺管道示意圆
-                    DrawLine(rx0 + 10, ryTop + 10, rx1 - 10, ryTop + 10, SteelMemberBrush, 2.8);
-                    DrawLine(rx0 + 10, rMidY + 10, rx1 - 10, rMidY + 10, SteelMemberBrush, 2.8);
-                    foreach (double px in new[] { rx0 + 28, rMidX, rx1 - 28 })
+                    double d = 0.55;
+                    s.Primary(0, 0, 0, 0, 0, H, 3.0);
+                    s.Primary(B, 0, 0, B, 0, H, 3.0);
+                    s.Primary(-0.1, 0, H, B + 0.1, 0, H, 3.0);
+                    s.Primary(-0.1, 0, h1, B + 0.1, 0, h1, 2.8);
+                    s.Sub(0, 0, h1 - 0.25, 0.24, 0, h1, 1.8);
+                    s.Sub(B, 0, h1 - 0.25, B - 0.24, 0, h1, 1.8);
+                    s.Base(0, 0, 0, 0.12);
+                    s.Base(B, 0, 0, 0.12);
+                    // 工艺管道示意线沿 Y 方向穿过两层横梁
+                    foreach (double px in new[] { B * 0.25, B * 0.5, B * 0.75 })
                     {
-                        DrawEllipse(px - 7, ryTop - 4, 14, 14, SteelSubBrush, 1.6);
-                        DrawEllipse(px - 8, rMidY - 6, 16, 16, SteelSubBrush, 1.6);
+                        s.Ref(px, -0.25, H + 0.10, px, d + 0.25, H + 0.10, dashed: false);
+                        s.Ref(px, -0.25, h1 + 0.10, px, d + 0.25, h1 + 0.10, dashed: false);
                     }
-                    DrawTagBadge(rMidX, ryBot - 4, $"顶层 H={p.Height:0} / 一层 h1={p.SubHeight:0}");
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, 0, 0, B, 0, h1, 0.32, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 5. 多层空间装置钢框架 ====================
                 case ParametricStructureType.MultiBaySpaceFrame:
                 {
-                    leftTitle = "正立面 (横向 B×H)";
-                    rightTitle = "侧立面 (进深 L & 柱撑)";
-                    // 左：正立面两层框架
-                    DrawLine(lx0, lyBot, lx0, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx1, lyBot, lx1, lyTop, SteelMemberBrush, 3.2);
-                    DrawLine(lx0, lyTop, lx1, lyTop, SteelMemberBrush, 3.0);
-                    DrawLine(lx0, lMidY + 4, lx1, lMidY + 4, SteelMemberBrush, 2.8);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"横向跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 16, lyBot, lMidY + 4, $"h1={p.SubHeight:0}", h);
-
-                    // 右：侧立面（纵向进深 L + 一层柱间斜撑 + 次梁节点）
-                    DrawLine(rx0, ryBot, rx0, ryTop, SteelMemberBrush, 2.8);
-                    DrawLine(rx1, ryBot, rx1, ryTop, SteelMemberBrush, 2.8);
-                    DrawLine(rx0, ryTop, rx1, ryTop, SteelMemberBrush, 2.6);
-                    DrawLine(rx0, rMidY + 4, rx1, rMidY + 4, SteelMemberBrush, 2.4);
-                    DrawLine(rx0, ryBot, rx1, rMidY + 4, SteelSubBrush, 2.0);
-                    DrawFilledRect(rMidX - 4, ryTop, 8, 8, SteelSubBrush, SteelSubBrush, 1.2);
-                    DrawFilledRect(rMidX - 4, rMidY + 4, 8, 8, SteelSubBrush, SteelSubBrush, 1.2);
-                    DrawBaseSupport(rx0, ryBot);
-                    DrawBaseSupport(rx1, ryBot);
-                    DrawHorizDim(rx0, rx1, ryBot + 14, $"进深 L = {p.Length:0}", w);
+                    double[] xs = { 0, B };
+                    double[] ys = { 0, L };
+                    foreach (double x in xs)
+                        foreach (double y in ys)
+                        {
+                            s.Primary(x, y, 0, x, y, H, 2.8);
+                            s.Base(x, y, 0, 0.10);
+                        }
+                    foreach (double z in new[] { h1, H })
+                    {
+                        s.Primary(0, 0, z, B, 0, z, 2.6);
+                        s.Primary(0, L, z, B, L, z, 2.4);
+                        s.Primary(0, 0, z, 0, L, z, 2.4);
+                        s.Primary(B, 0, z, B, L, z, 2.6);
+                        s.Sub(B * 0.5, 0, z, B * 0.5, L, z, 1.6);
+                    }
+                    // 纵向柱间斜撑
+                    s.Sub(B, 0, 0, B, L, h1, 1.9);
+                    s.Sub(0, 0, 0, 0, L, h1, 1.6);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.32, 0, $"B={p.Span:0}");
+                    s.Dim(B, 0, 0, B, L, 0, 0.30, 0, 0, $"L={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, L, 0, B, L, h1, 0.30, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 6. 悬臂三角托架 ====================
                 case ParametricStructureType.CantileverBracket:
                 {
-                    leftTitle = "侧立面 (悬臂三角托架)";
-                    rightTitle = "俯视平面 & 锚板";
-                    double wallX = lx0 + 18;
-                    DrawWallHatch(wallX, lyTop - 4, lyBot + 4);
-                    DrawLine(wallX, lyBot, wallX, lyTop, SteelMemberBrush, 3.6);
-                    DrawLine(wallX, lyTop + 8, lx1, lyTop + 8, SteelMemberBrush, 3.2);
-                    DrawLine(wallX, lMidY + 20, lx1 - 16, lyTop + 8, SteelSubBrush, 2.4);
-                    DrawBaseSupport(wallX, lyBot);
-                    DrawHorizDim(wallX, lx1, lyBot + 18, $"挑出 L = {p.Span:0}", w);
-                    DrawVertDim(wallX - 28, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 14, lMidY + 20, lyTop + 8, $"h1={p.SubHeight:0}", h);
-
-                    DrawFilledRect(rx0, rMidY - 18, 10, 36, PlateBrush, SteelMemberBrush, 1.5);
-                    DrawLine(rx0 + 10, rMidY - 6, rx1, rMidY - 6, SteelMemberBrush, 2.2);
-                    DrawLine(rx0 + 10, rMidY + 6, rx1, rMidY + 6, SteelMemberBrush, 2.2);
-                    DrawLine(rx1, rMidY - 6, rx1, rMidY + 6, SteelMemberBrush, 2.2);
-                    DrawTagBadge(rMidX, ryBot - 4, $"挑梁: {p.BeamSection}");
+                    double wallD = 0.6;
+                    // 附墙参考面
+                    s.Ref(0, -wallD * 0.5, 0, 0, wallD * 0.5, 0);
+                    s.Ref(0, -wallD * 0.5, H, 0, wallD * 0.5, H);
+                    s.Ref(0, -wallD * 0.5, 0, 0, -wallD * 0.5, H);
+                    s.Ref(0, wallD * 0.5, 0, 0, wallD * 0.5, H);
+                    // 附墙柱 + 挑梁 + 斜撑
+                    s.Primary(0, 0, 0, 0, 0, H, 3.2);
+                    s.Primary(0, 0, H - 0.1, B, 0, H - 0.1, 3.0);
+                    double braceZ = Math.Max(0.15, H - 0.1 - h1);
+                    s.Sub(0, 0, braceZ, B * 0.85, 0, H - 0.1, 2.3);
+                    s.Base(0, 0, 0, 0.12);
+                    s.Dim(0, 0, H - 0.1, B, 0, H - 0.1, 0, 0, 0.28, $"挑出 L={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, 0, braceZ, B, 0, H - 0.1, 0.26, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 7. 四柱空间检修钢平台 ====================
                 case ParametricStructureType.SpacePlatform:
                 {
-                    leftTitle = "正立面 (带双层护栏)";
-                    rightTitle = "平台平面梁格 (B×L)";
-                    double deckY = lyTop + 38;
-                    DrawLine(lx0, lyBot, lx0, deckY, SteelMemberBrush, 3.2);
-                    DrawLine(lx1, lyBot, lx1, deckY, SteelMemberBrush, 3.2);
-                    DrawLine(lx0 - 4, deckY, lx1 + 4, deckY, SteelMemberBrush, 3.4);
-                    // 平台护栏
-                    for (int i = 0; i <= 3; i++)
-                    {
-                        double px = lx0 + (lx1 - lx0) * i / 3.0;
-                        DrawLine(px, deckY, px, lyTop, SteelSubBrush, 1.6);
-                    }
-                    DrawLine(lx0, lyTop, lx1, lyTop, SteelSubBrush, 2.0);
-                    DrawLine(lx0, (lyTop + deckY) * 0.5, lx1, (lyTop + deckY) * 0.5, SteelSubBrush, 1.4);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"平台跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, deckY, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 16, deckY, lyTop, $"h1={p.SubHeight:0}", h);
-
-                    // 右侧：平面图（四柱 + 边梁 + 2根次梁）
-                    DrawRect(rx0, ryTop, rx1 - rx0, ryBot - ryTop, SteelMemberBrush, 2.4);
-                    double sy1 = ryTop + (ryBot - ryTop) / 3.0;
-                    double sy2 = ryTop + (ryBot - ryTop) * 2.0 / 3.0;
-                    DrawLine(rx0, sy1, rx1, sy1, SteelSubBrush, 1.5);
-                    DrawLine(rx0, sy2, rx1, sy2, SteelSubBrush, 1.5);
-                    foreach (double cx in new[] { rx0, rx1 })
-                        foreach (double cy in new[] { ryTop, ryBot })
-                            DrawHColumnPlanSymbol(cx, cy, 10, 10);
-                    DrawHorizDim(rx0, rx1, ryBot + 14, $"B={p.Span:0} × L={p.Length:0}", w);
+                    double railH = Math.Min(0.55, Math.Max(0.32, H * 0.32));
+                    DrawPlatform3D(s, B, L, H, railH, withStair: false);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.32, 0, $"B={p.Span:0}");
+                    s.Dim(B, 0, 0, B, L, 0, 0.30, 0, 0, $"L={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, L, H, B, L, H + railH, 0.28, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 8. 悬挑走道平台 ====================
                 case ParametricStructureType.CantileverWalkway:
                 {
-                    leftTitle = "纵立面 (悬挑走道)";
-                    rightTitle = "横断面 (牛腿 W×H)";
-                    double deckY = lMidY + 4;
-                    DrawLine(lx0, deckY, lx1, deckY, SteelMemberBrush, 3.0);
-                    DrawLine(lx0, lyTop, lx1, lyTop, SteelSubBrush, 2.0);
-                    DrawLine(lx0, (lyTop + deckY) * 0.5, lx1, (lyTop + deckY) * 0.5, SteelSubBrush, 1.4);
-                    for (int i = 0; i < 4; i++)
+                    double len = 2.4;
+                    double wWalk = ClampRatio(p.Length, p.Span, 0.28, 0.65) * len;
+                    double zDeck = 1.0;
+                    double railH = 0.48;
+                    // 走道纵梁与铺板框
+                    s.Primary(0, 0, zDeck, len, 0, zDeck, 2.8);
+                    s.Primary(0, wWalk, zDeck, len, wWalk, zDeck, 2.6);
+                    int nBr = 4;
+                    for (int i = 0; i < nBr; i++)
                     {
-                        double xi = lx0 + (lx1 - lx0) * i / 3.0;
-                        DrawLine(xi, deckY, xi, lyTop, SteelSubBrush, 1.6);
-                        DrawLine(xi, deckY, xi, deckY + 28, SteelMemberBrush, 2.2);
-                        DrawLine(xi - 10, deckY + 28, xi + 10, deckY, SteelSubBrush, 1.5);
+                        double x = len * i / (nBr - 1);
+                        // 牛腿与三角斜撑
+                        s.Primary(x, 0, zDeck, x, wWalk, zDeck, 2.2);
+                        s.Primary(x, wWalk, zDeck, x, wWalk, zDeck - 0.45, 2.2);
+                        s.Sub(x, wWalk, zDeck - 0.45, x, 0.08, zDeck, 1.8);
+                        // 外侧栏杆立柱
+                        s.Sub(x, 0, zDeck, x, 0, zDeck + railH, 1.6);
                     }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"走道总长 L = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, deckY, $"H={p.Height:0}", h);
-
-                    // 右侧：悬挑牛腿横断面
-                    double wallX = rx0 + 8;
-                    DrawWallHatch(wallX, ryTop, ryBot);
-                    DrawLine(wallX, rMidY + 8, rx1 - 6, rMidY + 8, SteelMemberBrush, 2.8);
-                    DrawLine(wallX, ryBot - 8, rx1 - 16, rMidY + 8, SteelSubBrush, 2.0);
-                    DrawLine(rx1 - 6, rMidY + 8, rx1 - 6, ryTop + 4, SteelSubBrush, 2.0);
-                    DrawHorizDim(wallX, rx1 - 6, ryBot + 14, $"走道宽 W = {p.Length:0}", w);
-                    DrawVertDim(rx1 + 10, rMidY + 8, ryTop + 4, $"h1={p.SubHeight:0}", h);
+                    s.Sub(0, 0, zDeck + railH, len, 0, zDeck + railH, 2.0);
+                    s.Sub(0, 0, zDeck + railH * 0.5, len, 0, zDeck + railH * 0.5, 1.4);
+                    s.Dim(0, 0, zDeck - 0.45, len, 0, zDeck - 0.45, 0, -0.28, 0, $"L={p.Span:0}");
+                    s.Dim(len, 0, zDeck, len, wWalk, zDeck, 0.28, 0, 0, $"W={p.Length:0}");
+                    s.Dim(0, 0, zDeck, 0, 0, zDeck + railH, -0.28, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 9. 双坡屋面钢桁架 ====================
                 case ParametricStructureType.RoofTruss:
                 {
-                    leftTitle = "正立面 (双坡屋架)";
-                    rightTitle = "屋脊节点 & 坡度";
-                    double eaveY = lMidY + 14;
-                    DrawLine(lx0, lyBot, lx0, eaveY, SteelMemberBrush, 3.0);
-                    DrawLine(lx1, lyBot, lx1, eaveY, SteelMemberBrush, 3.0);
-                    DrawLine(lx0, eaveY, lx1, eaveY, SteelMemberBrush, 2.6);
-                    DrawLine(lx0, eaveY, lMidX, lyTop, SteelMemberBrush, 2.8);
-                    DrawLine(lx1, eaveY, lMidX, lyTop, SteelMemberBrush, 2.8);
-                    DrawLine(lMidX, eaveY, lMidX, lyTop, SteelSubBrush, 1.8);
-                    double q1 = (lx0 + lMidX) * 0.5, q3 = (lx1 + lMidX) * 0.5;
-                    double qY = (eaveY + lyTop) * 0.5;
-                    DrawLine(q1, eaveY, q1, qY, SteelSubBrush, 1.6);
-                    DrawLine(q3, eaveY, q3, qY, SteelSubBrush, 1.6);
-                    DrawLine(q1, qY, lMidX, eaveY, SteelSubBrush, 1.6);
-                    DrawLine(q3, qY, lMidX, eaveY, SteelSubBrush, 1.6);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"屋架跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, eaveY, $"檐高 H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 16, eaveY, lyTop, $"矢高 h1={p.SubHeight:0}", h);
-
-                    // 右侧：屋脊放大节点
-                    DrawLine(rx0, rMidY + 18, rMidX, ryTop + 14, SteelMemberBrush, 3.0);
-                    DrawLine(rx1, rMidY + 18, rMidX, ryTop + 14, SteelMemberBrush, 3.0);
-                    DrawLine(rx0, rMidY + 34, rx1, rMidY + 34, SteelMemberBrush, 2.4);
-                    DrawLine(rMidX, ryTop + 14, rMidX, rMidY + 34, SteelSubBrush, 2.0);
-                    DrawTagBadge(rMidX, ryBot - 8, $"总高 H+h1 = {p.Height + p.SubHeight:0}");
+                    double ridge = Math.Max(0.45, Math.Min(0.95, h1));
+                    double zTop = H + ridge;
+                    s.Primary(0, 0, 0, 0, 0, H, 3.0);
+                    s.Primary(B, 0, 0, B, 0, H, 3.0);
+                    s.Primary(0, 0, H, B, 0, H, 2.8);
+                    s.Primary(0, 0, H, B * 0.5, 0, zTop, 3.0);
+                    s.Primary(B, 0, H, B * 0.5, 0, zTop, 3.0);
+                    s.Sub(B * 0.5, 0, H, B * 0.5, 0, zTop, 1.8);
+                    s.Sub(B * 0.25, 0, H, B * 0.25, 0, H + ridge * 0.5, 1.6);
+                    s.Sub(B * 0.75, 0, H, B * 0.75, 0, H + ridge * 0.5, 1.6);
+                    s.Sub(B * 0.25, 0, H + ridge * 0.5, B * 0.5, 0, H, 1.6);
+                    s.Sub(B * 0.75, 0, H + ridge * 0.5, B * 0.5, 0, H, 1.6);
+                    s.Base(0, 0, 0, 0.12);
+                    s.Base(B, 0, 0, 0.12);
+                    // 纵深第二榀屋架浅色参考
+                    double d = 0.75;
+                    s.Ref(0, d, 0, 0, d, H); s.Ref(B, d, 0, B, d, H);
+                    s.Ref(0, d, H, B, d, H); s.Ref(0, d, H, B * 0.5, d, zTop); s.Ref(B, d, H, B * 0.5, d, zTop);
+                    s.Ref(B * 0.5, 0, zTop, B * 0.5, d, zTop); s.Ref(0, 0, H, 0, d, H); s.Ref(B, 0, H, B, d, H);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, 0, H, B, 0, zTop, 0.30, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 10. 空间管廊桁架桥 ====================
                 case ParametricStructureType.PipeBridgeTruss:
                 {
-                    leftTitle = "正立面 (空间桁架廊桥)";
-                    rightTitle = "横断面 (净宽 W×桁高 H)";
-                    double tTop = lyTop + 12, tBot = lyBot - 10;
-                    DrawRect(lx0, tTop, lx1 - lx0, tBot - tTop, SteelMemberBrush, 2.8);
-                    for (int i = 0; i < 4; i++)
+                    double len = 2.5;
+                    double wid = ClampRatio(p.Length, p.Span, 0.25, 0.55) * len;
+                    double th = ClampRatio(p.Height, p.Span, 0.25, 0.55) * len;
+                    s.Box(0, 0, 0, len, wid, th, SteelMemberBrush, 2.5, false, 3);
+                    int segs = 4;
+                    for (int i = 0; i < segs; i++)
                     {
-                        double xa = lx0 + (lx1 - lx0) * i / 4.0;
-                        double xb = lx0 + (lx1 - lx0) * (i + 1) / 4.0;
-                        DrawLine(xa, tTop, xa, tBot, SteelSubBrush, 1.8);
-                        DrawLine(xa, tBot, xb, tTop, SteelSubBrush, 1.6);
+                        double xa = len * i / segs;
+                        double xb = len * (i + 1) / segs;
+                        if (i > 0)
+                        {
+                            s.Sub(xa, 0, 0, xa, 0, th, 1.6);
+                            s.Sub(xa, wid, 0, xa, wid, th, 1.4);
+                            s.Sub(xa, 0, 0, xa, wid, 0, 1.4);
+                            s.Sub(xa, 0, th, xa, wid, th, 1.4);
+                        }
+                        s.Sub(xa, 0, 0, xb, 0, th, 1.6);
+                        s.Sub(xa, wid, 0, xb, wid, th, 1.3);
+                        s.Sub(xa, 0, th, xb, wid, th, 1.2);
                     }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"廊桥跨度 L = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, tBot, tTop, $"H={p.Height:0}", h);
-
-                    // 右侧：箱形桁架横断面
-                    DrawRect(rx0 + 6, ryTop + 8, rx1 - rx0 - 12, ryBot - ryTop - 16, SteelMemberBrush, 2.6);
-                    DrawLine(rx0 + 6, ryTop + 8, rx1 - 6, ryBot - 8, SteelSubBrush, 1.4);
-                    DrawLine(rx0 + 6, ryBot - 8, rx1 - 6, ryTop + 8, SteelSubBrush, 1.4);
-                    DrawHorizDim(rx0 + 6, rx1 - 6, ryBot + 14, $"净宽 W = {p.Length:0}", w);
+                    s.Dim(0, 0, 0, len, 0, 0, 0, -0.32, 0, $"L={p.Span:0}");
+                    s.Dim(len, 0, 0, len, wid, 0, 0.28, 0, 0, $"W={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, th, -0.30, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 11. 储罐连续螺旋盘梯 ====================
                 case ParametricStructureType.SpiralStair:
                 {
-                    leftTitle = "立面展开 (连续螺旋盘梯)";
-                    rightTitle = $"平面旋转 ({p.SubHeight:0}°)";
-                    // 左：储罐壁 + 连续螺旋爬升斜梁与扶手
-                    DrawRect(lx0 + 10, lyTop, lx1 - lx0 - 20, lyBot - lyTop, BorderLineBrush, 1.2);
-                    int steps = 8;
+                    double rIn = 0.72;
+                    double rOut = 1.08;
+                    double hTot = 1.85;
+                    double sweepDeg = Math.Min(360.0, Math.Max(90.0, p.SubHeight));
+                    // 储罐虚线圆柱
+                    s.ArcXY(0, 0, 0, rIn, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.ArcXY(0, 0, hTot, rIn, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.Ref(-rIn, 0, 0, -rIn, 0, hTot);
+                    s.Ref(rIn, 0, 0, rIn, 0, hTot);
+
+                    int steps = 14;
+                    double railH = 0.34;
                     for (int i = 0; i < steps; i++)
                     {
                         double t0 = (double)i / steps, t1 = (double)(i + 1) / steps;
-                        double xA = lx0 + 14 + (lx1 - lx0 - 28) * t0;
-                        double xB = lx0 + 14 + (lx1 - lx0 - 28) * t1;
-                        double yA = lyBot - (lyBot - lyTop - 22) * t0;
-                        double yB = lyBot - (lyBot - lyTop - 22) * t1;
-                        DrawLine(xA, yA, xB, yB, SteelMemberBrush, 2.8);
-                        DrawLine(xA, yA - 20, xB, yB - 20, SteelSubBrush, 1.8);
-                        DrawLine(xA, yA, xA, yA - 20, SteelSubBrush, 1.4);
-                        DrawLine(xA - 5, yA, xA + 8, yA, PlateBrush, 2.0);
+                        double a0 = (sweepDeg * t0) * Math.PI / 180.0;
+                        double a1 = (sweepDeg * t1) * Math.PI / 180.0;
+                        double z0 = hTot * t0, z1 = hTot * t1;
+                        // 外侧螺旋斜梁与扶手
+                        s.Primary(rOut * Math.Cos(a0), rOut * Math.Sin(a0), z0,
+                                  rOut * Math.Cos(a1), rOut * Math.Sin(a1), z1, 2.6);
+                        s.Sub(rOut * Math.Cos(a0), rOut * Math.Sin(a0), z0 + railH,
+                              rOut * Math.Cos(a1), rOut * Math.Sin(a1), z1 + railH, 1.8);
+                        if (i % 2 == 0 || i == steps - 1)
+                        {
+                            s.Sub(rOut * Math.Cos(a0), rOut * Math.Sin(a0), z0,
+                                  rOut * Math.Cos(a0), rOut * Math.Sin(a0), z0 + railH, 1.4);
+                        }
+                        // 踏步板
+                        s.Plate(rIn * Math.Cos(a0), rIn * Math.Sin(a0), z0,
+                                rOut * Math.Cos(a0), rOut * Math.Sin(a0), z0, 1.8);
                     }
-                    DrawHorizDim(lx0 + 10, lx1 - 10, lyBot + 18, $"外径 D = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 18, lyBot, lyTop, $"H={p.Height:0}", h);
-
-                    // 右：同心圆弧扇形平面 (按真实旋转角 SubHeight 绘制)
-                    double rOut = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.44;
-                    double rIn = rOut * 0.62;
-                    double sweepDeg = Math.Min(360.0, Math.Max(60.0, p.SubHeight));
-                    DrawCircleArc(rMidX, rMidY, rIn, 0, sweepDeg, SteelMemberBrush, 2.0);
-                    DrawCircleArc(rMidX, rMidY, rOut, 0, sweepDeg, SteelSubBrush, 2.4);
-                    int rSteps = 8;
-                    for (int i = 0; i <= rSteps; i++)
-                    {
-                        double a = (sweepDeg * i / rSteps) * Math.PI / 180.0;
-                        DrawLine(rMidX + rIn * Math.Cos(a), rMidY - rIn * Math.Sin(a),
-                                 rMidX + rOut * Math.Cos(a), rMidY - rOut * Math.Sin(a), SteelMemberBrush, 1.4);
-                    }
-                    DrawTagBadge(rMidX, ryBot + 10, $"踏宽 W={p.Length:0} | 旋转 {p.SubHeight:0}°");
+                    s.Dim(-rOut, 0, 0, rOut, 0, 0, 0, -0.45, 0, $"D={p.Span:0} ({p.SubHeight:0}°)");
+                    s.Dim(rOut, 0, 0, rOut, 0, hTot, 0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 12. 直跑钢斜梯 ====================
                 case ParametricStructureType.StraightStair:
                 {
-                    leftTitle = "侧立面 (直跑钢斜梯)";
-                    rightTitle = "梯段平面 (W×L)";
-                    double topStepY = lMidY - 8;
-                    DrawLine(lx0, lyBot, lx1, topStepY, SteelMemberBrush, 3.2);
-                    DrawLine(lx0, lMidY + 2, lx1, lyTop, SteelSubBrush, 2.2);
-                    DrawLine(lx0, (lyBot + lMidY + 2) * 0.5, lx1, (topStepY + lyTop) * 0.5, SteelSubBrush, 1.4);
-                    for (int i = 0; i <= 5; i++)
-                    {
-                        double t = i / 5.0;
-                        double sx = lx0 + (lx1 - lx0) * t;
-                        double sy = lyBot + (topStepY - lyBot) * t;
-                        DrawLine(sx - 6, sy, sx + 8, sy, PlateBrush, 2.2);
-                        if (i % 2 == 0 || i == 5)
-                        {
-                            double ry = (lMidY + 2) + (lyTop - (lMidY + 2)) * t;
-                            DrawLine(sx, sy, sx, ry, SteelSubBrush, 1.6);
-                        }
-                    }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"水平长 L = {p.Span:0}", w);
-                    DrawVertDim(lx1 + 16, lyBot, topStepY, $"H={p.Height:0}", h);
-                    DrawVertDim(lx0 - 26, lyBot, lMidY + 2, $"h1={p.SubHeight:0}", h);
-
-                    DrawRect(rx0, ryTop + 14, rx1 - rx0, ryBot - ryTop - 28, SteelMemberBrush, 2.4);
-                    for (int i = 1; i <= 5; i++)
-                    {
-                        double tx = rx0 + (rx1 - rx0) * i / 6.0;
-                        DrawLine(tx, ryTop + 14, tx, ryBot - 14, SteelSubBrush, 1.4);
-                    }
-                    DrawHorizDim(rx0, rx1, ryBot + 12, $"梯宽 W = {p.Length:0}", w);
+                    double len = 2.0;
+                    double wid = ClampRatio(p.Length, p.Span, 0.28, 0.65) * len;
+                    double hStair = ClampRatio(p.Height, p.Span, 0.55, 1.25) * 1.4;
+                    double railH = 0.42;
+                    DrawStairFlight3D(s, 0, 0, 0, len, wid, hStair, railH);
+                    s.Dim(0, 0, 0, len, 0, 0, 0, -0.30, 0, $"L={p.Span:0}");
+                    s.Dim(len, 0, 0, len, wid, 0, 0.28, 0, 0, $"W={p.Length:0}");
+                    s.Dim(len, 0, 0, len, 0, hStair, 0.28, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 13. 带安全护笼钢直梯 ====================
                 case ParametricStructureType.SafetyCagedLadder:
                 {
-                    leftTitle = "正立面 (护笼直梯)";
-                    rightTitle = "护笼平面 (W×D)";
-                    double ladW = 36;
-                    double cageStartY = lyBot - (lyBot - lyTop) * 0.38;
-                    DrawLine(lMidX - ladW * 0.5, lyBot, lMidX - ladW * 0.5, lyTop, SteelMemberBrush, 2.8);
-                    DrawLine(lMidX + ladW * 0.5, lyBot, lMidX + ladW * 0.5, lyTop, SteelMemberBrush, 2.8);
-                    for (int i = 1; i <= 7; i++)
+                    double ladW = 0.46;
+                    double hLad = 2.2;
+                    double cageZ = hLad * 0.38;
+                    double rCage = 0.36;
+                    // 两侧立管
+                    s.Primary(-ladW * 0.5, 0, 0, -ladW * 0.5, 0, hLad, 2.8);
+                    s.Primary(ladW * 0.5, 0, 0, ladW * 0.5, 0, hLad, 2.8);
+                    // 踏棍
+                    for (int i = 1; i <= 8; i++)
                     {
-                        double ry = lyBot - (lyBot - lyTop) * i / 7.5;
-                        DrawLine(lMidX - ladW * 0.5, ry, lMidX + ladW * 0.5, ry, SteelSubBrush, 1.6);
+                        double z = hLad * i / 8.8;
+                        s.Sub(-ladW * 0.5, 0, z, ladW * 0.5, 0, z, 1.7);
                     }
-                    // 护笼横箍与立条
-                    DrawRect(lMidX - 36, lyTop, 72, cageStartY - lyTop, SteelSubBrush, 1.8);
-                    for (int j = 1; j <= 3; j++)
+                    // 护笼圆箍 + 竖条
+                    for (int k = 0; k <= 3; k++)
                     {
-                        double hy = lyTop + (cageStartY - lyTop) * j / 4.0;
-                        DrawLine(lMidX - 36, hy, lMidX + 36, hy, SteelSubBrush, 1.6);
+                        double z = cageZ + (hLad - cageZ) * k / 3.0;
+                        s.ArcXY(0, -rCage * 0.65, z, rCage, 170, 200, SteelSubBrush, 1.7, false, 2);
                     }
-                    DrawHorizDim(lMidX - 36, lMidX + 36, lyBot + 18, $"梯宽 W = {p.Span:0}", w);
-                    DrawVertDim(lMidX - 58, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lMidX + 52, lyBot, cageStartY, $"h1={p.SubHeight:0}", h);
-
-                    // 右侧：护笼圆弧平面
-                    double rCage = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.38;
-                    double stileY = rMidY + rCage * 0.55;
-                    DrawLine(rMidX - 16, stileY, rMidX + 16, stileY, SteelMemberBrush, 3.0);
-                    DrawCircleArc(rMidX, rMidY, rCage, 20, 140, SteelSubBrush, 2.2);
-                    double a0 = 20.0 * Math.PI / 180.0;
-                    double a1 = 160.0 * Math.PI / 180.0;
-                    DrawLine(rMidX + rCage * Math.Cos(a0), rMidY - rCage * Math.Sin(a0), rMidX + 16, stileY, SteelSubBrush, 1.8);
-                    DrawLine(rMidX + rCage * Math.Cos(a1), rMidY - rCage * Math.Sin(a1), rMidX - 16, stileY, SteelSubBrush, 1.8);
-                    DrawHorizDim(rMidX - rCage, rMidX + rCage, ryBot + 12, $"笼径 D = {p.Length:0}", w);
+                    foreach (double deg in new[] { 200.0, 270.0, 340.0 })
+                    {
+                        double rad = deg * Math.PI / 180.0;
+                        double x = rCage * Math.Cos(rad);
+                        double y = -rCage * 0.65 + rCage * Math.Sin(rad);
+                        s.Sub(x, y, cageZ, x, y, hLad, 1.4);
+                    }
+                    s.Dim(-ladW * 0.5, 0, 0, ladW * 0.5, 0, 0, 0, -0.45, 0, $"W={p.Span:0}");
+                    s.Dim(ladW * 0.5, 0, 0, ladW * 0.5, 0, hLad, 0.36, 0, 0, $"H={p.Height:0}");
+                    s.Dim(-ladW * 0.5, 0, 0, -ladW * 0.5, 0, cageZ, -0.34, 0, 0, $"h1={p.SubHeight:0}");
                     break;
                 }
 
                 // ==================== 14. 平台连续安全栏杆/扶手 ====================
                 case ParametricStructureType.HandrailGuardrail:
                 {
-                    leftTitle = "正立面 (连续安全栏杆)";
-                    rightTitle = "立柱断面 & 踢脚板";
-                    DrawLine(lx0, lyTop + 6, lx1, lyTop + 6, SteelMemberBrush, 3.0);
-                    DrawLine(lx0, lMidY + 4, lx1, lMidY + 4, SteelSubBrush, 2.2);
-                    DrawFilledRect(lx0, lyBot - 10, lx1 - lx0, 8, PlateBrush, SteelMemberBrush, 1.2);
+                    double len = 2.4;
+                    double hRail = 1.05;
+                    s.Primary(0, 0, hRail, len, 0, hRail, 2.8);
+                    s.Sub(0, 0, hRail * 0.52, len, 0, hRail * 0.52, 2.0);
+                    s.Plate(0, 0, 0.08, len, 0, 0.08, 2.4);
                     for (int i = 0; i < 4; i++)
                     {
-                        double px = lx0 + (lx1 - lx0) * i / 3.0;
-                        DrawLine(px, lyBot, px, lyTop + 6, SteelMemberBrush, 2.6);
-                        DrawBaseSupport(px, lyBot);
+                        double x = len * i / 3.0;
+                        s.Primary(x, 0, 0, x, 0, hRail, 2.4);
+                        s.Base(x, 0, 0, 0.08);
                     }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"总长 L = {p.Span:0} (间距≤{p.SubHeight:0})", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop + 6, $"H={p.Height:0}", h);
-
-                    DrawLine(rMidX, ryBot, rMidX, ryTop + 8, SteelMemberBrush, 3.2);
-                    DrawBaseSupport(rMidX, ryBot);
-                    DrawEllipse(rMidX - 6, ryTop + 2, 12, 12, SteelSubBrush, 2.0);
-                    DrawEllipse(rMidX - 5, rMidY, 10, 10, SteelSubBrush, 1.8);
-                    DrawFilledRect(rMidX + 2, ryBot - 18, 6, 16, PlateBrush, PlateBrush, 1.0);
-                    DrawTagBadge(rMidX, ryBot + 12, $"立柱: {p.ColumnSection}");
+                    s.Ref(-0.15, -0.25, 0, len + 0.15, -0.25, 0);
+                    s.Ref(-0.15, 0.35, 0, len + 0.15, 0.35, 0);
+                    s.Dim(0, 0, 0, len, 0, 0, 0, -0.35, 0, $"L={p.Span:0} (间距≤{p.SubHeight:0})");
+                    s.Dim(0, 0, 0, 0, 0, hRail, -0.30, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 15. 直线单根型钢 ====================
                 case ParametricStructureType.LinearSteelMember:
                 {
-                    leftTitle = "立面 (三维空间直杆)";
-                    rightTitle = "型钢截面轮廓";
-                    bool hasRise = Math.Abs(p.EndPointOffsetZ) > 10;
-                    double yStart = hasRise ? lyBot - 12 : lMidY;
-                    double yEnd = hasRise ? lyTop + 14 : lMidY;
-                    DrawDashAxis(lx0, yStart, lx1, yStart);
-                    DrawLine(lx0, yStart, lx1, yEnd, SteelMemberBrush, 5.0);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"水平长 L = {p.Span:0}", w);
-                    if (hasRise)
+                    double len = 2.4;
+                    double dz = Math.Abs(p.EndPointOffsetZ) > 10 ? ClampRatio(Math.Abs(p.EndPointOffsetZ), p.Span, 0.2, 0.75) * len * Math.Sign(p.EndPointOffsetZ) : 0;
+                    double bw = 0.18, bh = 0.24;
+                    // 轴测挤出工字轮廓
+                    s.Primary(0, -bw, 0, len, -bw, dz, 2.4);
+                    s.Primary(0, bw, 0, len, bw, dz, 2.4);
+                    s.Primary(0, -bw, bh, len, -bw, dz + bh, 2.6);
+                    s.Primary(0, bw, bh, len, bw, dz + bh, 2.6);
+                    s.Sub(0, 0, 0, len, 0, dz, 1.5);
+                    s.Sub(0, 0, bh, len, 0, dz + bh, 1.5);
+                    // 两端 H 截面轮廓
+                    foreach (var end in new[] { (0.0, 0.0), (len, dz) })
                     {
-                        DrawVertDim(lx1 + 16, yStart, yEnd, $"ΔZ={p.EndPointOffsetZ:0}", h);
+                        s.Primary(end.Item1, -bw, end.Item2, end.Item1, bw, end.Item2, 2.2);
+                        s.Primary(end.Item1, -bw, end.Item2 + bh, end.Item1, bw, end.Item2 + bh, 2.2);
+                        s.Primary(end.Item1, 0, end.Item2, end.Item1, 0, end.Item2 + bh, 2.2);
                     }
-
-                    DrawHColumnPlanSymbol(rMidX, rMidY - 6, 36, 44);
-                    DrawTagBadge(rMidX, ryBot + 10, $"{p.ColumnSection} ({p.Material})");
+                    s.Dim(0, 0, 0, len, 0, 0, 0, -0.38, 0, $"L={p.Span:0}");
+                    if (Math.Abs(p.EndPointOffsetZ) > 10)
+                        s.Dim(len, 0, 0, len, 0, dz, 0.30, 0, 0, $"ΔZ={p.EndPointOffsetZ:0}");
                     break;
                 }
 
                 // ==================== 16. 弧形单根型钢 ====================
                 case ParametricStructureType.ArcSteelMember:
                 {
-                    leftTitle = $"平面 (圆弧扫掠 {p.SubHeight:0}°)";
-                    rightTitle = "立面爬升 & 截面";
-                    double rArc = Math.Min(lx1 - lx0, lyBot - lyTop) * 0.42;
-                    double sweep = Math.Min(360.0, Math.Max(15.0, p.SubHeight));
-                    DrawCircleArc(lMidX, lMidY + 8, rArc, 0, sweep, SteelMemberBrush, 4.0);
-                    DrawLine(lMidX, lMidY + 8, lMidX + rArc, lMidY + 8, AxisLineBrush, 1.2, true);
-                    if (sweep < 359.0)
+                    double r = 1.15;
+                    double sweep = Math.Min(360.0, Math.Max(20.0, p.SubHeight));
+                    double dz = Math.Abs(p.EndPointOffsetZ) > 10 ? 0.55 * Math.Sign(p.EndPointOffsetZ) : 0;
+                    int segs = 24;
+                    for (int i = 0; i < segs; i++)
                     {
-                        double radEnd = sweep * Math.PI / 180.0;
-                        DrawLine(lMidX, lMidY + 8, lMidX + rArc * Math.Cos(radEnd), lMidY + 8 - rArc * Math.Sin(radEnd), AxisLineBrush, 1.2, true);
+                        double t0 = (double)i / segs, t1 = (double)(i + 1) / segs;
+                        double a0 = sweep * t0 * Math.PI / 180.0;
+                        double a1 = sweep * t1 * Math.PI / 180.0;
+                        double z0 = dz * t0, z1 = dz * t1;
+                        s.Primary(r * Math.Cos(a0), r * Math.Sin(a0), z0,
+                                  r * Math.Cos(a1), r * Math.Sin(a1), z1, 3.0);
+                        s.Sub(r * Math.Cos(a0), r * Math.Sin(a0), z0 + 0.16,
+                              r * Math.Cos(a1), r * Math.Sin(a1), z1 + 0.16, 1.8);
                     }
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"半径 R = {p.Span:0} | 扫掠 {p.SubHeight:0}°", w);
-
-                    DrawLine(rx0, ryBot - 16, rx1, ryTop + 20, SteelMemberBrush, 3.6);
-                    DrawTagBadge(rMidX, ryBot + 10, $"高差 ΔZ = {p.EndPointOffsetZ:0} | {p.ColumnSection}");
+                    s.Ref(0, 0, 0, r, 0, 0);
+                    double aEnd = sweep * Math.PI / 180.0;
+                    s.Ref(0, 0, 0, r * Math.Cos(aEnd), r * Math.Sin(aEnd), 0);
+                    s.Dim(0, 0, 0, r, 0, 0, 0, -0.30, 0, $"R={p.Span:0} · {p.SubHeight:0}°");
                     break;
                 }
 
                 // ==================== 17. 螺旋单根型钢 ====================
                 case ParametricStructureType.SpiralSteelMember:
                 {
-                    leftTitle = $"主视图 (螺旋 {p.SubHeight:0.#} 圈)";
-                    rightTitle = "端视螺旋圆";
-                    int n = 48;
-                    double turns = Math.Max(0.05, p.SubHeight);
-                    double amp = (lx1 - lx0) * 0.28;
-                    double px0 = lMidX;
-                    double py0 = lyBot - 8;
-                    for (int i = 1; i <= n; i++)
+                    double r = 0.85;
+                    double hHelix = 2.0;
+                    double turns = Math.Max(0.25, Math.Min(4.5, p.SubHeight));
+                    int segs = 72;
+                    for (int i = 0; i < segs; i++)
                     {
-                        double t = (double)i / n;
-                        double a = t * Math.Min(turns, 6.0) * Math.PI * 2.0;
-                        double px = lMidX + Math.Sin(a) * amp;
-                        double py = lyBot - 8 - (lyBot - lyTop - 28) * t;
-                        DrawLine(px0, py0, px, py, SteelMemberBrush, 3.0);
-                        px0 = px;
-                        py0 = py;
+                        double t0 = (double)i / segs, t1 = (double)(i + 1) / segs;
+                        double a0 = turns * 2 * Math.PI * t0;
+                        double a1 = turns * 2 * Math.PI * t1;
+                        s.Primary(r * Math.Cos(a0), r * Math.Sin(a0), hHelix * t0,
+                                  r * Math.Cos(a1), r * Math.Sin(a1), hHelix * t1, 2.8);
                     }
-                    DrawVertDim(lx0 - 8, lyBot - 8, lyTop + 16, $"H={p.Span:0}", h);
-                    DrawHorizDim(lMidX - amp, lMidX + amp, lyBot + 16, $"2R={p.Length * 2:0}", w);
-
-                    double rHelix = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.38;
-                    DrawEllipse(rMidX - rHelix, rMidY - rHelix, rHelix * 2, rHelix * 2, SteelMemberBrush, 2.8);
-                    DrawHorizDim(rMidX - rHelix, rMidX + rHelix, ryBot + 12, $"R = {p.Length:0}", w);
+                    s.Ref(0, 0, 0, 0, 0, hHelix);
+                    s.ArcXY(0, 0, 0, r, 0, 360, RefLineBrush, 1.0, true, 0);
+                    s.Dim(0, 0, 0, r, 0, 0, 0, -0.32, 0, $"R={p.Length:0} ({p.SubHeight:0.#}圈)");
+                    s.Dim(r, 0, 0, r, 0, hHelix, 0.30, 0, 0, $"H={p.Span:0}");
                     break;
                 }
 
                 // ==================== 18. 卧式容器鞍式钢支座 ====================
                 case ParametricStructureType.VesselSupport:
                 {
-                    leftTitle = $"正立面 (包角 {p.SubHeight:0}°)";
-                    rightTitle = "侧视图 (鞍宽 B)";
-                    double rV = Math.Min((lx1 - lx0) * 0.42, (lyBot - lyTop) * 0.46);
-                    double cyV = lyTop + rV + 2;
-                    // 容器虚线圆与月牙形鞍座板
-                    DrawEllipse(lMidX - rV, cyV - rV, rV * 2, rV * 2, BorderLineBrush, 1.4);
+                    double r = 0.72;
+                    double wSad = 0.65;
+                    double cz = 1.15;
                     double wrap = Math.Min(150.0, Math.Max(90.0, p.SubHeight));
-                    double arcStart = 270.0 - wrap * 0.5;
-                    DrawCircleArc(lMidX, cyV, rV, arcStart, wrap, SteelMemberBrush, 3.6);
-                    double aL = arcStart * Math.PI / 180.0;
-                    double aR = (arcStart + wrap) * Math.PI / 180.0;
-                    double xL = lMidX + rV * Math.Cos(aL);
-                    double yL = cyV - rV * Math.Sin(aL);
-                    double xR = lMidX + rV * Math.Cos(aR);
-                    double yR = cyV - rV * Math.Sin(aR);
-                    DrawLine(xL - 10, lyBot, xR + 10, lyBot, SteelMemberBrush, 3.6);
-                    DrawLine(xL, yL, xL, lyBot, SteelMemberBrush, 2.4);
-                    DrawLine(xR, yR, xR, lyBot, SteelMemberBrush, 2.4);
-                    DrawLine(lMidX, cyV + rV, lMidX, lyBot, SteelSubBrush, 2.2);
-                    DrawHorizDim(lMidX - rV, lMidX + rV, lyBot + 18, $"容器外径 DN = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 20, lyBot, cyV, $"H={p.Height:0}", h);
-
-                    // 右：侧视图
-                    double webTop = ryTop + 28;
-                    DrawLine(rx0 + 8, ryBot, rx1 - 8, ryBot, SteelMemberBrush, 3.4);
-                    DrawRect(rMidX - 5, webTop, 10, Math.Max(8, ryBot - webTop), SteelMemberBrush, 2.2);
-                    DrawLine(rMidX - 26, ryBot, rMidX - 26, webTop + 6, SteelSubBrush, 2.0);
-                    DrawLine(rMidX + 26, ryBot, rMidX + 26, webTop + 6, SteelSubBrush, 2.0);
-                    DrawLine(rx0 + 14, webTop, rx1 - 14, webTop, SteelMemberBrush, 3.2);
-                    DrawHorizDim(rx0 + 8, rx1 - 8, ryBot + 14, $"鞍宽 B = {p.Length:0}", w);
+                    double aStart = 270.0 - wrap * 0.5;
+                    // 容器筒体虚线轮廓
+                    s.ArcXZ(0, -0.35, cz, r, 0, 360, RefLineBrush, 1.1, true, 0);
+                    s.ArcXZ(0, wSad + 0.35, cz, r, 0, 360, RefLineBrush, 1.1, true, 0);
+                    s.Ref(-r, -0.35, cz, -r, wSad + 0.35, cz);
+                    s.Ref(r, -0.35, cz, r, wSad + 0.35, cz);
+                    // 弧形鞍板与腹板/底板
+                    s.ArcXZ(0, 0, cz, r, aStart, wrap, SteelMemberBrush, 2.8, false, 3);
+                    s.ArcXZ(0, wSad, cz, r, aStart, wrap, SteelMemberBrush, 2.4, false, 3);
+                    double aL = aStart * Math.PI / 180.0, aR = (aStart + wrap) * Math.PI / 180.0;
+                    double xL = r * Math.Cos(aL), zL = cz + r * Math.Sin(aL);
+                    double xR = r * Math.Cos(aR), zR = cz + r * Math.Sin(aR);
+                    s.Primary(xL, 0, zL, xL, wSad, zL, 2.4);
+                    s.Primary(xR, 0, zR, xR, wSad, zR, 2.4);
+                    s.Box(xL - 0.12, 0, 0, (xR - xL) + 0.24, wSad, 0.08, PlateBrush, 2.0, false, 1);
+                    s.Primary(xL, wSad * 0.5, 0.08, xL, wSad * 0.5, zL, 2.4);
+                    s.Primary(xR, wSad * 0.5, 0.08, xR, wSad * 0.5, zR, 2.4);
+                    s.Sub(0, 0, 0.08, 0, 0, cz - r, 1.8);
+                    s.Sub(0, wSad, 0.08, 0, wSad, cz - r, 1.8);
+                    s.Dim(-r, 0, 0, r, 0, 0, 0, -0.35, 0, $"DN={p.Span:0}");
+                    s.Dim(xR + 0.12, 0, 0, xR + 0.12, wSad, 0, 0.28, 0, 0, $"B={p.Length:0}");
+                    s.Dim(-r, 0, 0, -r, 0, cz, -0.34, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 19. 塔器环形检修平台 ====================
                 case ParametricStructureType.TowerCircularPlatform:
                 {
-                    leftTitle = $"俯视平面 (包角 {p.SubHeight:0}°)";
-                    rightTitle = "悬挑牛腿断面";
-                    double rOut = Math.Min(lx1 - lx0, lyBot - lyTop) * 0.45;
-                    double rIn = rOut * 0.52;
-                    double sweep = Math.Min(360.0, Math.Max(60.0, p.SubHeight));
-                    DrawEllipse(lMidX - rIn, lMidY - rIn, rIn * 2, rIn * 2, PlateBrush, 2.2);
-                    DrawCircleArc(lMidX, lMidY, rOut, 0, sweep, SteelMemberBrush, 2.8);
+                    double rIn = 0.65;
+                    double rOut = 1.15;
+                    double zDeck = 1.05;
+                    double railH = 0.42;
+                    double sweep = Math.Min(360.0, Math.Max(90.0, p.SubHeight));
+                    // 塔壁圆柱
+                    s.ArcXY(0, 0, 0, rIn, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.ArcXY(0, 0, zDeck + 0.6, rIn, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.Ref(-rIn, 0, 0, -rIn, 0, zDeck + 0.6);
+                    s.Ref(rIn, 0, 0, rIn, 0, zDeck + 0.6);
+                    // 内外环梁与扶手
+                    s.Primary(0, 0, 0, 0, 0, 0, 0); // noop
+                    s.ArcXY(0, 0, zDeck, rIn, 0, sweep, SteelMemberBrush, 2.2, false, 3);
+                    s.ArcXY(0, 0, zDeck, rOut, 0, sweep, SteelMemberBrush, 2.8, false, 3);
+                    s.ArcXY(0, 0, zDeck + railH, rOut, 0, sweep, SteelSubBrush, 1.8, false, 2);
                     int bCnt = 6;
                     for (int i = 0; i <= bCnt; i++)
                     {
                         double a = (sweep * i / bCnt) * Math.PI / 180.0;
-                        DrawLine(lMidX + rIn * Math.Cos(a), lMidY - rIn * Math.Sin(a),
-                                 lMidX + rOut * Math.Cos(a), lMidY - rOut * Math.Sin(a), SteelSubBrush, 1.8);
+                        double xi = rIn * Math.Cos(a), yi = rIn * Math.Sin(a);
+                        double xo = rOut * Math.Cos(a), yo = rOut * Math.Sin(a);
+                        s.Primary(xi, yi, zDeck, xo, yo, zDeck, 2.2);
+                        s.Sub(xi, yi, zDeck - 0.55, xo * 0.88, yo * 0.88, zDeck, 1.6);
+                        s.Sub(xo, yo, zDeck, xo, yo, zDeck + railH, 1.5);
                     }
-                    DrawHorizDim(lMidX - rOut, lMidX + rOut, lyBot + 18, $"塔径 DN = {p.Span:0}", w);
-
-                    // 右：塔壁 + 牛腿 + 斜撑 + 护栏断面
-                    double tWallX = rx0 + 10;
-                    DrawLine(tWallX, ryTop, tWallX, ryBot, PlateBrush, 3.4);
-                    DrawLine(tWallX, rMidY, rx1 - 8, rMidY, SteelMemberBrush, 2.8);
-                    DrawLine(tWallX, ryBot - 10, rx1 - 18, rMidY, SteelSubBrush, 2.2);
-                    DrawLine(rx1 - 8, rMidY, rx1 - 8, ryTop + 6, SteelSubBrush, 2.0);
-                    DrawHorizDim(tWallX, rx1 - 8, ryBot + 14, $"环宽 W = {p.Length:0}", w);
-                    DrawVertDim(tWallX - 18, ryBot - 10, rMidY, $"H={p.Height:0}", h);
+                    s.Dim(-rIn, 0, 0, rIn, 0, 0, 0, -0.45, 0, $"DN={p.Span:0} ({p.SubHeight:0}°)");
+                    s.Dim(rIn, 0, zDeck, rOut, 0, zDeck, 0, -0.35, 0, $"W={p.Length:0}");
                     break;
                 }
 
                 // ==================== 20. 立式塔器/容器钢裙座 ====================
                 case ParametricStructureType.VerticalVesselSkirt:
                 {
-                    leftTitle = "正立面 (钢裙座 & 引出孔)";
-                    rightTitle = $"底环俯视 ({p.BayCount}筋板)";
-                    double skW = Math.Min(92.0, (lx1 - lx0) * 0.56);
-                    DrawRect(lMidX - skW * 0.5, lyTop + 4, skW, lyBot - lyTop - 4, SteelMemberBrush, 2.8);
-                    DrawLine(lMidX - skW * 0.5 - 16, lyBot, lMidX + skW * 0.5 + 16, lyBot, SteelMemberBrush, 4.0);
-                    // 座圈筋板
-                    DrawLine(lMidX - skW * 0.5 - 12, lyBot, lMidX - skW * 0.5, lyBot - 22, SteelSubBrush, 2.0);
-                    DrawLine(lMidX + skW * 0.5 + 12, lyBot, lMidX + skW * 0.5, lyBot - 22, SteelSubBrush, 2.0);
-                    // 检查孔
-                    DrawEllipse(lMidX - 14, lMidY - 12, 28, 28, SteelSubBrush, 2.0);
-                    DrawHorizDim(lMidX - skW * 0.5, lMidX + skW * 0.5, lyBot + 18, $"裙座外径 DN = {p.Span:0}", w);
-                    DrawVertDim(lMidX - skW * 0.5 - 28, lyBot, lyTop + 4, $"H={p.Height:0}", h);
-
-                    double rSk = Math.Min(rx1 - rx0, ryBot - ryTop) * 0.34;
-                    double rRing = rSk + 10;
-                    DrawEllipse(rMidX - rRing, rMidY - rRing, rRing * 2, rRing * 2, SteelMemberBrush, 2.0);
-                    DrawEllipse(rMidX - rSk, rMidY - rSk, rSk * 2, rSk * 2, SteelSubBrush, 2.2);
-                    int gCnt = Math.Max(8, Math.Min(16, p.BayCount));
-                    for (int i = 0; i < gCnt; i++)
+                    double rSk = 0.68;
+                    double rRing = 0.86;
+                    double hSk = 1.75;
+                    s.ArcXY(0, 0, 0, rRing, 0, 360, PlateBrush, 2.4, false, 1);
+                    s.ArcXY(0, 0, 0, rSk, 0, 360, SteelMemberBrush, 2.4, false, 3);
+                    s.ArcXY(0, 0, hSk, rSk, 0, 360, SteelMemberBrush, 2.6, false, 3);
+                    s.Primary(-rSk, 0, 0, -rSk, 0, hSk, 2.6);
+                    s.Primary(rSk, 0, 0, rSk, 0, hSk, 2.6);
+                    int ribs = Math.Max(8, Math.Min(16, p.BayCount));
+                    for (int i = 0; i < ribs; i++)
                     {
-                        double a = 2.0 * Math.PI * i / gCnt;
-                        DrawLine(rMidX + rSk * Math.Cos(a), rMidY + rSk * Math.Sin(a),
-                                 rMidX + rRing * Math.Cos(a), rMidY + rRing * Math.Sin(a), SteelMemberBrush, 1.6);
+                        double a = 2.0 * Math.PI * i / ribs;
+                        s.Sub(rSk * Math.Cos(a), rSk * Math.Sin(a), 0.34,
+                              rRing * Math.Cos(a), rRing * Math.Sin(a), 0, 1.5);
                     }
-                    DrawTagBadge(rMidX, ryBot + 10, $"环宽 B={p.Length:0} | 孔 d={p.SubHeight:0}");
+                    // 检查孔
+                    s.ArcXZ(0, -rSk, hSk * 0.48, 0.20, 0, 360, SteelSubBrush, 2.0, false, 2);
+                    s.Dim(-rSk, 0, 0, rSk, 0, 0, 0, -0.42, 0, $"DN={p.Span:0} ({ribs}筋)");
+                    s.Dim(rRing, 0, 0, rRing, 0, hSk, 0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 21. 化工管道加劲管托/支座 ====================
                 case ParametricStructureType.PipeShoeSupport:
                 {
-                    leftTitle = "横断面 (双管卡加劲管托)";
-                    rightTitle = "侧立面 (管托长 L)";
-                    double rP = Math.Min(32.0, (lyBot - lyTop) * 0.25);
-                    double cyP = lyTop + rP + 10;
-                    DrawEllipse(lMidX - rP, cyP - rP, rP * 2, rP * 2, BorderLineBrush, 1.4);
-                    DrawCircleArc(lMidX, cyP, rP, 207, 126, SteelMemberBrush, 3.2);
-                    DrawCircleArc(lMidX, cyP, rP + 4, -27, 234, SteelSubBrush, 2.2);
-                    double shoeHalfB = Math.Min(48.0, (lx1 - lx0) * 0.34);
-                    DrawLine(lMidX, cyP + rP, lMidX, lyBot, SteelMemberBrush, 3.2);
-                    DrawLine(lMidX - shoeHalfB * 0.55, lyBot, lMidX - shoeHalfB * 0.55, cyP + rP * 0.15, SteelSubBrush, 1.8);
-                    DrawLine(lMidX + shoeHalfB * 0.55, lyBot, lMidX + shoeHalfB * 0.55, cyP + rP * 0.15, SteelSubBrush, 1.8);
-                    DrawLine(lMidX - shoeHalfB, lyBot, lMidX + shoeHalfB, lyBot, SteelMemberBrush, 3.6);
-                    DrawHorizDim(lMidX - shoeHalfB, lMidX + shoeHalfB, lyBot + 18, $"底板宽 B={p.SubHeight:0} (DN{p.Span:0})", w);
-                    DrawVertDim(lMidX - shoeHalfB - 24, lyBot, cyP, $"H={p.Height:0}", h);
-
-                    // 右：侧视图
-                    DrawLine(rx0 + 6, ryTop + 14, rx1 - 6, ryTop + 14, SteelSubBrush, 2.0);
-                    DrawLine(rx0 + 6, rMidY + 4, rx1 - 6, rMidY + 4, SteelSubBrush, 2.2);
-                    DrawRect(rx0 + 10, rMidY + 4, rx1 - rx0 - 20, ryBot - rMidY - 4, SteelMemberBrush, 2.2);
-                    double rib1 = rx0 + (rx1 - rx0) * 0.32, rib2 = rx0 + (rx1 - rx0) * 0.68;
-                    DrawLine(rib1, rMidY + 4, rib1, ryBot, SteelSubBrush, 1.8);
-                    DrawLine(rib2, rMidY + 4, rib2, ryBot, SteelSubBrush, 1.8);
-                    DrawHorizDim(rx0 + 10, rx1 - 10, ryBot + 14, $"管托长 L = {p.Length:0}", w);
+                    double rP = 0.42;
+                    double len = 1.45;
+                    double bw = 0.78;
+                    double cz = 1.05;
+                    // 工艺管道圆柱
+                    s.ArcXZ(0, -0.3, cz, rP, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.ArcXZ(0, len + 0.3, cz, rP, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.Ref(-rP, -0.3, cz, -rP, len + 0.3, cz);
+                    s.Ref(rP, -0.3, cz, rP, len + 0.3, cz);
+                    // 底板 + 腹板 + 加劲肋 + 双管卡
+                    s.Box(-bw * 0.5, 0, 0, bw, len, 0.08, PlateBrush, 2.0, false, 1);
+                    s.Primary(0, 0, 0.08, 0, 0, cz - rP, 2.6);
+                    s.Primary(0, len, 0.08, 0, len, cz - rP, 2.4);
+                    s.Primary(0, 0, cz - rP, 0, len, cz - rP, 2.6);
+                    foreach (double ry in new[] { len * 0.25, len * 0.75 })
+                    {
+                        s.Sub(-bw * 0.42, ry, 0.08, 0, ry, cz - rP, 1.8);
+                        s.Sub(bw * 0.42, ry, 0.08, 0, ry, cz - rP, 1.8);
+                        s.ArcXZ(0, ry, cz, rP + 0.05, 0, 360, SteelSubBrush, 1.9, false, 2);
+                    }
+                    s.Dim(-bw * 0.5, 0, 0, bw * 0.5, 0, 0, 0, -0.35, 0, $"B={p.SubHeight:0} (DN{p.Span:0})");
+                    s.Dim(bw * 0.5, 0, 0, bw * 0.5, len, 0, 0.28, 0, 0, $"L={p.Length:0}");
+                    s.Dim(-bw * 0.5, 0, 0, -bw * 0.5, 0, cz, -0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 22. 储罐拱顶环形安全栏杆 ====================
                 case ParametricStructureType.TankRoofHandrail:
                 {
-                    leftTitle = $"俯视平面 (包角 {p.SubHeight:0}°)";
-                    rightTitle = "罐顶护栏立面";
-                    double rT = Math.Min(lx1 - lx0, lyBot - lyTop) * 0.44;
-                    double sweep = Math.Min(360.0, Math.Max(60.0, p.SubHeight));
-                    DrawEllipse(lMidX - rT, lMidY - rT, rT * 2, rT * 2, BorderLineBrush, 1.4);
-                    DrawCircleArc(lMidX, lMidY, rT, 0, sweep, SteelMemberBrush, 3.0);
-                    for (int i = 0; i <= 8; i++)
+                    double rT = 1.15;
+                    double hR = 0.55;
+                    double sweep = Math.Min(360.0, Math.Max(90.0, p.SubHeight));
+                    s.ArcXY(0, 0, 0, rT, 0, 360, RefLineBrush, 1.2, true, 0);
+                    s.ArcXY(0, 0, hR, rT, 0, sweep, SteelMemberBrush, 2.6, false, 3);
+                    s.ArcXY(0, 0, hR * 0.5, rT, 0, sweep, SteelSubBrush, 1.7, false, 2);
+                    int posts = 8;
+                    for (int i = 0; i <= posts; i++)
                     {
-                        double a = (sweep * i / 8.0) * Math.PI / 180.0;
-                        double px = lMidX + rT * Math.Cos(a), py = lMidY - rT * Math.Sin(a);
-                        DrawEllipse(px - 2.5, py - 2.5, 5, 5, SteelSubBrush, 1.6);
+                        double a = (sweep * i / posts) * Math.PI / 180.0;
+                        double x = rT * Math.Cos(a), y = rT * Math.Sin(a);
+                        s.Primary(x, y, 0, x, y, hR, 2.0);
                     }
-                    DrawHorizDim(lMidX - rT, lMidX + rT, lyBot + 18, $"储罐直径 D = {p.Span:0}", w);
-
-                    DrawLine(rx0, ryBot - 6, rx1, ryBot - 6, PlateBrush, 2.4);
-                    DrawLine(rx0 + 6, ryTop + 12, rx1 - 6, ryTop + 12, SteelMemberBrush, 2.6);
-                    DrawLine(rx0 + 6, rMidY + 6, rx1 - 6, rMidY + 6, SteelSubBrush, 1.8);
-                    for (int i = 0; i < 4; i++)
-                    {
-                        double px = rx0 + 6 + (rx1 - rx0 - 12) * i / 3.0;
-                        DrawLine(px, ryBot - 6, px, ryTop + 12, SteelMemberBrush, 2.0);
-                    }
-                    DrawVertDim(rx0 - 14, ryBot - 6, ryTop + 12, $"H={p.Height:0}", h);
+                    s.Dim(-rT, 0, 0, rT, 0, 0, 0, -0.40, 0, $"D={p.Span:0} ({p.SubHeight:0}°)");
+                    s.Dim(rT, 0, 0, rT, 0, hR, 0.30, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 23. 变电站A字型龙门构架 ====================
                 case ParametricStructureType.SubstationGantryFrame:
                 {
-                    leftTitle = "正立面 (龙门构架 & 避雷针)";
-                    rightTitle = "侧立面 (A字柱根开 L)";
-                    double beamY = lyTop + 34;
-                    DrawLine(lx0 + 10, lyBot, lx0 + 10, beamY, SteelMemberBrush, 3.2);
-                    DrawLine(lx1 - 10, lyBot, lx1 - 10, beamY, SteelMemberBrush, 3.2);
-                    DrawRect(lx0 + 10, beamY, lx1 - lx0 - 20, 16, SteelSubBrush, 2.2);
-                    for (int i = 0; i < 5; i++)
+                    double span = 2.3;
+                    double spread = 0.72;
+                    double hBeam = 1.65;
+                    double hRod = 0.45;
+                    // 左右 A 字柱
+                    foreach (double x in new[] { 0.0, span })
                     {
-                        double xa = lx0 + 10 + (lx1 - lx0 - 20) * i / 5.0;
-                        double xb = lx0 + 10 + (lx1 - lx0 - 20) * (i + 1) / 5.0;
-                        DrawLine(xa, beamY, xb, beamY + 16, SteelSubBrush, 1.3);
+                        s.Primary(x, 0, 0, x, spread * 0.5, hBeam, 2.8);
+                        s.Primary(x, spread, 0, x, spread * 0.5, hBeam, 2.8);
+                        s.Base(x, 0, 0, 0.10);
+                        s.Base(x, spread, 0, 0.10);
+                        for (int k = 1; k <= 3; k++)
+                        {
+                            double t = k / 4.0;
+                            s.Sub(x, spread * 0.5 * t, hBeam * t, x, spread * (1.0 - 0.5 * t), hBeam * t, 1.4);
+                        }
+                        // 柱顶避雷针
+                        s.Sub(x, spread * 0.5, hBeam, x, spread * 0.5, hBeam + hRod, 2.0);
                     }
-                    // 柱顶避雷针
-                    DrawLine(lx0 + 10, beamY, lx0 + 10, lyTop, SteelSubBrush, 2.0);
-                    DrawLine(lx1 - 10, beamY, lx1 - 10, lyTop, SteelSubBrush, 2.0);
-                    DrawBaseSupport(lx0 + 10, lyBot);
-                    DrawBaseSupport(lx1 - 10, lyBot);
-                    DrawHorizDim(lx0 + 10, lx1 - 10, lyBot + 18, $"构架跨度 B = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 18, lyBot, beamY, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 8, beamY, lyTop, $"h1={p.SubHeight:0}", h);
-
-                    // 右：A 字型双肢柱侧立面
-                    double aApexY = ryTop + 26;
-                    DrawLine(rx0 + 8, ryBot, rMidX, aApexY, SteelMemberBrush, 2.8);
-                    DrawLine(rx1 - 8, ryBot, rMidX, aApexY, SteelMemberBrush, 2.8);
-                    DrawLine(rMidX, aApexY, rMidX, ryTop, SteelSubBrush, 1.8);
-                    for (int k = 1; k <= 3; k++)
-                    {
-                        double t = k / 4.0;
-                        double yk = ryBot - (ryBot - aApexY) * t;
-                        double dx = (rx1 - rx0 - 16) * 0.5 * (1.0 - t);
-                        DrawLine(rMidX - dx, yk, rMidX + dx, yk, SteelSubBrush, 1.5);
-                    }
-                    DrawHorizDim(rx0 + 8, rx1 - 8, ryBot + 14, $"A柱根开 L = {p.Length:0}", w);
+                    // 顶部格构横梁
+                    s.Box(0, spread * 0.5 - 0.12, hBeam - 0.18, span, 0.24, 0.22, SteelSubBrush, 1.8, false, 2);
+                    s.Dim(0, 0, 0, span, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(span, 0, 0, span, spread, 0, 0.30, 0, 0, $"L={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, hBeam, -0.34, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
@@ -782,99 +907,280 @@ namespace SteelStructureSuite.Views.Controls
                 case ParametricStructureType.CableTrenchSupport:
                 {
                     int tiers = Math.Max(2, Math.Min(6, p.BayCount));
-                    leftTitle = $"横断面 ({tiers}层悬臂托臂)";
-                    rightTitle = "电缆沟纵立面 (总长 L)";
-                    double postX = lx0 + 26;
-                    DrawWallHatch(postX, lyTop, lyBot);
-                    DrawLine(postX, lyBot, postX, lyTop + 6, SteelMemberBrush, 3.6);
-                    for (int t = 0; t < tiers; t++)
+                    double len = 2.2;
+                    double armW = 0.62;
+                    double hCol = 1.55;
+                    int posts = 4;
+                    for (int i = 0; i < posts; i++)
                     {
-                        double ay = lyTop + 18 + (lyBot - lyTop - 36) * t / Math.Max(1, tiers - 1);
-                        DrawLine(postX, ay, lx1 - 14, ay, SteelSubBrush, 2.6);
-                        DrawLine(postX, ay + 8, postX + 22, ay, SteelSubBrush, 1.6);
+                        double x = len * i / (posts - 1);
+                        s.Primary(x, 0, 0, x, 0, hCol, 2.6);
+                        for (int t = 0; t < tiers; t++)
+                        {
+                            double z = 0.25 + (hCol - 0.40) * t / Math.Max(1, tiers - 1);
+                            s.Sub(x, 0, z, x, -armW, z, 2.0);
+                        }
                     }
-                    DrawHorizDim(postX, lx1 - 14, lyBot + 18, $"托臂挑宽 W = {p.Length:0} ({tiers}层)", w);
-                    DrawVertDim(postX - 28, lyBot, lyTop + 6, $"H={p.Height:0}", h);
-
-                    // 右：纵向多榀立柱与接地扁钢
-                    for (int c = 0; c < 4; c++)
-                    {
-                        double cx = rx0 + (rx1 - rx0) * c / 3.0;
-                        DrawLine(cx, ryBot, cx, ryTop + 8, SteelMemberBrush, 2.4);
-                    }
-                    DrawLine(rx0, ryBot - 8, rx1, ryBot - 8, PlateBrush, 2.6);
-                    DrawHorizDim(rx0, rx1, ryBot + 14, $"沟长 L={p.Span:0} 层距 s={p.SubHeight:0}", w);
+                    // 纵向接地扁钢与托盘示意
+                    s.Plate(0, 0, 0.08, len, 0, 0.08, 2.2);
+                    s.Ref(0, -armW, 0.25, len, -armW, 0.25);
+                    s.Dim(0, 0, 0, len, 0, 0, 0, 0.35, 0, $"L={p.Span:0} ({tiers}层)");
+                    s.Dim(0, 0, hCol, 0, -armW, hCol, -0.25, 0, 0, $"W={p.Length:0}");
+                    s.Dim(len, 0, 0, len, 0, hCol, 0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 25. 冶金厂房重型吊车梁系统 ====================
                 case ParametricStructureType.CraneRunwayGirder:
                 {
-                    leftTitle = "正立面 (焊接吊车梁 & 加劲肋)";
-                    rightTitle = "横断面 (QU轨 & 制动板)";
-                    double gTop = lMidY - 22, gBot = lMidY + 22;
-                    DrawRect(lx0, gTop, lx1 - lx0, gBot - gTop, SteelMemberBrush, 2.6);
-                    DrawLine(lx0 - 4, gTop, lx1 + 4, gTop, SteelMemberBrush, 3.8);
-                    DrawLine(lx0 - 4, gBot, lx1 + 4, gBot, SteelMemberBrush, 3.8);
-                    DrawLine(lx0, gTop - 6, lx1, gTop - 6, SteelSubBrush, 2.2);
-                    for (int i = 0; i <= 5; i++)
+                    double len = 2.5;
+                    double gh = 0.68;
+                    double brakeW = 0.55;
+                    // 吊车梁腹板/上下翼缘
+                    s.Primary(0, 0, 0, len, 0, 0, 3.0);
+                    s.Primary(0, 0, gh, len, 0, gh, 3.0);
+                    s.Primary(0, 0, 0, 0, 0, gh, 2.6);
+                    s.Primary(len, 0, 0, len, 0, gh, 2.6);
+                    // 钢轨
+                    s.Sub(0, 0, gh + 0.08, len, 0, gh + 0.08, 2.2);
+                    // 加劲肋
+                    for (int i = 1; i <= 4; i++)
                     {
-                        double sx = lx0 + (lx1 - lx0) * i / 5.0;
-                        DrawLine(sx, gTop, sx, gBot, SteelSubBrush, 1.6);
+                        double x = len * i / 5.0;
+                        s.Sub(x, 0, 0, x, 0, gh, 1.6);
                     }
-                    DrawFilledRect(lx1 - 14, gTop - 16, 12, 16, PlateBrush, SteelMemberBrush, 1.2);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"跨度 L = {p.Span:0} (肋距 {p.SubHeight:0})", w);
-                    DrawVertDim(lx0 - 26, gBot, gTop, $"H={p.Height:0}", h);
-
-                    // 右：工字梁 + 钢轨 + 走道制动板横断面
-                    double webX = rx0 + 22;
-                    DrawLine(webX - 18, ryTop + 18, webX + 18, ryTop + 18, SteelMemberBrush, 3.6);
-                    DrawLine(webX - 16, ryBot - 10, webX + 16, ryBot - 10, SteelMemberBrush, 3.6);
-                    DrawLine(webX, ryTop + 18, webX, ryBot - 10, SteelMemberBrush, 2.8);
-                    DrawFilledRect(webX - 6, ryTop + 8, 12, 10, SteelSubBrush, SteelSubBrush, 1.4);
                     // 制动走道板与边梁
-                    DrawLine(webX + 18, ryTop + 18, rx1 - 8, ryTop + 18, SteelSubBrush, 2.6);
-                    DrawLine(rx1 - 8, ryTop + 18, rx1 - 8, ryTop + 30, SteelSubBrush, 2.4);
-                    DrawHorizDim(webX, rx1 - 8, ryBot + 14, $"制动宽 B = {p.Length:0}", w);
+                    s.Plate(0, 0, gh, 0, brakeW, gh, 2.0);
+                    s.Plate(len, 0, gh, len, brakeW, gh, 2.0);
+                    s.Sub(0, brakeW, gh, len, brakeW, gh, 2.2);
+                    s.Dim(0, 0, 0, len, 0, 0, 0, -0.35, 0, $"L={p.Span:0}");
+                    s.Dim(len, 0, gh, len, brakeW, gh, 0.28, 0, 0, $"B={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, gh, -0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
 
                 // ==================== 26. 冶金厂房柱间交叉支撑 ====================
                 case ParametricStructureType.CrossBracingFrame:
                 {
-                    leftTitle = "正立面 (上下柱双层十字支撑)";
-                    rightTitle = "中央十字节点板";
-                    double corbelY = lMidY - 4;
-                    DrawLine(lx0, lyBot, lx0, lyTop, SteelMemberBrush, 3.4);
-                    DrawLine(lx1, lyBot, lx1, lyTop, SteelMemberBrush, 3.4);
-                    DrawLine(lx0, lyTop, lx1, lyTop, SteelMemberBrush, 2.6);
-                    DrawLine(lx0, corbelY, lx1, corbelY, SteelMemberBrush, 2.6);
-                    // 下柱交叉支撑 + 节点板
-                    DrawLine(lx0, lyBot, lx1, corbelY, SteelSubBrush, 2.2);
-                    DrawLine(lx1, lyBot, lx0, corbelY, SteelSubBrush, 2.2);
-                    DrawFilledRect(lMidX - 7, (lyBot + corbelY) * 0.5 - 7, 14, 14, PlateBrush, SteelSubBrush, 1.2);
-                    // 上柱交叉支撑 + 节点板
-                    DrawLine(lx0, corbelY, lx1, lyTop, SteelSubBrush, 1.8);
-                    DrawLine(lx1, corbelY, lx0, lyTop, SteelSubBrush, 1.8);
-                    DrawFilledRect(lMidX - 6, (corbelY + lyTop) * 0.5 - 6, 12, 12, PlateBrush, SteelSubBrush, 1.2);
-                    DrawBaseSupport(lx0, lyBot);
-                    DrawBaseSupport(lx1, lyBot);
-                    DrawHorizDim(lx0, lx1, lyBot + 18, $"厂房柱距 L = {p.Span:0}", w);
-                    DrawVertDim(lx0 - 26, lyBot, lyTop, $"H={p.Height:0}", h);
-                    DrawVertDim(lx1 + 16, lyBot, corbelY, $"h1={p.SubHeight:0}", h);
+                    double zCorbel = h1;
+                    s.Primary(0, 0, 0, 0, 0, H, 3.2);
+                    s.Primary(B, 0, 0, B, 0, H, 3.2);
+                    s.Primary(0, 0, H, B, 0, H, 2.6);
+                    s.Primary(0, 0, zCorbel, B, 0, zCorbel, 2.6);
+                    // 下柱交叉支撑
+                    s.Sub(0, 0, 0, B, 0, zCorbel, 2.1);
+                    s.Sub(B, 0, 0, 0, 0, zCorbel, 2.1);
+                    // 上柱交叉支撑
+                    s.Sub(0, 0, zCorbel, B, 0, H, 1.8);
+                    s.Sub(B, 0, zCorbel, 0, 0, H, 1.8);
+                    s.Base(0, 0, 0, 0.12);
+                    s.Base(B, 0, 0, 0.12);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"柱距 L={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    s.Dim(B, 0, 0, B, 0, zCorbel, 0.30, 0, 0, $"h1={p.SubHeight:0}");
+                    break;
+                }
 
-                    // 右：十字交叉节点板详图
-                    DrawFilledRect(rMidX - 24, rMidY - 24, 48, 48, PlateBrush, SteelMemberBrush, 1.8);
-                    DrawLine(rx0 + 8, ryBot - 8, rx1 - 8, ryTop + 8, SteelSubBrush, 2.8);
-                    DrawLine(rx0 + 8, ryTop + 8, rx1 - 8, ryBot - 8, SteelSubBrush, 2.8);
-                    DrawTagBadge(rMidX, ryBot + 10, $"撑杆: {p.BraceSection}");
+                // ==================== 27. 钢平台成套（区域组合） ====================
+                case ParametricStructureType.PlatformAssembly:
+                {
+                    double railH = Math.Min(0.50, Math.Max(0.30, H * 0.30));
+                    DrawPlatform3D(s, B, L, H, railH, withStair: true);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.35, 0, $"B={p.Span:0}");
+                    s.Dim(B, 0, 0, B, L, 0, 0.32, 0, 0, $"L={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.34, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 28. 厂房柱列（区域组合） ====================
+                case ParametricStructureType.ColumnRowAssembly:
+                {
+                    int bays = Math.Max(2, Math.Min(5, p.BayCount));
+                    double totalL = 2.6;
+                    double zCrane = H * 0.68;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = totalL * i / bays;
+                        s.Primary(x, 0, 0, x, 0, H, 2.8);
+                        s.Base(x, 0, 0, 0.10);
+                    }
+                    // 顶系杆与吊车梁
+                    s.Primary(0, 0, H, totalL, 0, H, 2.4);
+                    s.Primary(0, 0.14, zCrane, totalL, 0.14, zCrane, 2.8);
+                    // 中跨交叉支撑
+                    int mid = bays / 2;
+                    double xa = totalL * mid / bays, xb = totalL * (mid + 1) / bays;
+                    s.Sub(xa, 0, 0, xb, 0, zCrane, 2.0);
+                    s.Sub(xb, 0, 0, xa, 0, zCrane, 2.0);
+                    s.Sub(xa, 0, zCrane, xb, 0, H, 1.7);
+                    s.Sub(xb, 0, zCrane, xa, 0, H, 1.7);
+                    s.Dim(0, 0, 0, totalL, 0, 0, 0, -0.35, 0, $"柱距×{bays}跨");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.34, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 29. 管廊成套区段（区域组合） ====================
+                case ParametricStructureType.PipeRackAssembly:
+                {
+                    int bays = Math.Max(2, Math.Min(5, p.BayCount));
+                    double totalY = 2.2;
+                    double wRack = 1.35;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double y = totalY * i / bays;
+                        s.Primary(0, y, 0, 0, y, H, 2.6);
+                        s.Primary(wRack, y, 0, wRack, y, H, 2.6);
+                        s.Primary(-0.08, y, H, wRack + 0.08, y, H, 2.6);
+                        s.Primary(-0.08, y, h1, wRack + 0.08, y, h1, 2.4);
+                        s.Base(0, y, 0, 0.08);
+                        s.Base(wRack, y, 0, 0.08);
+                    }
+                    // 纵向系杆
+                    s.Sub(0, 0, H, 0, totalY, H, 1.8);
+                    s.Sub(wRack, 0, H, wRack, totalY, H, 1.8);
+                    s.Sub(0, 0, h1, 0, totalY, h1, 1.6);
+                    s.Sub(wRack, 0, h1, wRack, totalY, h1, 1.6);
+                    // 纵向支撑
+                    s.Sub(wRack, 0, 0, wRack, totalY / bays, h1, 1.8);
+                    s.Dim(0, 0, 0, wRack, 0, 0, 0, -0.34, 0, $"B={p.Span:0}");
+                    s.Dim(wRack, 0, 0, wRack, totalY, 0, 0.30, 0, 0, $"L×{bays}跨");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 30. 楼梯成套（区域组合） ====================
+                case ParametricStructureType.StairAssembly:
+                {
+                    double len = 1.9;
+                    double wid = 0.72;
+                    double hSt = 1.35;
+                    double railH = 0.40;
+                    double platL = 0.72;
+                    DrawStairFlight3D(s, 0, 0, 0, len, wid, hSt, railH);
+                    // 顶部休息平台 + 平台栏杆
+                    s.Primary(len, 0, hSt, len + platL, 0, hSt, 2.6);
+                    s.Primary(len, wid, hSt, len + platL, wid, hSt, 2.6);
+                    s.Primary(len + platL, 0, hSt, len + platL, wid, hSt, 2.6);
+                    s.Primary(len + platL, 0, 0, len + platL, 0, hSt, 2.4);
+                    s.Primary(len + platL, wid, 0, len + platL, wid, hSt, 2.4);
+                    s.Sub(len, 0, hSt + railH, len + platL, 0, hSt + railH, 1.8);
+                    s.Sub(len + platL, 0, hSt + railH, len + platL, wid, hSt + railH, 1.8);
+                    s.Sub(len, wid, hSt + railH, len + platL, wid, hSt + railH, 1.8);
+                    s.Sub(len + platL, 0, hSt, len + platL, 0, hSt + railH, 1.5);
+                    s.Sub(len + platL, wid, hSt, len + platL, wid, hSt + railH, 1.5);
+                    s.Dim(0, 0, 0, len + platL, 0, 0, 0, -0.34, 0, $"L={p.Span:0}");
+                    s.Dim(len + platL, 0, 0, len + platL, wid, 0, 0.30, 0, 0, $"W={p.Length:0}");
+                    s.Dim(len + platL, wid, 0, len + platL, wid, hSt, 0.30, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                default:
+                {
+                    s.Box(0, 0, 0, B, L, H, SteelMemberBrush, 2.4, false, 3);
+                    s.Dim(0, 0, 0, B, 0, 0, 0, -0.32, 0, $"B={p.Span:0}");
+                    s.Dim(0, 0, 0, 0, 0, H, -0.32, 0, 0, $"H={p.Height:0}");
                     break;
                 }
             }
+        }
 
-            // 顶部视图标题条
-            AddTitleText(10, 5, leftTitle);
-            AddTitleText(rxBox0 + 8, ryBox0 + 4, rightTitle);
+        private static void DrawPlatform3D(IsoScene s, double B, double L, double H, double railH, bool withStair)
+        {
+            foreach (double x in new[] { 0.0, B })
+                foreach (double y in new[] { 0.0, L })
+                {
+                    s.Primary(x, y, 0, x, y, H, 2.8);
+                    s.Base(x, y, 0, 0.10);
+                }
+            // 主梁框
+            s.Primary(0, 0, H, B, 0, H, 2.8);
+            s.Primary(0, L, H, B, L, H, 2.6);
+            s.Primary(0, 0, H, 0, L, H, 2.6);
+            s.Primary(B, 0, H, B, L, H, 2.8);
+            // 次梁
+            s.Sub(B / 3.0, 0, H, B / 3.0, L, H, 1.6);
+            s.Sub(B * 2.0 / 3.0, 0, H, B * 2.0 / 3.0, L, H, 1.6);
+            // 护栏四边（若带斜梯则前侧留出口）
+            double frontStart = withStair ? B * 0.42 : 0.0;
+            s.Sub(frontStart, 0, H + railH, B, 0, H + railH, 1.8);
+            s.Sub(0, L, H + railH, B, L, H + railH, 1.8);
+            s.Sub(0, 0, H + railH, 0, L, H + railH, 1.8);
+            s.Sub(B, 0, H + railH, B, L, H + railH, 1.8);
+            foreach (double x in new[] { 0.0, B * 0.5, B })
+            {
+                if (!withStair || x >= frontStart)
+                    s.Sub(x, 0, H, x, 0, H + railH, 1.4);
+                s.Sub(x, L, H, x, L, H + railH, 1.4);
+            }
+            s.Sub(0, L * 0.5, H, 0, L * 0.5, H + railH, 1.4);
+            s.Sub(B, L * 0.5, H, B, L * 0.5, H + railH, 1.4);
+
+            if (withStair)
+            {
+                // 前侧附带斜梯
+                double sw = B * 0.38;
+                double sRun = H * 0.85;
+                s.Primary(0, -sRun, 0, 0, 0, H, 2.4);
+                s.Primary(sw, -sRun, 0, sw, 0, H, 2.4);
+                s.Sub(0, -sRun, railH, 0, 0, H + railH, 1.6);
+                s.Sub(sw, -sRun, railH, sw, 0, H + railH, 1.6);
+                for (int i = 1; i <= 5; i++)
+                {
+                    double t = i / 6.0;
+                    s.Plate(0, -sRun * (1 - t), H * t, sw, -sRun * (1 - t), H * t, 1.5);
+                }
+            }
+        }
+
+        private static void DrawStairFlight3D(IsoScene s, double x0, double y0, double z0, double len, double wid, double h, double railH)
+        {
+            // 两侧梯梁
+            s.Primary(x0, y0, z0, x0 + len, y0, z0 + h, 2.8);
+            s.Primary(x0, y0 + wid, z0, x0 + len, y0 + wid, z0 + h, 2.6);
+            // 两侧扶手
+            s.Sub(x0, y0, z0 + railH, x0 + len, y0, z0 + h + railH, 1.9);
+            s.Sub(x0, y0 + wid, z0 + railH, x0 + len, y0 + wid, z0 + h + railH, 1.6);
+            // 踏步与栏杆立柱
+            int steps = 7;
+            for (int i = 0; i <= steps; i++)
+            {
+                double t = (double)i / steps;
+                double sx = x0 + len * t;
+                double sz = z0 + h * t;
+                s.Plate(sx, y0, sz, sx, y0 + wid, sz, 1.8);
+                if (i == 0 || i == steps || i == steps / 2)
+                {
+                    s.Sub(sx, y0, sz, sx, y0, sz + railH, 1.5);
+                    s.Sub(sx, y0 + wid, sz, sx, y0 + wid, sz + railH, 1.3);
+                }
+            }
+        }
+
+        private void DrawIsoTriad(double ox, double oy)
+        {
+            const double len = 18.0;
+            // X (+0.88, +0.28), Y (+0.56, -0.42), Z (0, -0.96)
+            DrawLine(ox, oy, ox + len * 0.88, oy + len * 0.28, TriadXBrush, 1.5);
+            DrawLine(ox, oy, ox + len * 0.56, oy - len * 0.42, TriadYBrush, 1.5);
+            DrawLine(ox, oy, ox, oy - len * 0.96, TriadZBrush, 1.5);
+
+            AddMiniAxisLabel(ox + len * 0.95, oy + len * 0.28 - 6, "X", TriadXBrush);
+            AddMiniAxisLabel(ox + len * 0.62, oy - len * 0.48 - 6, "Y", TriadYBrush);
+            AddMiniAxisLabel(ox - 4, oy - len * 0.96 - 13, "Z", TriadZBrush);
+        }
+
+        private void AddMiniAxisLabel(double x, double y, string text, Brush brush)
+        {
+            TextBlock tb = new TextBlock
+            {
+                Text = text,
+                FontSize = 9.5,
+                Foreground = brush,
+                FontWeight = FontWeights.Bold
+            };
+            Canvas.SetLeft(tb, x);
+            Canvas.SetTop(tb, y);
+            _canvas.Children.Add(tb);
         }
 
         private void AddTitleText(double x, double y, string text)
@@ -882,7 +1188,7 @@ namespace SteelStructureSuite.Views.Controls
             TextBlock tb = new TextBlock
             {
                 Text = text,
-                FontSize = 11.0,
+                FontSize = 11.5,
                 Foreground = TitleBrush,
                 FontWeight = FontWeights.Bold
             };
@@ -891,7 +1197,7 @@ namespace SteelStructureSuite.Views.Controls
             _canvas.Children.Add(tb);
         }
 
-        private void DrawTagBadge(double centerX, double topY, string text)
+        private void DrawBottomRightBadge(double rightX, double bottomY, string text)
         {
             Border badge = new Border
             {
@@ -899,7 +1205,7 @@ namespace SteelStructureSuite.Views.Controls
                 BorderBrush = BorderLineBrush,
                 BorderThickness = new Thickness(1),
                 CornerRadius = new CornerRadius(3),
-                Padding = new Thickness(5, 1, 5, 1),
+                Padding = new Thickness(6, 2, 6, 2),
                 Child = new TextBlock
                 {
                     Text = text,
@@ -909,155 +1215,27 @@ namespace SteelStructureSuite.Views.Controls
                 }
             };
             badge.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double bw = badge.DesiredSize.Width;
-            Canvas.SetLeft(badge, centerX - bw * 0.5);
-            Canvas.SetTop(badge, topY);
+            Canvas.SetLeft(badge, Math.Max(60, rightX - badge.DesiredSize.Width));
+            Canvas.SetTop(badge, Math.Max(26, bottomY - badge.DesiredSize.Height));
             _canvas.Children.Add(badge);
         }
 
-        private void DrawHColumnPlanSymbol(double cx, double cy, double w, double h)
+        private void DrawTick(Point p, Point other)
         {
-            double hw = w * 0.5, hh = h * 0.5;
-            DrawLine(cx - hw, cy - hh, cx + hw, cy - hh, SteelMemberBrush, 2.4);
-            DrawLine(cx - hw, cy + hh, cx + hw, cy + hh, SteelMemberBrush, 2.4);
-            DrawLine(cx, cy - hh, cx, cy + hh, SteelMemberBrush, 2.0);
+            double dx = other.X - p.X, dy = other.Y - p.Y;
+            double len = Math.Sqrt(dx * dx + dy * dy);
+            if (len < 1e-3) return;
+            double nx = -dy / len * 3.5;
+            double ny = dx / len * 3.5;
+            DrawLine(p.X - nx, p.Y - ny, p.X + nx, p.Y + ny, DimLineBrush, 1.3);
         }
 
-        private void DrawWallHatch(double wallX, double yTop, double yBot)
+        private void DrawDimBadge(double midX, double midY, string text, double canvasW, double canvasH)
         {
-            DrawLine(wallX, yTop, wallX, yBot, PlateBrush, 2.0);
-            for (double y = yTop + 6; y <= yBot; y += 10)
-            {
-                DrawLine(wallX, y, wallX - 7, y + 6, BorderLineBrush, 1.2);
-            }
-        }
-
-        private void DrawCircleArc(double cx, double cy, double r, double startDeg, double sweepDeg, Brush stroke, double thickness)
-        {
-            int segs = Math.Max(12, (int)Math.Ceiling(Math.Abs(sweepDeg) / 10.0));
-            double a0 = startDeg * Math.PI / 180.0;
-            double px0 = cx + r * Math.Cos(a0);
-            double py0 = cy - r * Math.Sin(a0);
-            for (int i = 1; i <= segs; i++)
-            {
-                double a = (startDeg + sweepDeg * i / segs) * Math.PI / 180.0;
-                double px = cx + r * Math.Cos(a);
-                double py = cy - r * Math.Sin(a);
-                DrawLine(px0, py0, px, py, stroke, thickness);
-                px0 = px;
-                py0 = py;
-            }
-        }
-
-        private void DrawDashAxis(double x1, double y1, double x2, double y2)
-        {
-            DrawLine(x1, y1, x2, y2, AxisLineBrush, 1.0, dashed: true);
-        }
-
-        private void DrawEllipse(double x, double y, double w, double h, Brush stroke, double thickness)
-        {
-            Ellipse e = new Ellipse
-            {
-                Width = Math.Max(2, w),
-                Height = Math.Max(2, h),
-                Stroke = stroke,
-                StrokeThickness = thickness
-            };
-            Canvas.SetLeft(e, x);
-            Canvas.SetTop(e, y);
-            _canvas.Children.Add(e);
-        }
-
-        private void DrawLine(double x1, double y1, double x2, double y2, Brush stroke, double thickness, bool dashed = false)
-        {
-            Line ln = new Line
-            {
-                X1 = x1, Y1 = y1, X2 = x2, Y2 = y2,
-                Stroke = stroke,
-                StrokeThickness = thickness
-            };
-            if (dashed)
-            {
-                ln.StrokeDashArray = new DoubleCollection { 4, 2 };
-            }
-            _canvas.Children.Add(ln);
-        }
-
-        private void DrawRect(double x, double y, double w, double h, Brush stroke, double thickness)
-        {
-            Rectangle r = new Rectangle
-            {
-                Width = Math.Max(2, w),
-                Height = Math.Max(2, h),
-                Stroke = stroke,
-                StrokeThickness = thickness
-            };
-            Canvas.SetLeft(r, x);
-            Canvas.SetTop(r, y);
-            _canvas.Children.Add(r);
-        }
-
-        private void DrawFilledRect(double x, double y, double w, double h, Brush fill, Brush stroke, double thickness)
-        {
-            Rectangle r = new Rectangle
-            {
-                Width = Math.Max(2, w),
-                Height = Math.Max(2, h),
-                Fill = fill,
-                Stroke = stroke,
-                StrokeThickness = thickness,
-                RadiusX = 3,
-                RadiusY = 3
-            };
-            Canvas.SetLeft(r, x);
-            Canvas.SetTop(r, y);
-            _canvas.Children.Add(r);
-        }
-
-        private void DrawBaseSupport(double x, double y)
-        {
-            DrawLine(x - 10, y, x + 10, y, PlateBrush, 3.2);
-        }
-
-        private void DrawHorizDim(double x1, double x2, double y, string text, double canvasW)
-        {
-            DrawLine(x1, y, x2, y, DimLineBrush, 1.3);
-            DrawLine(x1, y - 4, x1, y + 4, DimLineBrush, 1.3);
-            DrawLine(x2, y - 4, x2, y + 4, DimLineBrush, 1.3);
-
             Border label = new Border
             {
                 Background = BgBrush,
-                Padding = new Thickness(4, 0, 4, 0),
-                Child = new TextBlock
-                {
-                    Text = text,
-                    Foreground = DimTextBrush,
-                    FontSize = 11.0,
-                    FontWeight = FontWeights.Bold
-                }
-            };
-            label.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            double lw = label.DesiredSize.Width;
-            double lh = label.DesiredSize.Height;
-
-            double left = (x1 + x2) * 0.5 - lw * 0.5;
-            left = Math.Max(4, Math.Min(canvasW - lw - 4, left));
-            Canvas.SetLeft(label, left);
-            Canvas.SetTop(label, y - lh * 0.5);
-            _canvas.Children.Add(label);
-        }
-
-        private void DrawVertDim(double x, double yBot, double yTop, string text, double canvasH)
-        {
-            DrawLine(x, yBot, x, yTop, DimLineBrush, 1.3);
-            DrawLine(x - 4, yBot, x + 4, yBot, DimLineBrush, 1.3);
-            DrawLine(x - 4, yTop, x + 4, yTop, DimLineBrush, 1.3);
-
-            Border label = new Border
-            {
-                Background = BgBrush,
-                Padding = new Thickness(2, 0, 2, 0),
+                Padding = new Thickness(3, 0, 3, 0),
                 Child = new TextBlock
                 {
                     Text = text,
@@ -1070,12 +1248,29 @@ namespace SteelStructureSuite.Views.Controls
             double lw = label.DesiredSize.Width;
             double lh = label.DesiredSize.Height;
 
-            double left = Math.Max(2, x - lw * 0.5);
-            double top = (yBot + yTop) * 0.5 - lh * 0.5;
-            top = Math.Max(18, Math.Min(canvasH - lh - 4, top));
+            double left = Math.Max(4, Math.Min(canvasW - lw - 4, midX - lw * 0.5));
+            double top = Math.Max(24, Math.Min(canvasH - lh - 4, midY - lh * 0.5));
             Canvas.SetLeft(label, left);
             Canvas.SetTop(label, top);
             _canvas.Children.Add(label);
+        }
+
+        private void DrawLine(double x1, double y1, double x2, double y2, Brush stroke, double thickness, bool dashed = false)
+        {
+            if (thickness <= 0) return;
+            Line ln = new Line
+            {
+                X1 = x1, Y1 = y1, X2 = x2, Y2 = y2,
+                Stroke = stroke,
+                StrokeThickness = thickness,
+                StrokeStartLineCap = PenLineCap.Round,
+                StrokeEndLineCap = PenLineCap.Round
+            };
+            if (dashed)
+            {
+                ln.StrokeDashArray = new DoubleCollection { 4, 2.5 };
+            }
+            _canvas.Children.Add(ln);
         }
     }
 }

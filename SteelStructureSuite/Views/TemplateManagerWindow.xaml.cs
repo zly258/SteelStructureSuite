@@ -177,11 +177,13 @@ namespace SteelStructureSuite.Views
                 return;
             }
 
-            // 二次确认不弹窗：第一次点标记，第二次才真删
-            if (_pendingDeleteId != row.Template.Id)
+            if (MessageBox.Show(
+                    this,
+                    $"确定删除模板「{row.Name}」吗？删除后无法恢复。",
+                    "确认删除",
+                    MessageBoxButton.YesNo,
+                    MessageBoxImage.Question) != MessageBoxResult.Yes)
             {
-                _pendingDeleteId = row.Template.Id;
-                SetStatus($"再点一次「删除」确认删除「{row.Name}」");
                 return;
             }
 
@@ -202,9 +204,11 @@ namespace SteelStructureSuite.Views
 
             try
             {
-                int added = StructureTemplateStore.ImportFrom(dlg.FileName);
+                int added = StructureTemplateStore.ImportFrom(dlg.FileName, out int skipped);
                 ReloadList();
-                SetStatus($"导入完成：新增 {added} 个（重复已跳过）");
+                SetStatus(skipped > 0
+                    ? $"导入完成：新增 {added} 个，跳过重复 {skipped} 个"
+                    : $"导入完成：新增 {added} 个模板");
             }
             catch (Exception ex)
             {
@@ -214,6 +218,12 @@ namespace SteelStructureSuite.Views
 
         private void OnExportClick(object sender, RoutedEventArgs e)
         {
+            if (_allRows.Count == 0)
+            {
+                SetStatus("当前没有可导出的自定义模板，请先在建模窗口点击「存为模板」");
+                return;
+            }
+
             var dlg = new SaveFileDialog
             {
                 Title = "导出参数模板",
@@ -226,7 +236,7 @@ namespace SteelStructureSuite.Views
             try
             {
                 StructureTemplateStore.ExportTo(dlg.FileName);
-                SetStatus("已导出到 " + Path.GetFileName(dlg.FileName));
+                SetStatus($"已导出 {_allRows.Count} 个模板到 " + Path.GetFileName(dlg.FileName));
             }
             catch (Exception ex)
             {

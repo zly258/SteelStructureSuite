@@ -71,47 +71,55 @@ namespace SteelStructureSuite.Ribbon
             return Downsample(hiBmp, factor);
         }
 
+        /// <summary>
+        /// 按功能区面板类型统一配色（一个面板/大类一种颜色，视觉整洁统一）：
+        ///   · 构建管理：深翠绿
+        ///   · 构件模板：青碧蓝
+        ///   · 参数化构件（6 大类 30 构件）：统一工程蓝
+        ///   · 定位复写：琥珀橙
+        ///   · 统计出图：靛雅紫
+        ///   · 帮助：石板灰
+        /// </summary>
         private static Color GetBadgeColor(string glyph)
         {
             switch ((glyph ?? string.Empty).Trim())
             {
+                // 1. 构建管理
                 case "manager":
+                case "section":
                 case "renumber":
-                case "platform":
-                case "bracket":
-                case "walkway":
-                case "bridge":
-                case "gripon":
+                case "edit":
+                case "regen":
                     return Color.FromRgb(16, 124, 65);
 
+                // 2. 构件模板
+                case "templ":
+                case "tplsave":
+                    return Color.FromRgb(14, 116, 144);
+
+                // 4. 定位复写
                 case "chain":
-                case "stair":
-                case "ladder":
-                case "spiral":
-                case "rail":
-                case "crane":
-                case "xbrace":
-                case "bom":
-                    return Color.FromRgb(196, 89, 17);
-
-                case "tower":
-                case "skirt":
-                case "shoe":
-                case "tank":
-                case "saddle":
-                case "edit":
-                case "drawing":
-                    return Color.FromRgb(138, 43, 226);
-
+                case "align":
+                case "array":
+                case "drop":
+                case "gripon":
                 case "gripoff":
-                    return Color.FromRgb(180, 50, 50);
+                    return Color.FromRgb(217, 119, 6);
 
-                case "regen":
+                // 5. 统计出图
+                case "bom":
+                case "drawing":
                 case "dxf":
                 case "merge":
-                case "about":
-                    return Color.FromRgb(95, 99, 104);
+                    return Color.FromRgb(109, 76, 159);
 
+                // 6. 帮助
+                case "help":
+                case "ribbonmode":
+                case "about":
+                    return Color.FromRgb(82, 96, 109);
+
+                // 3. 参数化构件（全部统一工程蓝）
                 default:
                     return Color.FromRgb(0, 103, 192);
             }

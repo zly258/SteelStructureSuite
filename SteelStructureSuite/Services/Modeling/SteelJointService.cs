@@ -22,8 +22,8 @@ namespace SteelStructureSuite.Services.Modeling
     /// </summary>
     public static class SteelJointService
     {
-        /// <summary>总开关：出问题时可整体关闭，退回原「相互插入」的建模方式。</summary>
-        public static bool Enabled = true;
+        /// <summary>总开关：已禁用斜切逻辑，保持杆件完整原始几何。</summary>
+        public static bool Enabled = false;
 
         /// <summary>近垂直阈值：|cos| 小于此值视为垂直对接，无需斜接。</summary>
         private const double PerpendicularCos = 0.26;      // 约 75°

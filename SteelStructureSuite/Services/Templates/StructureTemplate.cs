@@ -4,11 +4,12 @@ using System.Globalization;
 using System.Linq;
 using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
+using SteelStructureSuite.Services.Catalog;
 
 namespace SteelStructureSuite.Services.Templates
 {
     /// <summary>
-    /// 一条参数模板：完整保存一个参数化构件的全部可编辑参数，
+    /// 一条参数模板：完整保存一个参数化构件的全部可编辑参数（含截面类型 + 截面代号），
     /// 可在建模窗口里一键套用，也可跨构件类型作为「通用模板」使用。
     /// </summary>
     public sealed class StructureTemplate
@@ -25,11 +26,23 @@ namespace SteelStructureSuite.Services.Templates
         /// <summary>所属构件类型。为 null 表示「通用模板」，可在任意类型下套用。</summary>
         public ParametricStructureType? StructureType { get; set; }
 
+        /// <summary>是否为内置预设模板（自带的三种预设，只读，不随用户模板文件删除）。</summary>
+        public bool IsBuiltIn { get; set; }
+
         /// <summary>创建时间。</summary>
         public DateTime CreatedAt { get; set; } = DateTime.Now;
 
         /// <summary>最后修改时间。</summary>
         public DateTime UpdatedAt { get; set; } = DateTime.Now;
+
+        /// <summary>立柱/主材截面类型（与 Parameters.ColumnSection 成对保存）。</summary>
+        public SectionShapeType? ColumnSectionType { get; set; }
+
+        /// <summary>主梁截面类型（与 Parameters.BeamSection 成对保存）。</summary>
+        public SectionShapeType? BeamSectionType { get; set; }
+
+        /// <summary>斜撑/次梁截面类型（与 Parameters.BraceSection 成对保存）。</summary>
+        public SectionShapeType? BraceSectionType { get; set; }
 
         /// <summary>参数快照（只保存与几何/材料相关的字段）。</summary>
         public SteelStructureParams Parameters { get; set; } = new SteelStructureParams();
@@ -45,13 +58,17 @@ namespace SteelStructureSuite.Services.Templates
                 Name = Name,
                 Note = Note,
                 StructureType = StructureType,
+                IsBuiltIn = IsBuiltIn,
                 CreatedAt = CreatedAt,
                 UpdatedAt = UpdatedAt,
+                ColumnSectionType = ColumnSectionType,
+                BeamSectionType = BeamSectionType,
+                BraceSectionType = BraceSectionType,
                 Parameters = Parameters?.Clone() ?? new SteelStructureParams()
             };
         }
 
-        /// <summary>从当前构件参数生成一条模板。</summary>
+        /// <summary>从当前构件参数生成一条模板（自动记录各截面的类型 + 名称）。</summary>
         public static StructureTemplate FromParams(SteelStructureParams source, string name, string note, bool generic = false)
         {
             if (source == null) throw new ArgumentNullException(nameof(source));
@@ -70,16 +87,26 @@ namespace SteelStructureSuite.Services.Templates
                 StructureType = generic ? (ParametricStructureType?)null : source.StructureType,
                 CreatedAt = DateTime.Now,
                 UpdatedAt = DateTime.Now,
+                ColumnSectionType = ResolveShapeType(snapshot.ColumnSection),
+                BeamSectionType = ResolveShapeType(snapshot.BeamSection),
+                BraceSectionType = ResolveShapeType(snapshot.BraceSection),
                 Parameters = snapshot
             };
         }
 
-        /// <summary>把模板套用到目标参数对象（保留目标原有位号与插入点）。</summary>
+        private static SectionShapeType? ResolveShapeType(string sectionName)
+        {
+            var prof = SectionCatalogService.TryFindByName(sectionName);
+            return prof?.Shape;
+        }
+
+        /// <summary>把模板套用到目标参数对象（保留目标原有位号、插入点；通用模板保留原结构类型）。</summary>
         public void ApplyTo(SteelStructureParams target)
         {
             if (target == null || Parameters == null) return;
 
             string keepTag = target.Tag;
+            ParametricStructureType keepType = target.StructureType;
             var keepOrigin = target.Origin;
             double keepRotation = target.RotationRad;
             bool keepCurveFrame = target.UseCurveFrame;
@@ -89,6 +116,7 @@ namespace SteelStructureSuite.Services.Templates
             target.CopyFrom(Parameters);
 
             target.Tag = keepTag;
+            if (IsGeneric) target.StructureType = keepType;
             target.Origin = keepOrigin;
             target.RotationRad = keepRotation;
             target.UseCurveFrame = keepCurveFrame;

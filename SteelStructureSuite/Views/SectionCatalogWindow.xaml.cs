@@ -50,6 +50,7 @@ namespace SteelStructureSuite.Views
         private TreeNodeTag _currentFilter = new TreeNodeTag { Kind = TreeFilterKind.All, Key = "ALL" };
         private bool _isSuppressingEvents;
         private bool _isManualMetricsActive;
+        private string _editingOriginalName;
 
         public SectionCatalogWindow()
         {
@@ -233,7 +234,12 @@ namespace SteelStructureSuite.Views
             BtnDelete.IsEnabled = GridSections.SelectedItem is SectionProfile;
             if (GridSections.SelectedItem is SectionProfile sel)
             {
+                _editingOriginalName = sel.Name;
                 FillFormFromProfile(sel);
+            }
+            else
+            {
+                _editingOriginalName = null;
             }
         }
 
@@ -525,6 +531,7 @@ namespace SteelStructureSuite.Views
             string name = TxtName.Text?.Trim();
             if (string.IsNullOrEmpty(name))
             {
+                SetStatus("请输入截面代号。");
                 MessageBox.Show("请输入截面代号！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 TxtName.Focus();
                 return;
@@ -532,11 +539,28 @@ namespace SteelStructureSuite.Views
 
             if (!TryBuildProfileFromForm(out SectionProfile profile, requireName: true))
             {
+                SetStatus("截面尺寸参数必须为有效数值。");
                 MessageBox.Show("截面尺寸参数必须为有效数值！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
                 return;
             }
 
-            SectionCatalogService.AddOrUpdate(profile);
+            // 仅当当前表格确实选中了同名截面时，允许原地更新；否则若名称已存在则禁止重复
+            string selectedName = (GridSections.SelectedItem is SectionProfile curSel) ? curSel.Name : null;
+            string editingKey = string.Equals(selectedName, name, StringComparison.OrdinalIgnoreCase)
+                ? selectedName
+                : null;
+
+            if (!SectionCatalogService.TryAddOrUpdate(profile, editingKey, out string dupErr))
+            {
+                SetStatus(dupErr);
+                MessageBox.Show(dupErr, "截面名称重复", MessageBoxButton.OK, MessageBoxImage.Warning);
+                TxtName.Focus();
+                TxtName.SelectAll();
+                return;
+            }
+
+            bool wasUpdate = editingKey != null;
+            _editingOriginalName = profile.Name;
             string targetNodeKey = $"SHAPE_{(int)profile.Shape}";
             RebuildCategoryTree(targetNodeKey);
             RefreshTableAndSummary();
@@ -551,23 +575,39 @@ namespace SteelStructureSuite.Views
                     GridSections.ScrollIntoView(added);
                 }
             }
+
+            SetStatus(wasUpdate
+                ? $"已更新截面「{profile.Name}」（{profile.ShapeDisplayName}）"
+                : $"已新增截面「{profile.Name}」（{profile.ShapeDisplayName}）");
         }
 
         private void OnDeleteSectionClick(object sender, RoutedEventArgs e)
         {
             if (GridSections.SelectedItem is SectionProfile sel)
             {
-                if (!SectionCatalogService.Remove(sel.Name))
+                if (MessageBox.Show(
+                        this,
+                        $"确定删除截面「{sel.Name}」（{sel.ShapeDisplayName}）吗？",
+                        "确认删除",
+                        MessageBoxButton.YesNo,
+                        MessageBoxImage.Question) != MessageBoxResult.Yes)
                 {
-                    MessageBox.Show("该截面类型至少需保留 1 条默认规格，无法删除最后一条。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
                     return;
                 }
+
+                if (!SectionCatalogService.Remove(sel.Name))
+                {
+                    MessageBox.Show(this, "该截面类型至少需保留 1 条默认规格，无法删除最后一条。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                    return;
+                }
+                _editingOriginalName = null;
                 RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
                 RefreshTableAndSummary();
+                SetStatus($"已删除截面「{sel.Name}」");
             }
             else
             {
-                MessageBox.Show("请先在表格中选中要删除的规格行。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                MessageBox.Show(this, "请先在表格中选中要删除的规格行。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
             }
         }
 

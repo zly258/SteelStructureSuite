@@ -217,22 +217,80 @@ namespace SteelStructureSuite.Services.Catalog
             return GetAllSections().Select(x => x.Name).ToList();
         }
 
+        /// <summary>按名称精确查找截面（忽略大小写）；不存在时返回 null（不回退默认截面）。</summary>
+        public static SectionProfile TryFindByName(string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return null;
+            string key = name.Trim();
+            foreach (var list in _tables.Values)
+            {
+                var found = list.FirstOrDefault(s => string.Equals(s.Name, key, StringComparison.OrdinalIgnoreCase));
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        /// <summary>判断截面名称是否已存在（全局唯一，跨所有截面类型校验）。</summary>
+        public static bool ExistsName(string name, string ignoreOriginalName = null)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return false;
+            string key = name.Trim();
+            if (!string.IsNullOrEmpty(ignoreOriginalName) &&
+                string.Equals(key, ignoreOriginalName.Trim(), StringComparison.OrdinalIgnoreCase))
+            {
+                return false;
+            }
+            return TryFindByName(key) != null;
+        }
+
         public static SectionProfile GetByName(string name)
         {
-            if (!string.IsNullOrWhiteSpace(name))
-            {
-                string key = name.Trim();
-                foreach (var list in _tables.Values)
-                {
-                    var found = list.FirstOrDefault(s => string.Equals(s.Name, key, StringComparison.OrdinalIgnoreCase));
-                    if (found != null) return found;
-                }
-            }
+            var found = TryFindByName(name);
+            if (found != null) return found;
+
             var hList = _tables[SectionShapeType.HBeam];
             return hList.Count > 4 ? hList[4] : hList.FirstOrDefault() ?? new SectionProfile();
         }
 
         public static SectionProfile GetSectionOrDefault(string name) => GetByName(name);
+
+        /// <summary>
+        /// 校验并保存截面（保存类型 + 截面，且全局不允许截面名称重复）。
+        /// - 若正在编辑的原名称与新名称一致，则更新原截面；
+        /// - 若新名称已存在于其它截面，则拒绝保存并返回错误说明。
+        /// </summary>
+        public static bool TryAddOrUpdate(SectionProfile profile, string editingOriginalName, out string errorMsg)
+        {
+            errorMsg = null;
+            if (profile == null || string.IsNullOrWhiteSpace(profile.Name))
+            {
+                errorMsg = "截面名称不能为空。";
+                return false;
+            }
+
+            string newName = profile.Name.Trim();
+            string origName = string.IsNullOrWhiteSpace(editingOriginalName) ? null : editingOriginalName.Trim();
+
+            SectionProfile conflict = TryFindByName(newName);
+            bool isSameRecord = origName != null &&
+                                string.Equals(origName, newName, StringComparison.OrdinalIgnoreCase);
+
+            if (conflict != null && !isSameRecord)
+            {
+                errorMsg = $"截面名称「{newName}」已存在（所属类型：{conflict.ShapeDisplayName}），截面名称不允许重复。";
+                return false;
+            }
+
+            // 若是重命名已有记录，先移除旧名称对应记录
+            if (origName != null && !isSameRecord)
+            {
+                RemoveExactIgnoringLastLimit(_tables, origName);
+            }
+
+            AddOrUpdateInto(_tables, profile);
+            SaveCatalog();
+            return true;
+        }
 
         public static void AddOrUpdate(SectionProfile profile)
         {
@@ -240,17 +298,31 @@ namespace SteelStructureSuite.Services.Catalog
             SaveCatalog();
         }
 
+        private static void RemoveExactIgnoringLastLimit(Dictionary<SectionShapeType, List<SectionProfile>> tables, string name)
+        {
+            if (string.IsNullOrWhiteSpace(name)) return;
+            string key = name.Trim();
+            foreach (var kv in tables)
+            {
+                int idx = kv.Value.FindIndex(s => string.Equals(s.Name, key, StringComparison.OrdinalIgnoreCase));
+                if (idx >= 0)
+                {
+                    kv.Value.RemoveAt(idx);
+                }
+            }
+        }
+
         private static void AddOrUpdateInto(Dictionary<SectionShapeType, List<SectionProfile>> tables, SectionProfile profile)
         {
             if (profile == null || string.IsNullOrWhiteSpace(profile.Name)) return;
             string name = profile.Name.Trim();
 
-            // 如果同名截面原本在其它分类下，先移除旧记录避免重名冲突
+            // 确保全局名称唯一：若同名截面在其它类型下存在，必须先移除，防止跨类型重名
             foreach (var kv in tables)
             {
                 if (kv.Key == profile.Shape) continue;
                 int oldIdx = kv.Value.FindIndex(s => string.Equals(s.Name, name, StringComparison.OrdinalIgnoreCase));
-                if (oldIdx >= 0 && kv.Value.Count > 1)
+                if (oldIdx >= 0)
                 {
                     kv.Value.RemoveAt(oldIdx);
                 }

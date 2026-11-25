@@ -404,11 +404,13 @@ namespace SteelStructureSuite.Domain.Models
                     return new List<StructurePresetItem>
                     {
                         new StructurePresetItem { Name = "110kV 变电A字构架 (B=9000, H=11000)", Span = 9000, Length = 2200, Height = 11000, SubHeight = 2500, ColSec = "P219x8", BeamSec = "L100x100x8", BraceSec = "L63x63x6" },
-                        new StructurePresetItem { Name = "220kV 变电A字构架 (B=14000, H=15000)", Span = 14000, Length = 3000, Height = 15000, SubHeight = 3500, ColSec = "P219x8", BeamSec = "L125x125x10", BraceSec = "L75x75x6" }
+                        new StructurePresetItem { Name = "220kV 变电A字构架 (B=14000, H=15000)", Span = 14000, Length = 3000, Height = 15000, SubHeight = 3500, ColSec = "P219x8", BeamSec = "L125x125x10", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "500kV 重型A字构架 (B=18000, H=18000)", Span = 18000, Length = 3600, Height = 18000, SubHeight = 4500, ColSec = "P273x10", BeamSec = "L140x140x12", BraceSec = "L90x90x8" }
                     };
                 case ParametricStructureType.CableTrenchSupport:
                     return new List<StructurePresetItem>
                     {
+                        new StructurePresetItem { Name = "DL/T 2层电缆沟支架 (L=3000, W=400)", Span = 3000, Length = 400, Height = 900, SubHeight = 280, BayCount = 2, ColSec = "C10", BeamSec = "L50x50x5", BraceSec = "L50x50x5" },
                         new StructurePresetItem { Name = "DL/T 3层电缆沟支架 (L=4000, W=450)", Span = 4000, Length = 450, Height = 1200, SubHeight = 300, BayCount = 3, ColSec = "C10", BeamSec = "L50x50x5", BraceSec = "L50x50x5" },
                         new StructurePresetItem { Name = "DL/T 5层电缆隧道支架 (L=6000, W=600)", Span = 6000, Length = 600, Height = 1850, SubHeight = 320, BayCount = 5, ColSec = "C12.6", BeamSec = "L63x63x6", BraceSec = "L50x50x5" }
                     };
@@ -422,6 +424,7 @@ namespace SteelStructureSuite.Domain.Models
                 case ParametricStructureType.CrossBracingFrame:
                     return new List<StructurePresetItem>
                     {
+                        new StructurePresetItem { Name = "19G518 6m柱距轻型交叉支撑 (H=6000)", Span = 6000, Length = 220, Height = 6000, SubHeight = 4000, ColSec = "HW200x200x8x12", BeamSec = "F120x120x6", BraceSec = "L75x75x6" },
                         new StructurePresetItem { Name = "19G518 6m柱距双层交叉支撑 (H=7200)", Span = 6000, Length = 250, Height = 7200, SubHeight = 4800, ColSec = "HW250x250x9x14", BeamSec = "F150x150x8", BraceSec = "L100x100x8" },
                         new StructurePresetItem { Name = "19G518 7.5m柱距重型柱间支撑 (H=9600)", Span = 7500, Length = 300, Height = 9600, SubHeight = 6500, ColSec = "HW300x300x10x15", BeamSec = "F200x200x10", BraceSec = "L125x125x10" }
                     };

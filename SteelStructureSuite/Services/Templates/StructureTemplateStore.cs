@@ -7,6 +7,7 @@ using System.Runtime.Serialization.Json;
 using System.Text;
 using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
+using SteelStructureSuite.Services.Catalog;
 
 namespace SteelStructureSuite.Services.Templates
 {
@@ -64,7 +65,56 @@ namespace SteelStructureSuite.Services.Templates
             }
         }
 
-        /// <summary>取指定构件类型可用的模板：该类型专属 + 通用模板。</summary>
+        /// <summary>取指定构件类型自带的 3 种内置预设模板。</summary>
+        public static List<StructureTemplate> GetBuiltInForType(ParametricStructureType type)
+        {
+            var presets = SteelStructureParams.GetPresetsForType(type);
+            var list = new List<StructureTemplate>();
+            if (presets == null) return list;
+
+            for (int i = 0; i < presets.Count; i++)
+            {
+                StructurePresetItem item = presets[i];
+                var p = new SteelStructureParams
+                {
+                    Tag = string.Empty,
+                    StructureType = type,
+                    Span = item.Span,
+                    Length = item.Length,
+                    Height = item.Height,
+                    SubHeight = item.SubHeight,
+                    BayCount = item.BayCount <= 0 ? 2 : item.BayCount,
+                    ColumnSection = string.IsNullOrWhiteSpace(item.ColSec) ? "HW200x200x8x12" : item.ColSec,
+                    BeamSection = string.IsNullOrWhiteSpace(item.BeamSec) ? "HW200x200x8x12" : item.BeamSec,
+                    BraceSection = string.IsNullOrWhiteSpace(item.BraceSec) ? "L100x100x8" : item.BraceSec,
+                    Material = "Q355B"
+                };
+                list.Add(new StructureTemplate
+                {
+                    Id = $"BUILTIN_{(int)type}_{i}",
+                    Name = item.Name,
+                    Note = "内置预设",
+                    StructureType = type,
+                    IsBuiltIn = true,
+                    ColumnSectionType = SectionCatalogService.TryFindByName(p.ColumnSection)?.Shape,
+                    BeamSectionType = SectionCatalogService.TryFindByName(p.BeamSection)?.Shape,
+                    BraceSectionType = SectionCatalogService.TryFindByName(p.BraceSection)?.Shape,
+                    Parameters = p
+                });
+            }
+            return list;
+        }
+
+        /// <summary>取指定构件类型可用的全部模板：自带 3 种内置预设 + 真实用户模板（该类型专属 + 通用模板）。</summary>
+        public static List<StructureTemplate> GetForTypeWithBuiltIn(ParametricStructureType type)
+        {
+            var result = GetBuiltInForType(type);
+            var userTemplates = GetForType(type);
+            result.AddRange(userTemplates);
+            return result;
+        }
+
+        /// <summary>取指定构件类型可用的真实用户模板：该类型专属 + 通用模板。</summary>
         public static List<StructureTemplate> GetForType(ParametricStructureType type)
         {
             lock (Sync)
@@ -210,6 +260,15 @@ namespace SteelStructureSuite.Services.Templates
         /// </summary>
         public static int ImportFrom(string filePath)
         {
+            return ImportFrom(filePath, out _);
+        }
+
+        /// <summary>
+        /// 从 JSON 文件导入模板。同名同类型时跳过，返回新增数量并输出跳过数量。
+        /// </summary>
+        public static int ImportFrom(string filePath, out int skippedCount)
+        {
+            skippedCount = 0;
             if (string.IsNullOrWhiteSpace(filePath) || !File.Exists(filePath))
                 throw new FileNotFoundException("模板文件不存在。", filePath);
 
@@ -228,9 +287,14 @@ namespace SteelStructureSuite.Services.Templates
                     bool exists = _cache.Any(x =>
                         x.StructureType == t.StructureType &&
                         string.Equals(x.Name?.Trim(), t.Name.Trim(), StringComparison.CurrentCultureIgnoreCase));
-                    if (exists) continue;
+                    if (exists)
+                    {
+                        skippedCount++;
+                        continue;
+                    }
 
                     t.Id = Guid.NewGuid().ToString("N");
+                    t.IsBuiltIn = false;
                     _cache.Add(t);
                     added++;
                 }
@@ -252,8 +316,8 @@ namespace SteelStructureSuite.Services.Templates
             string path = StoreFilePath;
             if (!File.Exists(path))
             {
-                // 首次运行：把内置的轻/中/重预设迁移成模板，避免用户升级后下拉为空
-                _cache.AddRange(BuildSeedTemplates());
+                // 首次运行：自带 3 种预设已由 GetBuiltInForType 独立提供，真实用户模板库初始为空并落盘
+                try { Persist(); } catch { }
                 return;
             }
 
@@ -379,11 +443,17 @@ namespace SteelStructureSuite.Services.Templates
             [DataMember(Name = "endPointOffsetZ", Order = 19)] public double EndPointOffsetZ { get; set; }
             [DataMember(Name = "topRadius", Order = 20)] public double TopRadius { get; set; }
             [DataMember(Name = "helixCounterClockwise", Order = 21)] public bool HelixCounterClockwise { get; set; }
+            [DataMember(Name = "columnSectionType", Order = 22, EmitDefaultValue = false)] public string ColumnSectionType { get; set; }
+            [DataMember(Name = "beamSectionType", Order = 23, EmitDefaultValue = false)] public string BeamSectionType { get; set; }
+            [DataMember(Name = "braceSectionType", Order = 24, EmitDefaultValue = false)] public string BraceSectionType { get; set; }
         }
 
         private static TemplateDto ToDto(StructureTemplate t)
         {
             SteelStructureParams p = t.Parameters ?? new SteelStructureParams();
+            SectionShapeType? colType = t.ColumnSectionType ?? SectionCatalogService.TryFindByName(p.ColumnSection)?.Shape;
+            SectionShapeType? beamType = t.BeamSectionType ?? SectionCatalogService.TryFindByName(p.BeamSection)?.Shape;
+            SectionShapeType? braceType = t.BraceSectionType ?? SectionCatalogService.TryFindByName(p.BraceSection)?.Shape;
             return new TemplateDto
             {
                 Id = t.Id,
@@ -404,8 +474,18 @@ namespace SteelStructureSuite.Services.Templates
                 Material = p.Material,
                 EndPointOffsetZ = p.EndPointOffsetZ,
                 TopRadius = p.TopRadius,
-                HelixCounterClockwise = p.HelixCounterClockwise
+                HelixCounterClockwise = p.HelixCounterClockwise,
+                ColumnSectionType = colType?.ToString(),
+                BeamSectionType = beamType?.ToString(),
+                BraceSectionType = braceType?.ToString()
             };
+        }
+
+        private static SectionShapeType? ParseShapeType(string text, string fallbackSectionName)
+        {
+            if (!string.IsNullOrWhiteSpace(text) && Enum.TryParse(text.Trim(), true, out SectionShapeType parsed))
+                return parsed;
+            return SectionCatalogService.TryFindByName(fallbackSectionName)?.Shape;
         }
 
         private static StructureTemplate FromDto(TemplateDto d)
@@ -442,6 +522,9 @@ namespace SteelStructureSuite.Services.Templates
                 StructureType = type,
                 CreatedAt = d.CreatedAt == default(DateTime) ? DateTime.Now : d.CreatedAt,
                 UpdatedAt = d.UpdatedAt == default(DateTime) ? DateTime.Now : d.UpdatedAt,
+                ColumnSectionType = ParseShapeType(d.ColumnSectionType, p.ColumnSection),
+                BeamSectionType = ParseShapeType(d.BeamSectionType, p.BeamSection),
+                BraceSectionType = ParseShapeType(d.BraceSectionType, p.BraceSection),
                 Parameters = p
             };
         }

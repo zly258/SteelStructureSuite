@@ -82,7 +82,6 @@ namespace SteelStructureSuite.Views
             ChkReuse.IsChecked = UserSettings.GetBool("BatchDrawing.Reuse", true);
             ChkIndex.IsChecked = UserSettings.GetBool("BatchDrawing.Index", true);
             ChkSummaryBom.IsChecked = UserSettings.GetBool("BatchDrawing.SummaryBom", true);
-            ChkJoint.IsChecked = UserSettings.GetBool("BatchDrawing.JointDetail", true);
 
             string lastPath = UserSettings.GetString("BatchDrawing.LastPath", string.Empty);
             TxtOutputPath.Text = lastPath;
@@ -98,7 +97,6 @@ namespace SteelStructureSuite.Views
             UserSettings.SetBool("BatchDrawing.Reuse", ChkReuse.IsChecked == true);
             UserSettings.SetBool("BatchDrawing.Index", ChkIndex.IsChecked == true);
             UserSettings.SetBool("BatchDrawing.SummaryBom", ChkSummaryBom.IsChecked == true);
-            UserSettings.SetBool("BatchDrawing.JointDetail", ChkJoint.IsChecked == true);
             UserSettings.SetString("BatchDrawing.LastPath", TxtOutputPath.Text ?? string.Empty);
             UserSettings.Save();
         }
@@ -184,7 +182,7 @@ namespace SteelStructureSuite.Views
             {
                 SheetSizeName = new[] { "A1", "A2", "A3", "A4" }[
                     Math.Max(0, Math.Min(3, CmbSheetSize.SelectedIndex))],
-                IncludeJointDetailViews = ChkJoint.IsChecked == true,
+                IncludeJointDetailViews = false,
                 ReuseIdenticalStructures = ChkReuse.IsChecked == true,
                 IncludeDrawingIndex = ChkIndex.IsChecked == true,
                 IncludeSummaryBom = ChkSummaryBom.IsChecked == true

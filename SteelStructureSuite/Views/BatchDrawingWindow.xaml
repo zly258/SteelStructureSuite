@@ -112,8 +112,7 @@
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="附加内容" />
                     <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal">
                         <CheckBox x:Name="ChkIndex" Content="图纸目录" IsChecked="True" Margin="0,0,16,0" />
-                        <CheckBox x:Name="ChkSummaryBom" Content="汇总材料表" IsChecked="True" Margin="0,0,16,0" />
-                        <CheckBox x:Name="ChkJoint" Content="接头放大图" IsChecked="True" />
+                        <CheckBox x:Name="ChkSummaryBom" Content="汇总材料表" IsChecked="True" />
                     </StackPanel>
                 </Grid>
             </StackPanel>

@@ -43,9 +43,8 @@ namespace SteelStructureSuite.Views
             bool chainPlacementMode = false)
         {
             InitializeComponent();
-            Width = Math.Max(Width, 590);
-            MinWidth = 550;
-            MinHeight = 420;
+            MinWidth = 900;
+            MinHeight = 520;
             if (DgPreviewBom != null)
             {
                 DgPreviewBom.HorizontalScrollBarVisibility = ScrollBarVisibility.Auto;
@@ -125,8 +124,12 @@ namespace SteelStructureSuite.Views
             RefreshLivePreview();
 
             UserSettings.RestoreWindowState(this, "StructureEditWindow");
+            if (Width < MinWidth) Width = 1160;
+            if (Height < MinHeight) Height = 700;
+            RestoreColumnSplit();
             Closed += (s, e) =>
             {
+                SaveColumnSplit();
                 SaveLastSettings();
                 UserSettings.SaveWindowState(this, "StructureEditWindow");
             };
@@ -150,11 +153,50 @@ namespace SteelStructureSuite.Views
             SyncControlsFromData();
         }
 
+        private void RestoreColumnSplit()
+        {
+            double ratio = UserSettings.GetDouble("Edit.SplitRatio", 0.0);
+            if (ratio >= 0.25 && ratio <= 0.75 && ColSchematic != null && ColParams != null)
+            {
+                ColSchematic.Width = new GridLength(ratio, GridUnitType.Star);
+                ColParams.Width = new GridLength(1.0 - ratio, GridUnitType.Star);
+            }
+        }
+
+        private void SaveColumnSplit()
+        {
+            if (ColSchematic == null || ColParams == null) return;
+            double wL = ColSchematic.ActualWidth;
+            double wR = ColParams.ActualWidth;
+            double sum = wL + wR;
+            if (sum > 100 && wL > 50 && wR > 50)
+            {
+                UserSettings.SetDouble("Edit.SplitRatio", wL / sum);
+            }
+        }
+
         private void ApplySectionChoice(SectionTypePickerControl typePicker, SectionPickerControl specPicker, string sectionPart, string fallback, Action<string> assign)
         {
             string saved = UserSettings.GetString(SectionSettingKey(sectionPart), null);
-            bool savedOk = !string.IsNullOrEmpty(saved) && SectionCatalogService.GetAllNames().Contains(saved);
-            string preferred = savedOk ? saved : fallback;
+            string savedTypeStr = UserSettings.GetString(SectionSettingKey(sectionPart + "Type"), null);
+
+            SectionProfile matched = null;
+            if (!string.IsNullOrWhiteSpace(saved))
+            {
+                matched = SectionCatalogService.TryFindByName(saved);
+                // 若同时记录了截面类型，优先确保类型一致
+                if (matched != null &&
+                    !string.IsNullOrWhiteSpace(savedTypeStr) &&
+                    Enum.TryParse(savedTypeStr, true, out SectionShapeType savedShape) &&
+                    matched.Shape != savedShape)
+                {
+                    var byType = SectionCatalogService.GetByShapeType(savedShape);
+                    var sameInType = byType.FirstOrDefault(x => string.Equals(x.Name, saved, StringComparison.OrdinalIgnoreCase));
+                    if (sameInType != null) matched = sameInType;
+                }
+            }
+
+            string preferred = matched != null ? matched.Name : fallback;
             ApplySectionToPickers(typePicker, specPicker, preferred);
             if (!string.IsNullOrEmpty(preferred)) assign(preferred);
         }
@@ -165,8 +207,8 @@ namespace SteelStructureSuite.Views
             SectionShapeType? shape = null;
             if (!string.IsNullOrWhiteSpace(sectionName))
             {
-                SectionProfile profile = SectionCatalogService.GetByName(sectionName);
-                if (profile != null && string.Equals(profile.Name, sectionName, StringComparison.OrdinalIgnoreCase))
+                SectionProfile profile = SectionCatalogService.TryFindByName(sectionName);
+                if (profile != null)
                     shape = profile.Shape;
             }
 
@@ -187,14 +229,21 @@ namespace SteelStructureSuite.Views
             return "Edit." + Data.StructureType.ToString() + "." + part;
         }
 
-        /// <summary>按当前构件类型分别记住截面，避免门架、栏杆、管托互相串用。</summary>
+        /// <summary>按当前构件类型分别记住「类型 + 截面」，避免门架、栏杆、管托互相串用。</summary>
         private void SaveLastSettings()
         {
             UserSettings.SetString("Edit.Material", CmbMaterial.SelectedItem as string);
-            UserSettings.SetString(SectionSettingKey("ColSec"), ColSpecPicker?.SelectedSectionName);
-            UserSettings.SetString(SectionSettingKey("BeamSec"), BeamSpecPicker?.SelectedSectionName);
-            UserSettings.SetString(SectionSettingKey("BraceSec"), BraceSpecPicker?.SelectedSectionName);
+            SaveSectionPair("ColSec", Data?.ColumnSection ?? ColSpecPicker?.SelectedSectionName);
+            SaveSectionPair("BeamSec", Data?.BeamSection ?? BeamSpecPicker?.SelectedSectionName);
+            SaveSectionPair("BraceSec", Data?.BraceSection ?? BraceSpecPicker?.SelectedSectionName);
             UserSettings.Save();
+        }
+
+        private void SaveSectionPair(string part, string sectionName)
+        {
+            UserSettings.SetString(SectionSettingKey(part), sectionName);
+            SectionProfile prof = SectionCatalogService.TryFindByName(sectionName);
+            UserSettings.SetString(SectionSettingKey(part + "Type"), prof != null ? prof.Shape.ToString() : null);
         }
 
         /// <summary>初始化参数 PropertyGrid（WinForms），关闭工具栏、按类别分组。</summary>
@@ -349,18 +398,18 @@ namespace SteelStructureSuite.Views
             ApplySectionToPickers(BraceTypePicker, BraceSpecPicker, Data.BraceSection);
         }
 
-        /// <summary>重新加载当前构件类型可用的参数模板（该类型专属 + 通用模板）。</summary>
+        /// <summary>重新加载当前构件类型可用的参数模板（自带 3 种内置预设 + 真实用户模板）。</summary>
         private void ReloadPresetsForCurrentType()
         {
-            _currentTemplates = StructureTemplateStore.GetForType(Data.StructureType);
+            _currentTemplates = StructureTemplateStore.GetForTypeWithBuiltIn(Data.StructureType);
 
             _isInitializing = true;
             CmbPreset.Items.Clear();
             CmbPreset.Items.Add("-- 选择参数模板快速套用 --");
             foreach (StructureTemplate tpl in _currentTemplates)
             {
-                string suffix = tpl.IsGeneric ? "（通用）" : string.Empty;
-                CmbPreset.Items.Add(tpl.Name + suffix);
+                string prefix = tpl.IsBuiltIn ? "[内置] " : (tpl.IsGeneric ? "[通用] " : "[模板] ");
+                CmbPreset.Items.Add(prefix + tpl.Name);
             }
             CmbPreset.SelectedIndex = 0;
             _isInitializing = false;
@@ -382,6 +431,7 @@ namespace SteelStructureSuite.Views
 
             UpdatePerComponentFieldVisibilityAndLabels();
             RefreshLivePreview();
+            SetInlineHint($"已套用模板「{tpl.Name}」");
         }
 
         /// <summary>就地展开模板名称/备注输入区，不弹独立对话框。</summary>
@@ -456,8 +506,9 @@ namespace SteelStructureSuite.Views
             var win = new TemplateManagerWindow { Owner = this };
             win.ShowDialog();
 
+            StructureTemplateStore.Reload();
             ReloadPresetsForCurrentType();
-            SetInlineHint("模板已更新");
+            SetInlineHint("模板列表已刷新");
         }
 
         private void UpdatePlacementButtons()

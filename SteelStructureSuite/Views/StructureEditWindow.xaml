@@ -4,10 +4,10 @@
         xmlns:controls="clr-namespace:SteelStructureSuite.Views.Controls"
         xmlns:winforms="clr-namespace:System.Windows.Forms.Integration;assembly=WindowsFormsIntegration"
         Title="参数化钢结构"
-        Width="680"
-        Height="720"
-        MinWidth="560"
-        MinHeight="460"
+        Width="1160"
+        Height="700"
+        MinWidth="900"
+        MinHeight="520"
         WindowStartupLocation="CenterScreen"
         ResizeMode="CanResize"
         UseLayoutRounding="True"
@@ -32,14 +32,11 @@
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
-                        <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
 
-                    <controls:StructureSchematicControl x:Name="SchematicView" Grid.Row="0" VerticalAlignment="Top" />
-
                     <!-- 结构类型 + 参数模板：不属于参数本身，保留为窗口控件 -->
-                    <Border Grid.Row="1" Style="{StaticResource Panel.ToolStrip}" Margin="0,8,0,0">
+                    <Border Grid.Row="0" Style="{StaticResource Panel.ToolStrip}">
                         <!-- 两行布局：窄窗口下也不会把「管理」按钮挤出可视区 -->
                         <Grid Grid.IsSharedSizeScope="True">
                             <Grid.ColumnDefinitions>
@@ -65,7 +62,7 @@
                     </Border>
 
                     <!-- 存为模板：名称/备注就地展开，不弹窗 -->
-                    <Grid x:Name="GridTemplateSave" Grid.Row="2" Visibility="Collapsed" Margin="0,6,0,0">
+                    <Grid x:Name="GridTemplateSave" Grid.Row="1" Visibility="Collapsed" Margin="0,6,0,0">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="*" MinWidth="110" />
                             <ColumnDefinition Width="8" />
@@ -80,8 +77,34 @@
                         <Button Grid.Column="5" Content="取消" Click="OnCancelSaveTemplateClick" />
                     </Grid>
 
-                    <!-- 参数 PropertyGrid：全部构件参数（位号/材质/几何/截面） -->
-                    <winforms:WindowsFormsHost x:Name="ParamPropertyHost" Grid.Row="3" Margin="0,8,0,0" />
+                    <!-- 左图右参数：两列可调布局（左：三维轴测示意图；右：参数 PropertyGrid） -->
+                    <Grid Grid.Row="2" Margin="0,8,0,0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition x:Name="ColSchematic" Width="0.95*" MinWidth="300" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition x:Name="ColParams" Width="1.25*" MinWidth="420" />
+                        </Grid.ColumnDefinitions>
+
+                        <controls:StructureSchematicControl x:Name="SchematicView" Grid.Column="0" />
+
+                        <GridSplitter Grid.Column="1"
+                                      Width="8"
+                                      HorizontalAlignment="Stretch"
+                                      VerticalAlignment="Stretch"
+                                      Background="{x:Static SystemColors.ControlBrush}"
+                                      BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
+                                      BorderThickness="1,0,1,0"
+                                      ResizeBehavior="PreviousAndNext"
+                                      Cursor="SizeWE"
+                                      ToolTip="拖动调整轴测示意图与参数编辑区宽度" />
+
+                        <Border Grid.Column="2"
+                                BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
+                                BorderThickness="1"
+                                SnapsToDevicePixels="True">
+                            <winforms:WindowsFormsHost x:Name="ParamPropertyHost" />
+                        </Border>
+                    </Grid>
 
                     <!-- 旧参数控件（隐藏保留）：仅用于复用既有同步/校验/截面记忆逻辑，用户不可见 -->
                     <StackPanel x:Name="LegacyForm" Visibility="Collapsed">
