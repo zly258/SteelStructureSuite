@@ -72,6 +72,7 @@ namespace SteelStructureSuite.Views
             ChkDim.IsChecked = UserSettings.GetBool("Drawing.Dimensions", true);
             ChkLeader.IsChecked = UserSettings.GetBool("Drawing.Leaders", true);
             ChkBom.IsChecked = UserSettings.GetBool("Drawing.Bom", true);
+            ChkJoint.IsChecked = UserSettings.GetBool("Drawing.JointDetail", true);
 
             bool toNewDwg = UserSettings.GetBool("Drawing.OutputToNewDwg", false);
             RadNewDwg.IsChecked = toNewDwg;
@@ -119,6 +120,7 @@ namespace SteelStructureSuite.Views
             UserSettings.SetBool("Drawing.Dimensions", ChkDim.IsChecked == true);
             UserSettings.SetBool("Drawing.Leaders", ChkLeader.IsChecked == true);
             UserSettings.SetBool("Drawing.Bom", ChkBom.IsChecked == true);
+            UserSettings.SetBool("Drawing.JointDetail", ChkJoint.IsChecked == true);
             UserSettings.SetBool("Drawing.OutputToNewDwg", RadNewDwg.IsChecked == true);
             UserSettings.SetBool("Drawing.OpenAfterSave", ChkOpenAfterSave.IsChecked == true);
 
@@ -177,6 +179,7 @@ namespace SteelStructureSuite.Views
             Options.IncludeAutoDimensions = ChkDim.IsChecked == true;
             Options.IncludeLeaderAnnotations = ChkLeader.IsChecked == true;
             Options.IncludeEmbeddedBomTable = ChkBom.IsChecked == true;
+            Options.IncludeJointDetailViews = ChkJoint.IsChecked == true;
 
             int scaleIdx = CmbScale.SelectedIndex;
             Options.AutoScale = scaleIdx <= 0;

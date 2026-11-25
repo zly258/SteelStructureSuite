@@ -72,6 +72,9 @@
     <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
     <Compile Include="Services\Settings\UserSettings.cs" />
     <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
+    <Compile Include="Services\Drawing\BatchDrawingPlan.cs" />
+    <Compile Include="Services\Drawing\BatchDrawingService.cs" />
+    <Compile Include="Services\Drawing\JointDetailDrawingService.cs" />
     <Compile Include="Services\Drawing\DwgExchangeService.cs" />
     <Compile Include="Services\Drawing\DxfOutOfProcessConverter.cs" />
 
@@ -147,6 +150,14 @@
     </Page>
     <Compile Include="Views\DrawingConfigWindow.xaml.cs">
       <DependentUpon>DrawingConfigWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\BatchDrawingWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\BatchDrawingWindow.xaml.cs">
+      <DependentUpon>BatchDrawingWindow.xaml</DependentUpon>
     </Compile>
 
     <Page Include="Views\DwgToDxfWindow.xaml">

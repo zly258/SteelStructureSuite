@@ -1,4 +1,4 @@
-﻿namespace SteelStructureSuite.Domain.Models
+namespace SteelStructureSuite.Domain.Models
 {
     public class DrawingGenerationOptions
     {
@@ -15,5 +15,33 @@
         public bool OutputToNewDwgFile { get; set; } = false;
         public string NewDwgFilePath { get; set; } = string.Empty;
         public bool OpenNewDwgAfterSave { get; set; } = true;
+
+        /// <summary>是否绘制接头局部放大示意图（斜接/切割处的尺寸图）。</summary>
+        public bool IncludeJointDetailViews { get; set; } = true;
+
+        /// <summary>批量出图时是否把完全相同的构件合并为一张图。</summary>
+        public bool ReuseIdenticalStructures { get; set; } = true;
+
+        public DrawingGenerationOptions Clone()
+        {
+            return new DrawingGenerationOptions
+            {
+                SheetSizeName = SheetSizeName,
+                IncludeFrontView = IncludeFrontView,
+                IncludeSideView = IncludeSideView,
+                IncludePlanView = IncludePlanView,
+                IncludeIsoView = IncludeIsoView,
+                IncludeAutoDimensions = IncludeAutoDimensions,
+                IncludeLeaderAnnotations = IncludeLeaderAnnotations,
+                IncludeEmbeddedBomTable = IncludeEmbeddedBomTable,
+                DrawingScale = DrawingScale,
+                AutoScale = AutoScale,
+                OutputToNewDwgFile = OutputToNewDwgFile,
+                NewDwgFilePath = NewDwgFilePath,
+                OpenNewDwgAfterSave = OpenNewDwgAfterSave,
+                IncludeJointDetailViews = IncludeJointDetailViews,
+                ReuseIdenticalStructures = ReuseIdenticalStructures
+            };
+        }
     }
 }

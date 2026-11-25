@@ -1,0 +1,173 @@
+<Window x:Class="SteelStructureSuite.Views.BatchDrawingWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="批量出详图"
+        Width="620"
+        MinWidth="560"
+        MinHeight="480"
+        SizeToContent="Height"
+        MaxHeight="760"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- 构件统计 -->
+        <Border Grid.Row="0" Style="{StaticResource Panel.InfoBar}" Margin="0,0,0,10">
+            <TextBlock x:Name="TxtSummary" Text="正在统计..." TextWrapping="Wrap" />
+        </Border>
+
+        <!-- 复用设置 -->
+        <Border Grid.Row="1" Style="{StaticResource Panel.Card}" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="图纸复用" Style="{StaticResource Text.GroupHeader}" />
+                <Grid Margin="12,0,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <CheckBox x:Name="ChkReuse"
+                              Grid.Row="0"
+                              Content="相同构件合并为一张图（图名注明「共 N 件」）"
+                              IsChecked="True"
+                              Margin="0,0,0,4"
+                              Checked="OnReuseChanged"
+                              Unchecked="OnReuseChanged" />
+                    <TextBlock x:Name="TxtReuseHint"
+                               Grid.Row="1"
+                               Foreground="{x:Static SystemColors.GrayTextBrush}"
+                               TextWrapping="Wrap" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 出图设置 -->
+        <Border Grid.Row="2" Style="{StaticResource Panel.Card}" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="出图设置" Style="{StaticResource Text.GroupHeader}" />
+                <Grid Margin="12,0,0,0" Grid.IsSharedSizeScope="True">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="Auto" MinWidth="72" SharedSizeGroup="BatchLabel" />
+                        <ColumnDefinition Width="*" MinWidth="120" />
+                        <ColumnDefinition Width="16" />
+                        <ColumnDefinition Width="Auto" MinWidth="72" SharedSizeGroup="BatchLabel" />
+                        <ColumnDefinition Width="*" MinWidth="120" />
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="图幅" />
+                    <ComboBox x:Name="CmbSheetSize" Grid.Row="0" Grid.Column="1" />
+
+                    <TextBlock Grid.Row="0" Grid.Column="3" Text="比例" />
+                    <ComboBox x:Name="CmbScale" Grid.Row="0" Grid.Column="4" />
+
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="输出" />
+                    <ComboBox x:Name="CmbOutput"
+                              Grid.Row="1"
+                              Grid.Column="1"
+                              Grid.ColumnSpan="4"
+                              SelectionChanged="OnOutputChanged" />
+
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="目标文件" />
+                    <Grid Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="4">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <TextBox x:Name="TxtOutputPath" Grid.Column="0" IsEnabled="False" />
+                        <Button x:Name="BtnBrowse"
+                                Grid.Column="1"
+                                Content="浏览"
+                                Margin="8,0,0,0"
+                                IsEnabled="False"
+                                Click="OnBrowseClick" />
+                    </Grid>
+
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="附加内容" />
+                    <StackPanel Grid.Row="3" Grid.Column="1" Grid.ColumnSpan="4" Orientation="Horizontal">
+                        <CheckBox x:Name="ChkIndex" Content="图纸目录" IsChecked="True" Margin="0,0,16,0" />
+                        <CheckBox x:Name="ChkSummaryBom" Content="汇总材料表" IsChecked="True" Margin="0,0,16,0" />
+                        <CheckBox x:Name="ChkJoint" Content="接头放大图" IsChecked="True" />
+                    </StackPanel>
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 进度 -->
+        <Border Grid.Row="3" Style="{StaticResource Panel.Card}" Margin="0,0,0,10">
+            <StackPanel>
+                <TextBlock Text="生成进度" Style="{StaticResource Text.GroupHeader}" />
+                <Grid Margin="12,0,0,0">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                    </Grid.RowDefinitions>
+                    <ProgressBar x:Name="PrgBar" Grid.Row="0" Height="20" Minimum="0" Maximum="100" />
+                    <TextBlock x:Name="TxtProgress" Grid.Row="1" Margin="0,6,0,0" TextWrapping="Wrap" />
+                    <TextBox x:Name="TxtLog"
+                             Grid.Row="2"
+                             Margin="0,6,0,0"
+                             Height="110"
+                             MaxHeight="240"
+                             AcceptsReturn="True"
+                             TextWrapping="Wrap"
+                             IsReadOnly="True"
+                             VerticalScrollBarVisibility="Auto" />
+                </Grid>
+            </StackPanel>
+        </Border>
+
+        <!-- 底部操作栏 -->
+        <Grid Grid.Row="4">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock x:Name="TxtStatus"
+                       Grid.Column="0"
+                       Foreground="{x:Static SystemColors.GrayTextBrush}"
+                       VerticalAlignment="Center"
+                       TextWrapping="Wrap" />
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="BtnStart"
+                        Content="开始生成"
+                        MinWidth="96"
+                        IsDefault="True"
+                        Margin="0,0,8,0"
+                        Click="OnStartClick" />
+                <Button x:Name="BtnCancel"
+                        Content="取消"
+                        MinWidth="96"
+                        IsCancel="True"
+                        Click="OnCancelClick" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

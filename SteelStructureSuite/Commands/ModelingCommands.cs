@@ -442,6 +442,39 @@ namespace SteelStructureSuite.Commands
             }
         }
 
+        [CommandMethod("SS_BATCHDRAW", CommandFlags.Modal | CommandFlags.UsePickSet)]
+        public void BatchGenerateDetailDrawings()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+
+            List<SteelStructureParams> picked = CollectParametricStructures(ed, doc.Database, promptSelection: true);
+            if (picked == null || picked.Count == 0)
+            {
+                ed.WriteMessage("\n[SteelStructureSuite] 未选择到有效的参数化钢结构，批量出图已取消。\n");
+                return;
+            }
+
+            var plan = BatchDrawingPlan.Build(picked, reuseIdentical: true);
+            ed.WriteMessage($"\n[SteelStructureSuite] 已选 {plan.TotalStructureCount} 个构件，" +
+                            $"{plan.SheetCount} 种规格" +
+                            (plan.SavedSheetCount > 0 ? $"（复用省下 {plan.SavedSheetCount} 张图）" : string.Empty) + "\n");
+
+            var win = new BatchDrawingWindow(picked);
+            UserSettings.ShowModalWindowOnAutoCad(win);
+
+            if (win.Result != null)
+            {
+                ed.WriteMessage($"\n[SteelStructureSuite] 批量出图结束：{win.Result.SheetCount} 张图" +
+                                (win.Result.Cancelled ? "（已取消）" : string.Empty) + "\n");
+                if (!string.IsNullOrEmpty(win.Result.OutputPath))
+                    ed.WriteMessage($"  输出：{win.Result.OutputPath}\n");
+                foreach (string w in win.Result.Warnings)
+                    ed.WriteMessage("  警告：" + w + "\n");
+            }
+        }
+
         [CommandMethod("SS_DRAWCFG", CommandFlags.Modal)]
         public void ConfigureDrawingSettings()
         {

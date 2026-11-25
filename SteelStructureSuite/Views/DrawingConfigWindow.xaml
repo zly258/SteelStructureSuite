@@ -57,6 +57,7 @@
                         <CheckBox x:Name="ChkDim" Content="正立面 / 侧立面 / 平面图标注轴网尺寸" IsChecked="True" Margin="0,3" />
                         <CheckBox x:Name="ChkLeader" Content="轴测图标注水平件号引线" IsChecked="True" Margin="0,3" />
                         <CheckBox x:Name="ChkBom" Content="标题栏上方内嵌材料明细表" IsChecked="True" Margin="0,3" />
+                        <CheckBox x:Name="ChkJoint" Content="接头局部放大示意图（斜接角度与切口尺寸）" IsChecked="True" Margin="0,3" />
                     </StackPanel>
                 </GroupBox>
 

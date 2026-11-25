@@ -377,7 +377,7 @@ namespace SteelStructureSuite.Services.Drawing
             }
         }
 
-        private static void GetStandardSheetPaperMm(string sheetName, out double paperW, out double paperH)
+        internal static void GetStandardSheetPaperMm(string sheetName, out double paperW, out double paperH)
         {
             switch ((sheetName ?? "A2").ToUpperInvariant())
             {
@@ -397,6 +397,20 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (p == null) return;
             GenerateDetailDrawingSheet(db, new[] { p }, sheetOrigin, options);
+        }
+
+        /// <summary>
+        /// 生成单件详图，并指定标题栏图名（批量出图用于标注「共 N 件」等信息）。
+        /// </summary>
+        public static void GenerateDetailDrawingSheet(
+            Database db,
+            IList<SteelStructureParams> structures,
+            Point3d sheetOrigin,
+            DrawingGenerationOptions options,
+            string sheetCaption)
+        {
+            if (structures == null || structures.Count == 0) return;
+            GenerateDetailDrawingSheetCore(db, structures, sheetOrigin, options, sheetCaption);
         }
 
         public static void GenerateDetailDrawingToNewDwgFile(
@@ -475,7 +489,7 @@ namespace SteelStructureSuite.Services.Drawing
         ///   · 当前 CAD 的 DwgVersion.Current 与目标写入版本不匹配。
         /// 这里统一做净化 + 覆盖前删除 + 版本回退，并给出可读的错误信息。
         /// </summary>
-        private static void SaveDatabaseToDwg(Database db, string saveDwgPath)
+        internal static void SaveDatabaseToDwg(Database db, string saveDwgPath)
         {
             string dir = Path.GetDirectoryName(saveDwgPath);
             if (!string.IsNullOrEmpty(dir) && !Directory.Exists(dir))
@@ -516,14 +530,26 @@ namespace SteelStructureSuite.Services.Drawing
             Point3d sheetOrigin,
             DrawingGenerationOptions options = null)
         {
+            GenerateDetailDrawingSheetCore(db, structures, sheetOrigin, options, null);
+        }
+
+        private static void GenerateDetailDrawingSheetCore(
+            Database db,
+            IList<SteelStructureParams> structures,
+            Point3d sheetOrigin,
+            DrawingGenerationOptions options,
+            string explicitCaption)
+        {
             if (structures == null || structures.Count == 0) return;
             if (options == null) options = new DrawingGenerationOptions();
 
             SteelStructureParams p = structures[0];
             bool groupSheet = structures.Count > 1;
-            string sheetCaption = groupSheet
-                ? $"图名: 组合详图 ({structures.Count}件)"
-                : $"图名: {p.StructureTypeDisplayName} 详图 ({p.Tag})";
+            string sheetCaption = !string.IsNullOrWhiteSpace(explicitCaption)
+                ? explicitCaption
+                : (groupSheet
+                    ? $"图名: 组合详图 ({structures.Count}件)"
+                    : $"图名: {p.StructureTypeDisplayName} 详图 ({p.Tag})");
 
             GetStandardSheetPaperMm(options.SheetSizeName, out double paperWMm, out double paperHMm);
 
@@ -732,6 +758,34 @@ namespace SteelStructureSuite.Services.Drawing
                             tr, ms, p, bomRows,
                             bomBottomLeft, titleW, bomRowH, bomHeaderH,
                             simSunTextStyleId, textH);
+                    }
+
+                    // 接头局部放大示意图：把斜接/切割位置单独放大并标注角度与切口尺寸
+                    if (options.IncludeJointDetailViews && !groupSheet)
+                    {
+                        try
+                        {
+                            List<JointDetailDrawingService.JointNode> joints =
+                                JointDetailDrawingService.CollectJointNodes(parts3d);
+                            if (joints.Count > 0)
+                            {
+                                double jointAreaTop = rightTableTop;
+                                double jointAreaBottom = innerY0 + margin + titleH * 0.0 + bomRowH;
+                                double jointAvailH = Math.Max(0.0, jointAreaTop - jointAreaBottom);
+                                if (jointAvailH > textH * 6.0)
+                                {
+                                    JointDetailDrawingService.DrawJointDetails(
+                                        tr, ms, joints,
+                                        new Point3d(innerX0 + margin, jointAreaBottom, 0),
+                                        Math.Min(rightZoneW, titleW) + textH * 6.0,
+                                        simSunTextStyleId, textH, LayerFrame);
+                                }
+                            }
+                        }
+                        catch
+                        {
+                            // 接头示意图失败不应影响整张详图
+                        }
                     }
 
                     tr.Commit();
@@ -2389,7 +2443,7 @@ namespace SteelStructureSuite.Services.Drawing
                 $"日期: {DateTime.Now:yyyy-MM-dd}", textStyleId, textH * 0.96, LayerFrame);
         }
 
-        private static void DrawRectangle2D(
+        internal static void DrawRectangle2D(
             Transaction tr,
             BlockTableRecord ms,
             Point3d basePt,
@@ -2455,7 +2509,7 @@ namespace SteelStructureSuite.Services.Drawing
             tr.AddNewlyCreatedDBObject(pl, true);
         }
 
-        private static void AppendLine2D(
+        internal static void AppendLine2D(
             Transaction tr,
             BlockTableRecord ms,
             Point3d basePt,
@@ -2513,7 +2567,7 @@ namespace SteelStructureSuite.Services.Drawing
             tr.AddNewlyCreatedDBObject(dim, true);
         }
 
-        private static void AppendSimSunText(
+        internal static void AppendSimSunText(
             Transaction tr,
             BlockTableRecord ms,
             Point3d pos,
@@ -2545,7 +2599,7 @@ namespace SteelStructureSuite.Services.Drawing
             return width;
         }
 
-        private static void AppendCenteredSimSunText(
+        internal static void AppendCenteredSimSunText(
             Transaction tr,
             BlockTableRecord ms,
             Point3d centerPt,
