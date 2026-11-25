@@ -1074,6 +1074,129 @@ namespace SteelStructureSuite.Views.Controls
                     break;
                 }
 
+                // ==================== 31. 轻钢厂房成套（区域组合） ====================
+                case ParametricStructureType.PortalHallAssembly:
+                {
+                    int bays = Math.Max(2, Math.Min(5, p.BayCount));
+                    double hallW = 1.65;
+                    double hallL = 2.35;
+                    double eaveH = 1.15;
+                    double ridgeZ = eaveH + 0.42;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double y = hallL * i / bays;
+                        s.Primary(0, y, 0, 0, y, eaveH, 2.4);
+                        s.Primary(hallW, y, 0, hallW, y, eaveH, 2.4);
+                        s.Primary(0, y, eaveH, hallW * 0.5, y, ridgeZ, 2.4);
+                        s.Primary(hallW, y, eaveH, hallW * 0.5, y, ridgeZ, 2.4);
+                        s.Base(0, y, 0, 0.07);
+                        s.Base(hallW, y, 0, 0.07);
+                    }
+                    s.Sub(0, 0, eaveH, 0, hallL, eaveH, 1.5);
+                    s.Sub(hallW, 0, eaveH, hallW, hallL, eaveH, 1.5);
+                    s.Sub(hallW * 0.5, 0, ridgeZ, hallW * 0.5, hallL, ridgeZ, 1.5);
+                    s.Sub(hallW, 0, 0, hallW, hallL / bays, eaveH, 1.5);
+                    s.Sub(hallW, hallL / bays, 0, hallW, 0, eaveH, 1.5);
+                    s.Dim(0, 0, 0, hallW, 0, 0, 0, -0.34, 0, $"B={p.Span:0}");
+                    s.Dim(hallW, 0, 0, hallW, hallL, 0, 0.30, 0, 0, $"L={p.Length:0} ({bays}跨)");
+                    s.Dim(0, 0, 0, 0, 0, eaveH, -0.32, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 32. 连廊通廊成套（区域组合） ====================
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                {
+                    int bays = Math.Max(2, Math.Min(4, p.BayCount));
+                    double totX = 2.55;
+                    double w = 0.72;
+                    double dH = 1.20;
+                    double rH = 0.38;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = totX * i / bays;
+                        s.Primary(x, 0, 0, x, 0, dH, 2.4);
+                        s.Primary(x, w, 0, x, w, dH, 2.4);
+                        s.Primary(x, 0, dH, x, w, dH, 2.2);
+                        s.Base(x, 0, 0, 0.07);
+                        s.Base(x, w, 0, 0.07);
+                    }
+                    s.Primary(0, 0, dH, totX, 0, dH, 2.6);
+                    s.Primary(0, w, dH, totX, w, dH, 2.6);
+                    s.Sub(0, 0, dH + rH, totX, 0, dH + rH, 1.6);
+                    s.Sub(0, w, dH + rH, totX, w, dH + rH, 1.6);
+                    for (int i = 0; i <= bays * 2; i++)
+                    {
+                        double x = totX * i / (bays * 2.0);
+                        s.Sub(x, 0, dH, x, 0, dH + rH, 1.3);
+                        s.Sub(x, w, dH, x, w, dH + rH, 1.3);
+                    }
+                    s.Sub(0, 0, 0, totX / bays, 0, dH, 1.5);
+                    s.Sub(totX / bays, 0, 0, 0, 0, dH, 1.5);
+                    s.Dim(0, 0, 0, totX, 0, 0, 0, -0.34, 0, $"L={p.Span:0}");
+                    s.Dim(totX, 0, 0, totX, w, 0, 0.30, 0, 0, $"W={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, dH, -0.32, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 33. 设备框架成套（区域组合） ====================
+                case ParametricStructureType.EquipmentFrameAssembly:
+                {
+                    int floors = 3;
+                    int bx = Math.Max(1, Math.Min(3, p.BayCount));
+                    double fw = 1.9, fl = 1.3, fh = 1.85, rH = 0.32;
+                    for (int ix = 0; ix <= bx; ix++)
+                        foreach (double y in new[] { 0.0, fl })
+                        {
+                            double x = fw * ix / bx;
+                            s.Primary(x, y, 0, x, y, fh, 2.4);
+                            s.Base(x, y, 0, 0.07);
+                        }
+                    for (int f = 1; f <= floors; f++)
+                    {
+                        double z = fh * f / floors;
+                        s.Primary(0, 0, z, fw, 0, z, 2.2);
+                        s.Primary(0, fl, z, fw, fl, z, 2.2);
+                        for (int ix = 0; ix <= bx; ix++)
+                            s.Primary(fw * ix / bx, 0, z, fw * ix / bx, fl, z, 2.0);
+                    }
+                    s.Sub(0, 0, fh + rH, fw, 0, fh + rH, 1.5);
+                    s.Sub(0, fl, fh + rH, fw, fl, fh + rH, 1.5);
+                    s.Sub(0, 0, fh + rH, 0, fl, fh + rH, 1.5);
+                    s.Sub(fw, 0, fh + rH, fw, fl, fh + rH, 1.5);
+                    s.Sub(fw, 0, 0, fw, fl, fh / floors, 1.6);
+                    s.Dim(0, 0, 0, fw, 0, 0, 0, -0.34, 0, $"B={p.Span:0}");
+                    s.Dim(fw, 0, 0, fw, fl, 0, 0.30, 0, 0, $"L={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, fh, -0.32, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
+                // ==================== 34. 钢雨棚成套（区域组合） ====================
+                case ParametricStructureType.CanopyAssembly:
+                {
+                    int bays = Math.Max(2, Math.Min(5, p.BayCount));
+                    double totX = 2.45;
+                    double cw = 1.15;
+                    double eH = 1.25;
+                    double rise = 0.32;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = totX * i / bays;
+                        s.Primary(x, 0, 0, x, 0, eH, 2.5);
+                        s.Base(x, 0, 0, 0.08);
+                        s.Primary(x, 0, eH, x, cw, eH + rise, 2.5);
+                        s.Sub(x, 0, eH * 0.58, x, cw * 0.58, eH + rise * 0.58, 1.6);
+                    }
+                    for (int k = 0; k < 4; k++)
+                    {
+                        double t = k / 3.0;
+                        s.Sub(0, cw * t, eH + rise * t, totX, cw * t, eH + rise * t, 1.6);
+                    }
+                    s.Dim(0, 0, 0, totX, 0, 0, 0, -0.34, 0, $"L={p.Span:0} ({bays}跨)");
+                    s.Dim(totX, 0, eH, totX, cw, eH, 0.30, 0, 0, $"W={p.Length:0}");
+                    s.Dim(0, 0, 0, 0, 0, eH, -0.32, 0, 0, $"H={p.Height:0}");
+                    break;
+                }
+
                 default:
                 {
                     s.Box(0, 0, 0, B, L, H, SteelMemberBrush, 2.4, false, 3);

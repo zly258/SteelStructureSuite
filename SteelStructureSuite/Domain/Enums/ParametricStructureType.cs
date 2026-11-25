@@ -42,6 +42,10 @@ namespace SteelStructureSuite.Domain.Enums
         PlatformAssembly = 26,      // 27. 钢平台成套(柱+主次梁+铺板+栏杆+斜梯)
         ColumnRowAssembly = 27,     // 28. 厂房柱列(柱+柱间支撑+吊车梁+系杆，按柱距阵列)
         PipeRackAssembly = 28,      // 29. 管廊成套区段(多层管廊按跨数生成)
-        StairAssembly = 29          // 30. 楼梯成套(梯梁+踏步+扶手+平台)
+        StairAssembly = 29,         // 30. 楼梯成套(梯梁+踏步+扶手+平台)
+        PortalHallAssembly = 30,    // 31. 轻钢厂房成套(多榀门架+屋面檩条+系杆+柱间支撑)
+        WalkwayBridgeAssembly = 31, // 32. 连廊通廊成套(支墩柱+纵横梁+花纹板+双侧栏杆+支撑)
+        EquipmentFrameAssembly = 32,// 33. 设备框架成套(多层多跨框架柱+各层主次梁+顶板+护栏+支撑)
+        CanopyAssembly = 33         // 34. 钢雨棚成套(多榀立柱+悬挑斜梁+斜撑+纵向檩条)
     }
 }

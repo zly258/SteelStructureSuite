@@ -932,6 +932,102 @@ namespace SteelStructureSuite.Views
                     LblBeamSec.Text = "刚性系杆:";
                     LblBraceSec.Text = "交叉斜撑:";
                     break;
+
+                case ParametricStructureType.PlatformAssembly:
+                    LblSpan.Text = "平台总长 B:";
+                    LblLength.Text = "平台宽度 L:";
+                    LblHeight.Text = "平台标高 H:";
+                    LblSubHeight.Text = "护栏高度 h1:";
+                    LblBayCount.Text = "柱距分格数:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "平台立柱:";
+                    LblBeamSec.Text = "平台主梁:";
+                    LblBraceSec.Text = "次梁/支撑:";
+                    break;
+
+                case ParametricStructureType.ColumnRowAssembly:
+                    LblSpan.Text = "单跨柱距 B:";
+                    LblLength.Text = "柱列总长 L:";
+                    LblHeight.Text = "厂房柱高 H:";
+                    LblSubHeight.Text = "吊车梁标高 h1:";
+                    LblBayCount.Text = "立柱数量 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "厂房立柱:";
+                    LblBeamSec.Text = "吊车梁/系杆:";
+                    LblBraceSec.Text = "柱撑/牛腿:";
+                    break;
+
+                case ParametricStructureType.PipeRackAssembly:
+                    LblSpan.Text = "管廊宽度 B:";
+                    LblLength.Text = "管廊总长 L:";
+                    LblHeight.Text = "顶层标高 H:";
+                    LblSubHeight.Text = "层间净高 h1:";
+                    LblBayCount.Text = "纵向跨数 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "管廊立柱:";
+                    LblBeamSec.Text = "横梁/纵梁:";
+                    LblBraceSec.Text = "柱间支撑:";
+                    break;
+
+                case ParametricStructureType.StairAssembly:
+                    LblSpan.Text = "水平投影 L:";
+                    LblLength.Text = "梯段净宽 W:";
+                    LblHeight.Text = "爬升高度 H:";
+                    LblSubHeight.Text = "扶手高度 h1:";
+                    LblBayCount.Text = "踏步数 (0自动):";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "梯梁/平台梁:";
+                    SetSectionRowVisible(LblBeamSec, BeamTypePicker, BeamSpecPicker, false);
+                    SetSectionRowVisible(LblBraceSec, BraceTypePicker, BraceSpecPicker, false);
+                    break;
+
+                case ParametricStructureType.PortalHallAssembly:
+                    LblSpan.Text = "厂房跨度 B:";
+                    LblLength.Text = "厂房总长 L:";
+                    LblHeight.Text = "檐口高度 H:";
+                    LblSubHeight.Text = "屋脊矢高 h1:";
+                    LblBayCount.Text = "纵向跨数 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "厂房钢柱:";
+                    LblBeamSec.Text = "屋面斜梁:";
+                    LblBraceSec.Text = "系杆/支撑:";
+                    break;
+
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                    LblSpan.Text = "通廊总长 L:";
+                    LblLength.Text = "通廊净宽 W:";
+                    LblHeight.Text = "桥面标高 H:";
+                    LblSubHeight.Text = "护栏高度 h1:";
+                    LblBayCount.Text = "支墩跨数 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "支墩立柱:";
+                    LblBeamSec.Text = "通廊主梁:";
+                    LblBraceSec.Text = "次梁/支撑:";
+                    break;
+
+                case ParametricStructureType.EquipmentFrameAssembly:
+                    LblSpan.Text = "横向总跨 B:";
+                    LblLength.Text = "纵向进深 L:";
+                    LblHeight.Text = "框架总高 H:";
+                    LblSubHeight.Text = "单层层高 h1:";
+                    LblBayCount.Text = "横向跨数 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "框架立柱:";
+                    LblBeamSec.Text = "各层主梁:";
+                    LblBraceSec.Text = "次梁/支撑:";
+                    break;
+
+                case ParametricStructureType.CanopyAssembly:
+                    LblSpan.Text = "雨棚总长 L:";
+                    LblLength.Text = "悬挑宽度 W:";
+                    LblHeight.Text = "檐口高度 H:";
+                    LblSubHeight.Text = "坡度起拱 h1:";
+                    LblBayCount.Text = "柱距跨数 N:";
+                    SetRowVisible(LblBayCount, TxtBayCount, true);
+                    LblColSec.Text = "雨棚立柱:";
+                    LblBeamSec.Text = "悬挑斜梁:";
+                    LblBraceSec.Text = "檩条/斜撑:";
+                    break;
             }
         
             RefreshParamGrid();

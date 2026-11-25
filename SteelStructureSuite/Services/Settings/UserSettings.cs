@@ -309,6 +309,15 @@ namespace SteelStructureSuite.Services.Settings
                 case ParametricStructureType.CraneRunwayGirder: return "CR";
                 case ParametricStructureType.CrossBracingFrame: return "XB";
 
+                case ParametricStructureType.PlatformAssembly: return "ZP";
+                case ParametricStructureType.ColumnRowAssembly: return "ZC";
+                case ParametricStructureType.PipeRackAssembly: return "ZR";
+                case ParametricStructureType.StairAssembly: return "ZS";
+                case ParametricStructureType.PortalHallAssembly: return "ZH";
+                case ParametricStructureType.WalkwayBridgeAssembly: return "ZW";
+                case ParametricStructureType.EquipmentFrameAssembly: return "ZE";
+                case ParametricStructureType.CanopyAssembly: return "ZN";
+
                 default: return "SS";
             }
         }

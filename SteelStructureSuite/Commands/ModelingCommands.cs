@@ -508,6 +508,22 @@ namespace SteelStructureSuite.Commands
         public void CreateZoneStairAssembly() =>
             CreateStructureInteractive(ParametricStructureType.StairAssembly, lockType: true);
 
+        [CommandMethod("SS_ZONE_HALL", CommandFlags.Modal)]
+        public void CreateZonePortalHallAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.PortalHallAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_WALKWAY", CommandFlags.Modal)]
+        public void CreateZoneWalkwayBridgeAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.WalkwayBridgeAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_EQFRAME", CommandFlags.Modal)]
+        public void CreateZoneEquipmentFrameAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.EquipmentFrameAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_CANOPY", CommandFlags.Modal)]
+        public void CreateZoneCanopyAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.CanopyAssembly, lockType: true);
+
         // ==================== 参数模板 ====================
 
         [CommandMethod("SS_TEMPLATES", CommandFlags.Modal)]
@@ -877,6 +893,22 @@ namespace SteelStructureSuite.Commands
                 case ParametricStructureType.StairAssembly:
                     p.Span = 3600; p.Length = 900; p.Height = 3000; p.SubHeight = 1050; p.BayCount = 0;
                     p.ColumnSection = "C200x70x20x2.5"; p.BeamSection = "C200x70x20x2.5"; p.BraceSection = "PL4x250";
+                    break;
+                case ParametricStructureType.PortalHallAssembly:
+                    p.Span = 12000; p.Length = 24000; p.Height = 6000; p.SubHeight = 1200; p.BayCount = 4;
+                    p.ColumnSection = "HW250x250x9x14"; p.BeamSection = "HN350x175x7x11"; p.BraceSection = "L90x90x8";
+                    break;
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                    p.Span = 18000; p.Length = 2000; p.Height = 5000; p.SubHeight = 1050; p.BayCount = 3;
+                    p.ColumnSection = "HW250x250x9x14"; p.BeamSection = "HN300x150x6.5x9"; p.BraceSection = "L90x90x8";
+                    break;
+                case ParametricStructureType.EquipmentFrameAssembly:
+                    p.Span = 9000; p.Length = 6000; p.Height = 9000; p.SubHeight = 3000; p.BayCount = 3;
+                    p.ColumnSection = "HW250x250x9x14"; p.BeamSection = "HN300x150x6.5x9"; p.BraceSection = "L100x100x8";
+                    break;
+                case ParametricStructureType.CanopyAssembly:
+                    p.Span = 15000; p.Length = 4500; p.Height = 4000; p.SubHeight = 600; p.BayCount = 4;
+                    p.ColumnSection = "HW200x200x8x12"; p.BeamSection = "HN250x125x6x9"; p.BraceSection = "C160x60x20x2.5";
                     break;
             }
 

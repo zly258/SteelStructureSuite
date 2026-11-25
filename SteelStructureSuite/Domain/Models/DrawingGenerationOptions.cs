@@ -6,7 +6,7 @@ namespace SteelStructureSuite.Domain.Models
         public bool IncludeFrontView { get; set; } = true;
         public bool IncludeSideView { get; set; } = true;
         public bool IncludePlanView { get; set; } = true;
-        public bool IncludeIsoView { get; set; } = false;  // 轴测图默认关闭：三视图符号化更干净、精度更可控
+        public bool IncludeIsoView { get; set; } = true;   // 轴测图默认开启（件号仅标注在轴测图）
         public bool IncludeAutoDimensions { get; set; } = true;
         public bool IncludeLeaderAnnotations { get; set; } = true;
         public bool IncludeEmbeddedBomTable { get; set; } = true;

@@ -139,6 +139,10 @@ namespace SteelStructureSuite.Ribbon
                         new MemberEntry { Text = "厂房柱列", Command = "SS_ZONE_COLROW ", Tooltip = "柱+支撑+吊车梁+系杆", Glyph = "zonecol" },
                         new MemberEntry { Text = "管廊成套", Command = "SS_ZONE_PIPERACK ", Tooltip = "多层管廊按跨数生成", Glyph = "zonerack" },
                         new MemberEntry { Text = "楼梯成套", Command = "SS_ZONE_STAIR ", Tooltip = "梯梁+踏步+扶手+平台", Glyph = "zonestair" },
+                        new MemberEntry { Text = "轻钢厂房成套", Command = "SS_ZONE_HALL ", Tooltip = "多榀门架+屋面檩条+柱间支撑", Glyph = "zonehall" },
+                        new MemberEntry { Text = "连廊通廊成套", Command = "SS_ZONE_WALKWAY ", Tooltip = "支墩柱+纵横梁+铺板+双侧栏杆", Glyph = "zonewalk" },
+                        new MemberEntry { Text = "设备框架成套", Command = "SS_ZONE_EQFRAME ", Tooltip = "多层多跨设备框架+平台+护栏", Glyph = "zoneeq" },
+                        new MemberEntry { Text = "钢雨棚成套", Command = "SS_ZONE_CANOPY ", Tooltip = "多榀立柱+悬挑斜梁+斜撑+檩条", Glyph = "zonecanopy" },
                     }
                 },
             };

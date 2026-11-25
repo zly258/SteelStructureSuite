@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
 using Microsoft.Win32;
+using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Settings;
 using SteelStructureSuite.Services.Templates;
@@ -12,14 +13,28 @@ using SteelStructureSuite.Services.Templates;
 namespace SteelStructureSuite.Views
 {
     /// <summary>
-    /// 参数模板管理窗口。
-    ///
-    /// 交互原则：不弹输入框。名称与备注在表格里直接双击改，
-    /// 删除走「状态栏提示 + 再次点击确认」，导入导出结果只写到状态栏。
+    /// 参数模板管理窗口（左侧构件分类树 + 右侧模板列表与模糊检索）。
+    /// 名称与备注可在表格内直接双击编辑，删除走 MessageBox 确认，支持 JSON 导入导出。
     /// </summary>
     public partial class TemplateManagerWindow : Window
     {
-        /// <summary>表格行（可编辑，改完写回存储）。</summary>
+        private enum TreeFilterKind
+        {
+            All,
+            Generic,
+            Category,
+            StructureType
+        }
+
+        private sealed class TreeNodeTag
+        {
+            public TreeFilterKind Kind { get; set; }
+            public string CategoryName { get; set; }
+            public ParametricStructureType StructureType { get; set; }
+            public string DisplayTitle { get; set; }
+            public string Key { get; set; }
+        }
+
         private sealed class TemplateRow
         {
             public StructureTemplate Template { get; set; }
@@ -44,6 +59,12 @@ namespace SteelStructureSuite.Views
                 }
             }
 
+            public string CategoryName => Template.IsGeneric
+                ? "通用"
+                : (Template.StructureType.HasValue
+                    ? new SteelStructureParams { StructureType = Template.StructureType.Value }.CategoryName
+                    : "其他结构");
+
             public string TypeDisplay => Template.IsGeneric
                 ? "通用"
                 : (Template.StructureType.HasValue
@@ -53,20 +74,37 @@ namespace SteelStructureSuite.Views
             public string SpanText => Template.Parameters?.Span.ToString("0.#") ?? "-";
             public string HeightText => Template.Parameters?.Height.ToString("0.#") ?? "-";
             public string ColumnSection => Template.Parameters?.ColumnSection ?? "-";
+            public string Material => Template.Parameters?.Material ?? string.Empty;
         }
 
+        private static readonly string[] OrderedCategoryNames =
+        {
+            "单根型钢构件",
+            "厂房与装置框架",
+            "平台梯道与栏杆",
+            "化工设备标准件",
+            "电力与冶金标准件",
+            "区域组合构件"
+        };
+
         private List<TemplateRow> _allRows = new List<TemplateRow>();
-        private string _pendingDeleteId;
+        private TreeNodeTag _currentFilter = new TreeNodeTag { Kind = TreeFilterKind.All, DisplayTitle = "全部模板", Key = "ALL" };
+        private bool _suppressTreeEvent;
 
         public TemplateManagerWindow()
         {
             InitializeComponent();
 
             UserSettings.RestoreWindowState(this, "TemplateManagerWindow");
-            Closed += (s, e) => UserSettings.SaveWindowState(this, "TemplateManagerWindow");
+            Closed += (s, e) =>
+            {
+                UserSettings.SetString("TemplateMgr.LastTreeNode", _currentFilter?.Key ?? "ALL");
+                UserSettings.SaveWindowState(this, "TemplateManagerWindow");
+            };
 
-            ReloadList();
-            SetStatus($"共 {_allRows.Count} 个模板");
+            string lastKey = UserSettings.GetString("TemplateMgr.LastTreeNode", "ALL");
+            ReloadAll(lastKey);
+            SetStatus($"共 {_allRows.Count} 个自定义模板");
         }
 
         private void SetStatus(string text)
@@ -74,31 +112,141 @@ namespace SteelStructureSuite.Views
             TxtStatus.Text = text ?? string.Empty;
         }
 
-        private void ReloadList()
+        private void ReloadAll(string selectKey = null)
         {
-            _pendingDeleteId = null;
             _allRows = StructureTemplateStore.GetAll()
                 .Select(t => new TemplateRow { Template = t })
                 .ToList();
+            RebuildCategoryTree(selectKey ?? _currentFilter?.Key ?? "ALL");
             ApplyFilter();
+        }
+
+        private void RebuildCategoryTree(string selectKey)
+        {
+            _suppressTreeEvent = true;
+            TreeCategories.Items.Clear();
+
+            var rootItem = new TreeViewItem
+            {
+                Header = $"全部模板 ({_allRows.Count})",
+                IsExpanded = true,
+                Tag = new TreeNodeTag { Kind = TreeFilterKind.All, DisplayTitle = "全部模板", Key = "ALL" }
+            };
+            TreeViewItem itemToSelect = rootItem;
+
+            int genericCount = _allRows.Count(r => r.Template.IsGeneric);
+            var genericItem = new TreeViewItem
+            {
+                Header = $"通用模板 ({genericCount})",
+                Tag = new TreeNodeTag { Kind = TreeFilterKind.Generic, DisplayTitle = "通用模板", Key = "GENERIC" }
+            };
+            if (string.Equals(selectKey, "GENERIC", StringComparison.OrdinalIgnoreCase))
+                itemToSelect = genericItem;
+            rootItem.Items.Add(genericItem);
+
+            var allTypes = Enum.GetValues(typeof(ParametricStructureType))
+                .Cast<ParametricStructureType>()
+                .Select(t => new SteelStructureParams { StructureType = t })
+                .ToList();
+
+            foreach (string catName in OrderedCategoryNames)
+            {
+                int catCount = _allRows.Count(r => !r.Template.IsGeneric && r.CategoryName == catName);
+                string catKey = "CAT_" + catName;
+                var catItem = new TreeViewItem
+                {
+                    Header = $"{catName} ({catCount})",
+                    IsExpanded = catCount > 0,
+                    Tag = new TreeNodeTag
+                    {
+                        Kind = TreeFilterKind.Category,
+                        CategoryName = catName,
+                        DisplayTitle = catName,
+                        Key = catKey
+                    }
+                };
+                if (string.Equals(selectKey, catKey, StringComparison.OrdinalIgnoreCase))
+                    itemToSelect = catItem;
+
+                foreach (var probe in allTypes.Where(x => x.CategoryName == catName))
+                {
+                    ParametricStructureType st = probe.StructureType;
+                    int typeCount = _allRows.Count(r => r.Template.StructureType == st);
+                    string typeKey = $"TYPE_{(int)st}";
+                    var typeItem = new TreeViewItem
+                    {
+                        Header = $"{probe.StructureTypeDisplayName} ({typeCount})",
+                        Tag = new TreeNodeTag
+                        {
+                            Kind = TreeFilterKind.StructureType,
+                            CategoryName = catName,
+                            StructureType = st,
+                            DisplayTitle = probe.StructureTypeDisplayName,
+                            Key = typeKey
+                        }
+                    };
+                    if (string.Equals(selectKey, typeKey, StringComparison.OrdinalIgnoreCase))
+                    {
+                        catItem.IsExpanded = true;
+                        itemToSelect = typeItem;
+                    }
+                    catItem.Items.Add(typeItem);
+                }
+
+                rootItem.Items.Add(catItem);
+            }
+
+            TreeCategories.Items.Add(rootItem);
+            if (itemToSelect != null)
+            {
+                itemToSelect.IsSelected = true;
+                _currentFilter = itemToSelect.Tag as TreeNodeTag ?? _currentFilter;
+            }
+            _suppressTreeEvent = false;
+        }
+
+        private void OnTreeCategorySelected(object sender, RoutedPropertyChangedEventArgs<object> e)
+        {
+            if (_suppressTreeEvent) return;
+            if (e.NewValue is TreeViewItem item && item.Tag is TreeNodeTag tag)
+            {
+                _currentFilter = tag;
+                ApplyFilter();
+            }
         }
 
         private void ApplyFilter()
         {
-            string key = (TxtFilter?.Text ?? string.Empty).Trim();
             IEnumerable<TemplateRow> rows = _allRows;
 
+            switch (_currentFilter?.Kind ?? TreeFilterKind.All)
+            {
+                case TreeFilterKind.Generic:
+                    rows = rows.Where(r => r.Template.IsGeneric);
+                    break;
+                case TreeFilterKind.Category:
+                    rows = rows.Where(r => !r.Template.IsGeneric && r.CategoryName == _currentFilter.CategoryName);
+                    break;
+                case TreeFilterKind.StructureType:
+                    rows = rows.Where(r => r.Template.StructureType == _currentFilter.StructureType);
+                    break;
+            }
+
+            string key = (TxtFilter?.Text ?? string.Empty).Trim();
             if (key.Length > 0)
             {
                 rows = rows.Where(r =>
                     Contains(r.Name, key) ||
                     Contains(r.Note, key) ||
                     Contains(r.TypeDisplay, key) ||
-                    Contains(r.ColumnSection, key));
+                    Contains(r.CategoryName, key) ||
+                    Contains(r.ColumnSection, key) ||
+                    Contains(r.Material, key));
             }
 
             var list = rows.ToList();
             DgTemplates.ItemsSource = list;
+            TxtCurrentCategory.Text = _currentFilter?.DisplayTitle ?? "全部模板";
             TxtCount.Text = $"{list.Count} 个模板";
 
             if (list.Count > 0 && DgTemplates.SelectedItem == null)
@@ -127,10 +275,6 @@ namespace SteelStructureSuite.Views
         {
             if (!(DgTemplates.SelectedItem is TemplateRow row)) return;
 
-            // 选中另一行时清除待删除标记
-            if (_pendingDeleteId != null && _pendingDeleteId != row.Template.Id)
-                _pendingDeleteId = null;
-
             SteelStructureParams p = row.Template.Parameters;
             if (p == null) return;
 
@@ -138,20 +282,18 @@ namespace SteelStructureSuite.Views
                       $"柱 {p.ColumnSection}　梁 {p.BeamSection}　{p.Material}");
         }
 
-        /// <summary>表格内编辑结束：写回存储，不弹任何提示。</summary>
+        /// <summary>表格内编辑结束：写回存储。</summary>
         private void OnCellEditEnding(object sender, DataGridCellEditEndingEventArgs e)
         {
             if (e.EditAction != DataGridEditAction.Commit) return;
             if (!(e.Row.Item is TemplateRow row)) return;
 
-            // 等绑定把值写回行对象
             Dispatcher.BeginInvoke(new Action(() =>
             {
                 string name = (row.Name ?? string.Empty).Trim();
                 if (name.Length == 0)
                 {
-                    // 名称不能为空：还原并提示
-                    ReloadList();
+                    ReloadAll();
                     SetStatus("名称不能为空，已还原");
                     return;
                 }
@@ -163,7 +305,7 @@ namespace SteelStructureSuite.Views
                 }
                 catch (Exception ex)
                 {
-                    ReloadList();
+                    ReloadAll();
                     SetStatus("保存失败：" + ex.Message);
                 }
             }), System.Windows.Threading.DispatcherPriority.Background);
@@ -189,7 +331,7 @@ namespace SteelStructureSuite.Views
 
             StructureTemplateStore.Delete(row.Template.Id);
             SetStatus($"已删除「{row.Name}」");
-            ReloadList();
+            ReloadAll();
         }
 
         private void OnImportClick(object sender, RoutedEventArgs e)
@@ -205,7 +347,7 @@ namespace SteelStructureSuite.Views
             try
             {
                 int added = StructureTemplateStore.ImportFrom(dlg.FileName, out int skipped);
-                ReloadList();
+                ReloadAll();
                 SetStatus(skipped > 0
                     ? $"导入完成：新增 {added} 个，跳过重复 {skipped} 个"
                     : $"导入完成：新增 {added} 个模板");

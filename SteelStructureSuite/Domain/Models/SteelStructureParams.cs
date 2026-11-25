@@ -150,6 +150,10 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.ColumnRowAssembly: return "厂房柱列(柱+支撑+吊车梁+系杆)";
                     case ParametricStructureType.PipeRackAssembly: return "管廊成套区段(多层按跨数)";
                     case ParametricStructureType.StairAssembly: return "楼梯成套(梯梁+踏步+扶手+平台)";
+                    case ParametricStructureType.PortalHallAssembly: return "轻钢厂房成套(多榀门架+檩条+支撑)";
+                    case ParametricStructureType.WalkwayBridgeAssembly: return "连廊通廊成套(支墩+主梁+板+双侧栏杆)";
+                    case ParametricStructureType.EquipmentFrameAssembly: return "设备框架成套(多层多跨+平台+护栏)";
+                    case ParametricStructureType.CanopyAssembly: return "钢雨棚成套(多榀立柱+悬挑梁+檩条)";
                     default: return "参数化钢结构";
                 }
             }
@@ -197,6 +201,10 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.ColumnRowAssembly:
                     case ParametricStructureType.PipeRackAssembly:
                     case ParametricStructureType.StairAssembly:
+                    case ParametricStructureType.PortalHallAssembly:
+                    case ParametricStructureType.WalkwayBridgeAssembly:
+                    case ParametricStructureType.EquipmentFrameAssembly:
+                    case ParametricStructureType.CanopyAssembly:
                         return "区域组合构件";
                     default:
                         return "其他结构";
@@ -427,6 +435,34 @@ namespace SteelStructureSuite.Domain.Models
                         new StructurePresetItem { Name = "19G518 6m柱距轻型交叉支撑 (H=6000)", Span = 6000, Length = 220, Height = 6000, SubHeight = 4000, ColSec = "HW200x200x8x12", BeamSec = "F120x120x6", BraceSec = "L75x75x6" },
                         new StructurePresetItem { Name = "19G518 6m柱距双层交叉支撑 (H=7200)", Span = 6000, Length = 250, Height = 7200, SubHeight = 4800, ColSec = "HW250x250x9x14", BeamSec = "F150x150x8", BraceSec = "L100x100x8" },
                         new StructurePresetItem { Name = "19G518 7.5m柱距重型柱间支撑 (H=9600)", Span = 7500, Length = 300, Height = 9600, SubHeight = 6500, ColSec = "HW300x300x10x15", BeamSec = "F200x200x10", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.PortalHallAssembly:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "轻型厂房 (12m×24m, 4跨)", Span = 12000, Length = 24000, Height = 6000, SubHeight = 1200, BayCount = 4, ColSec = "HW250x250x9x14", BeamSec = "HN350x175x7x11", BraceSec = "L90x90x8" },
+                        new StructurePresetItem { Name = "标准厂房 (18m×36m, 6跨)", Span = 18000, Length = 36000, Height = 7500, SubHeight = 1800, BayCount = 6, ColSec = "HW300x300x10x15", BeamSec = "HN450x200x9x14", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "重型厂房 (24m×48m, 6跨)", Span = 24000, Length = 48000, Height = 9000, SubHeight = 2400, BayCount = 6, ColSec = "HW400x400x13x21", BeamSec = "HN600x200x11x17", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "轻型通廊 (L=12m, W=1.5m, H=4m)", Span = 12000, Length = 1500, Height = 4000, SubHeight = 1050, BayCount = 3, ColSec = "HW200x200x8x12", BeamSec = "HN250x125x6x9", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "标准通廊 (L=18m, W=2.0m, H=5m)", Span = 18000, Length = 2000, Height = 5000, SubHeight = 1050, BayCount = 3, ColSec = "HW250x250x9x14", BeamSec = "HN300x150x6.5x9", BraceSec = "L90x90x8" },
+                        new StructurePresetItem { Name = "重型通廊 (L=24m, W=2.5m, H=6m)", Span = 24000, Length = 2500, Height = 6000, SubHeight = 1200, BayCount = 4, ColSec = "HW300x300x10x15", BeamSec = "HN400x200x8x13", BraceSec = "L100x100x8" }
+                    };
+                case ParametricStructureType.EquipmentFrameAssembly:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "二层设备框架 (6m×4m×6m)", Span = 6000, Length = 4000, Height = 6000, SubHeight = 3000, BayCount = 2, ColSec = "HW200x200x8x12", BeamSec = "HN250x125x6x9", BraceSec = "L75x75x6" },
+                        new StructurePresetItem { Name = "三层设备框架 (9m×6m×9m)", Span = 9000, Length = 6000, Height = 9000, SubHeight = 3000, BayCount = 3, ColSec = "HW250x250x9x14", BeamSec = "HN300x150x6.5x9", BraceSec = "L100x100x8" },
+                        new StructurePresetItem { Name = "重型装置框架 (12m×8m×12m)", Span = 12000, Length = 8000, Height = 12000, SubHeight = 4000, BayCount = 3, ColSec = "HW300x300x10x15", BeamSec = "HN400x200x8x13", BraceSec = "L125x125x10" }
+                    };
+                case ParametricStructureType.CanopyAssembly:
+                    return new List<StructurePresetItem>
+                    {
+                        new StructurePresetItem { Name = "轻型雨棚 (L=9m, 挑宽3m)", Span = 9000, Length = 3000, Height = 3600, SubHeight = 450, BayCount = 3, ColSec = "F150x150x6", BeamSec = "HN200x100x5.5x8", BraceSec = "C140x50x20x2.5" },
+                        new StructurePresetItem { Name = "标准车棚 (L=15m, 挑宽4.5m)", Span = 15000, Length = 4500, Height = 4000, SubHeight = 600, BayCount = 4, ColSec = "HW200x200x8x12", BeamSec = "HN250x125x6x9", BraceSec = "C160x60x20x2.5" },
+                        new StructurePresetItem { Name = "重型装卸雨棚 (L=24m, 挑宽6m)", Span = 24000, Length = 6000, Height = 5000, SubHeight = 800, BayCount = 5, ColSec = "HW250x250x9x14", BeamSec = "HN350x175x7x11", BraceSec = "C180x70x20x2.5" }
                     };
                 default:
                     return new List<StructurePresetItem>

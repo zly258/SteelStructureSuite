@@ -557,6 +557,195 @@ namespace SteelStructureSuite.Services.Modeling
                     addSeg(new Point3d(span, 0, corbelZ), new Point3d(0, 0, h));
                     break;
                 }
+                // ---- 区域组合构件单线快速预览 ----
+                case ParametricStructureType.PlatformAssembly:
+                {
+                    double pSpan = Math.Max(span, 1800.0);
+                    double pLen = Math.Max(len, 1500.0);
+                    double pH = Math.Max(h, 1200.0);
+                    double rH = Math.Max(subH, 1050.0);
+                    int rawBays = Math.Max(2, p.BayCount);
+                    int bx = Math.Max(1, Math.Min(Math.Min(6, rawBays), Math.Max(1, (int)Math.Floor(pSpan / 2200.0))));
+                    int by = Math.Max(1, Math.Min(Math.Min(4, Math.Max(1, rawBays - 1)), Math.Max(1, (int)Math.Floor(pLen / 2200.0))));
+                    for (int ix = 0; ix <= bx; ix++)
+                        for (int iy = 0; iy <= by; iy++)
+                            addSeg(new Point3d(pSpan * ix / bx, pLen * iy / by, 0), new Point3d(pSpan * ix / bx, pLen * iy / by, pH));
+                    for (int iy = 0; iy <= by; iy++)
+                        addSeg(new Point3d(0, pLen * iy / by, pH), new Point3d(pSpan, pLen * iy / by, pH));
+                    for (int ix = 0; ix <= bx; ix++)
+                        addSeg(new Point3d(pSpan * ix / bx, 0, pH), new Point3d(pSpan * ix / bx, pLen, pH));
+                    // 顶部护栏框
+                    double topZ = pH + rH;
+                    addSeg(new Point3d(0, 0, topZ), new Point3d(pSpan, 0, topZ));
+                    addSeg(new Point3d(0, 0, topZ), new Point3d(0, pLen, topZ));
+                    addSeg(new Point3d(pSpan, 0, topZ), new Point3d(pSpan, pLen, topZ));
+                    double sw = Math.Min(900.0, Math.Max(700.0, pSpan * 0.35));
+                    double sx0 = pSpan * 0.5 - sw * 0.5, sx1 = pSpan * 0.5 + sw * 0.5;
+                    addSeg(new Point3d(0, pLen, topZ), new Point3d(sx0, pLen, topZ));
+                    addSeg(new Point3d(sx1, pLen, topZ), new Point3d(pSpan, pLen, topZ));
+                    // 附属斜梯单线
+                    double runY = Math.Max(1200.0, pH);
+                    addSeg(new Point3d(sx0, pLen + runY, 0), new Point3d(sx0, pLen, pH));
+                    addSeg(new Point3d(sx1, pLen + runY, 0), new Point3d(sx1, pLen, pH));
+                    addSeg(new Point3d(sx0, pLen + runY, 0), new Point3d(sx1, pLen + runY, 0));
+                    break;
+                }
+                case ParametricStructureType.ColumnRowAssembly:
+                {
+                    int cnt = Math.Max(2, Math.Min(30, Math.Max(2, p.BayCount)));
+                    double sp = len > span * 1.5 ? len / (cnt - 1) : Math.Max(span, 1500.0);
+                    double cH = Math.Max(h, 2500.0);
+                    double cZ = subH > 600.0 && subH < cH - 600.0 ? subH : cH * 0.65;
+                    double totX = (cnt - 1) * sp;
+                    for (int i = 0; i < cnt; i++)
+                    {
+                        double x = i * sp;
+                        addSeg(new Point3d(x, 0, 0), new Point3d(x, 0, cH));
+                        if (i < cnt - 1 && i % 2 == 0)
+                        {
+                            addSeg(new Point3d(x, 0, 150), new Point3d(x + sp, 0, cZ - 150));
+                            addSeg(new Point3d(x + sp, 0, 150), new Point3d(x, 0, cZ - 150));
+                        }
+                    }
+                    addSeg(new Point3d(0, 0, cH), new Point3d(totX, 0, cH));
+                    addSeg(new Point3d(0, 350, cZ), new Point3d(totX, 350, cZ));
+                    break;
+                }
+                case ParametricStructureType.PipeRackAssembly:
+                {
+                    int bays = Math.Max(1, Math.Min(20, Math.Max(2, p.BayCount)));
+                    double rw = Math.Max(span, 1800.0);
+                    double pitch = Math.Max(1800.0, len > 1500.0 ? len / bays : 4000.0);
+                    double topH = Math.Max(h, 2400.0);
+                    double gap = subH > 800.0 && subH < topH * 0.75 ? subH : topH * 0.42;
+                    int tiers = Math.Max(2, Math.Min(4, (int)Math.Floor((topH - 1200.0) / gap) + 1));
+                    double totX = bays * pitch;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = i * pitch;
+                        addSeg(new Point3d(x, 0, 0), new Point3d(x, 0, topH));
+                        addSeg(new Point3d(x, rw, 0), new Point3d(x, rw, topH));
+                        for (int t = 0; t < tiers; t++)
+                        {
+                            double z = topH - t * gap;
+                            if (z >= 1200.0) addSeg(new Point3d(x, 0, z), new Point3d(x, rw, z));
+                        }
+                    }
+                    for (int t = 0; t < tiers; t++)
+                    {
+                        double z = topH - t * gap;
+                        if (z < 1200.0) break;
+                        addSeg(new Point3d(0, 0, z), new Point3d(totX, 0, z));
+                        addSeg(new Point3d(0, rw, z), new Point3d(totX, rw, z));
+                    }
+                    break;
+                }
+                case ParametricStructureType.StairAssembly:
+                {
+                    double runL = Math.Max(span, 1200.0);
+                    double w = Math.Max(len, 700.0);
+                    double rH = Math.Max(h, 800.0);
+                    double railH = Math.Max(subH, 1000.0);
+                    double hw = w * 0.5;
+                    double pDepth = Math.Max(w, 1000.0);
+                    addSeg(new Point3d(-hw, 0, 0), new Point3d(-hw, runL, rH));
+                    addSeg(new Point3d(hw, 0, 0), new Point3d(hw, runL, rH));
+                    addSeg(new Point3d(-hw, 0, railH), new Point3d(-hw, runL, rH + railH));
+                    addSeg(new Point3d(hw, 0, railH), new Point3d(hw, runL, rH + railH));
+                    // 顶部休息平台 + 4 根落地柱
+                    double y0 = runL, y1 = runL + pDepth;
+                    addSeg(new Point3d(-hw, y0, 0), new Point3d(-hw, y0, rH));
+                    addSeg(new Point3d(hw, y0, 0), new Point3d(hw, y0, rH));
+                    addSeg(new Point3d(-hw, y1, 0), new Point3d(-hw, y1, rH));
+                    addSeg(new Point3d(hw, y1, 0), new Point3d(hw, y1, rH));
+                    addSeg(new Point3d(-hw, y0, rH), new Point3d(hw, y0, rH));
+                    addSeg(new Point3d(-hw, y1, rH), new Point3d(hw, y1, rH));
+                    addSeg(new Point3d(-hw, y0, rH), new Point3d(-hw, y1, rH));
+                    addSeg(new Point3d(hw, y0, rH), new Point3d(hw, y1, rH));
+                    break;
+                }
+                case ParametricStructureType.PortalHallAssembly:
+                {
+                    double sW = Math.Max(span, 6000.0);
+                    int bays = Math.Max(2, Math.Min(16, Math.Max(2, p.BayCount)));
+                    double totY = Math.Max(len, bays * 4000.0);
+                    double pitch = totY / bays;
+                    double eH = Math.Max(h, 3600.0);
+                    double rZ = eH + Math.Max(subH, sW * 0.06);
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double y = i * pitch;
+                        addSeg(new Point3d(0, y, 0), new Point3d(0, y, eH));
+                        addSeg(new Point3d(sW, y, 0), new Point3d(sW, y, eH));
+                        addSeg(new Point3d(0, y, eH), new Point3d(sW * 0.5, y, rZ));
+                        addSeg(new Point3d(sW, y, eH), new Point3d(sW * 0.5, y, rZ));
+                    }
+                    addSeg(new Point3d(0, 0, eH), new Point3d(0, totY, eH));
+                    addSeg(new Point3d(sW, 0, eH), new Point3d(sW, totY, eH));
+                    addSeg(new Point3d(sW * 0.5, 0, rZ), new Point3d(sW * 0.5, totY, rZ));
+                    break;
+                }
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                {
+                    double totX = Math.Max(span, 4000.0);
+                    double w = Math.Max(len, 1000.0);
+                    double dH = Math.Max(h, 2000.0);
+                    double rH = Math.Max(subH, 1050.0);
+                    int bays = Math.Max(2, Math.Min(12, Math.Max(2, p.BayCount)));
+                    double pitch = totX / bays;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = i * pitch;
+                        addSeg(new Point3d(x, 0, 0), new Point3d(x, 0, dH));
+                        addSeg(new Point3d(x, w, 0), new Point3d(x, w, dH));
+                        addSeg(new Point3d(x, 0, dH), new Point3d(x, w, dH));
+                    }
+                    addSeg(new Point3d(0, 0, dH), new Point3d(totX, 0, dH));
+                    addSeg(new Point3d(0, w, dH), new Point3d(totX, w, dH));
+                    addSeg(new Point3d(0, 0, dH + rH), new Point3d(totX, 0, dH + rH));
+                    addSeg(new Point3d(0, w, dH + rH), new Point3d(totX, w, dH + rH));
+                    break;
+                }
+                case ParametricStructureType.EquipmentFrameAssembly:
+                {
+                    double fSpan = Math.Max(span, 3000.0);
+                    double fLen = Math.Max(len, 2400.0);
+                    double totH = Math.Max(h, 3600.0);
+                    double tierH = subH > 1500.0 && subH < totH * 0.75 ? subH : totH * 0.5;
+                    int floors = Math.Max(2, Math.Min(5, (int)Math.Round(totH / tierH)));
+                    int bx = Math.Max(1, Math.Min(4, Math.Min(Math.Max(2, p.BayCount), Math.Max(1, (int)Math.Floor(fSpan / 2500.0)))));
+                    int by = Math.Max(1, Math.Min(3, Math.Max(1, (int)Math.Floor(fLen / 2500.0))));
+                    for (int ix = 0; ix <= bx; ix++)
+                        for (int iy = 0; iy <= by; iy++)
+                            addSeg(new Point3d(fSpan * ix / bx, fLen * iy / by, 0), new Point3d(fSpan * ix / bx, fLen * iy / by, totH));
+                    for (int f = 1; f <= floors; f++)
+                    {
+                        double z = totH * f / floors;
+                        for (int iy = 0; iy <= by; iy++)
+                            addSeg(new Point3d(0, fLen * iy / by, z), new Point3d(fSpan, fLen * iy / by, z));
+                        for (int ix = 0; ix <= bx; ix++)
+                            addSeg(new Point3d(fSpan * ix / bx, 0, z), new Point3d(fSpan * ix / bx, fLen, z));
+                    }
+                    break;
+                }
+                case ParametricStructureType.CanopyAssembly:
+                {
+                    double totX = Math.Max(span, 3000.0);
+                    double cW = Math.Max(len, 1800.0);
+                    double eH = Math.Max(h, 2600.0);
+                    double rise = Math.Max(subH, 250.0);
+                    int bays = Math.Max(2, Math.Min(12, Math.Max(2, p.BayCount)));
+                    double pitch = totX / bays;
+                    for (int i = 0; i <= bays; i++)
+                    {
+                        double x = i * pitch;
+                        addSeg(new Point3d(x, 0, 0), new Point3d(x, 0, eH));
+                        addSeg(new Point3d(x, 0, eH), new Point3d(x, cW, eH + rise));
+                    }
+                    addSeg(new Point3d(0, 0, eH), new Point3d(totX, 0, eH));
+                    addSeg(new Point3d(0, cW, eH + rise), new Point3d(totX, cW, eH + rise));
+                    break;
+                }
             }
 
             return lines;
@@ -675,6 +864,22 @@ namespace SteelStructureSuite.Services.Modeling
                     ZoneAssemblyBuilder.BuildStairAssembly(parts, colProf, braceProf,
                         SectionCatalogService.GetByName("P42x3.5"),
                         span, len, h, Math.Max(p.SubHeight, 900.0), p.BayCount);
+                    break;
+                case ParametricStructureType.PortalHallAssembly:
+                    ZoneAssemblyBuilder.BuildPortalHallAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, p.SubHeight, Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                    ZoneAssemblyBuilder.BuildWalkwayBridgeAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, Math.Max(p.SubHeight, 1050.0), Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.EquipmentFrameAssembly:
+                    ZoneAssemblyBuilder.BuildEquipmentFrameAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, p.SubHeight, Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.CanopyAssembly:
+                    ZoneAssemblyBuilder.BuildCanopyAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, p.SubHeight, Math.Max(2, p.BayCount));
                     break;
             }
 
@@ -2318,6 +2523,248 @@ namespace SteelStructureSuite.Services.Modeling
                     addRow("上柱交叉斜撑", brace, 2, diagUp);
                     addPlate("交叉节点连接板", 16, 320, 320, 2);
                     addPlate("柱脚底板", 24, col.H + 140, col.B + 140, 2);
+                    break;
+                }
+                // ---- 区域组合构件 ----
+                case ParametricStructureType.PlatformAssembly:
+                {
+                    double pSpan = Math.Max(span, 1800.0);
+                    double pLen = Math.Max(len, 1500.0);
+                    double pH = Math.Max(h, 1200.0);
+                    double railH = Math.Max(subH, 1050.0);
+                    int rawBays = Math.Max(2, p.BayCount);
+                    int maxBaysX = Math.Max(1, (int)Math.Floor(pSpan / 2200.0));
+                    int maxBaysY = Math.Max(1, (int)Math.Floor(pLen / 2200.0));
+                    int baysX = Math.Max(1, Math.Min(Math.Min(6, rawBays), maxBaysX));
+                    int baysY = Math.Max(1, Math.Min(Math.Min(4, Math.Max(1, rawBays - 1)), maxBaysY));
+
+                    double colTop = Math.Max(300.0, pH - beam.H);
+                    int colCount = (baysX + 1) * (baysY + 1);
+                    addRow("平台立柱", col, colCount, colTop);
+                    addPlate("柱脚底板", 20, col.H + 100, col.B + 100, colCount);
+
+                    double braceZ0 = Math.Min(150.0, colTop * 0.08);
+                    double braceZ1 = Math.Max(braceZ0 + 300.0, colTop - 80.0);
+                    double braceDz = braceZ1 - braceZ0;
+                    double bayW = pSpan / baysX;
+                    double bayD = pLen / baysY;
+                    double diagX = Math.Sqrt(bayW * bayW + braceDz * braceDz);
+                    double diagY = Math.Sqrt(bayD * bayD + braceDz * braceDz);
+                    addRow("柱间支撑", brace, 4, diagY);
+                    addRow("柱间支撑", brace, 2, diagX);
+
+                    addRow("平台主梁", beam, baysY + 1, pSpan);
+                    addRow("平台主梁", beam, baysX + 1, pLen);
+                    addRow("平台次梁", brace, baysY, pSpan);
+                    addPlate("平台花纹钢板", 8, pSpan, pLen, 1);
+
+                    double stairWidth = Math.Min(900.0, Math.Max(700.0, pSpan * 0.35));
+                    double perimRail = Math.Max(1000.0, 2.0 * (pSpan + pLen) - stairWidth);
+                    int postsX = Math.Max(2, (int)Math.Ceiling(pSpan / 1500.0));
+                    int postsY = Math.Max(2, (int)Math.Ceiling(pLen / 1500.0));
+                    int railPosts = (postsX + 1) + Math.Max(0, postsY - 1) * 2 + 4;
+                    addRow("护栏立柱", pipe, railPosts, railH);
+                    addRow("顶部扶手", pipe, 1, perimRail);
+                    addRow("中横杆", pipe, 1, perimRail);
+
+                    SectionProfile stairStr = SectionCatalogService.TryFindByName("C16a")
+                        ?? SectionCatalogService.TryFindByName("C160x60x20x2.5")
+                        ?? beam;
+                    double runY = Math.Max(1200.0, pH);
+                    double slopeLen = Math.Sqrt(runY * runY + pH * pH);
+                    int steps = Math.Max(4, (int)Math.Round(pH / 190.0));
+                    addRow("斜梯梯梁", stairStr, 2, slopeLen);
+                    addPlate("梯脚底板", 14, 160, 180, 2);
+                    addPlate("斜梯踏步板", 8, stairWidth, 240.0, Math.Max(1, steps - 1));
+                    addRow("梯顶扶手", pipe, 2, slopeLen);
+                    addRow("梯中横杆", pipe, 2, slopeLen);
+                    addRow("梯扶手立柱", pipe, stepCountToPosts(steps) * 2, Math.Max(railH, 900.0));
+                    break;
+                }
+                case ParametricStructureType.ColumnRowAssembly:
+                {
+                    int count = Math.Max(2, Math.Min(30, Math.Max(2, p.BayCount)));
+                    double colSpacing = Math.Max(span, 1500.0);
+                    double pitch = len > colSpacing * 1.5 ? len / (count - 1) : colSpacing;
+                    double cH = Math.Max(h, 2500.0);
+                    double craneZ = subH > 600.0 && subH < cH - 600.0 ? subH : cH * 0.65;
+                    double colTop = Math.Max(500.0, cH - beam.H);
+                    double totalX = (count - 1) * pitch;
+
+                    addRow("厂房柱", col, count, colTop);
+                    addPlate("柱脚底板", 24, col.H + 160, col.B + 160, count);
+                    addRow("柱顶系杆", beam, 1, totalX);
+                    double corbelOut = col.B * 0.5 + beam.B * 0.5 + 80.0;
+                    addRow("柱牛腿", brace, count, corbelOut + beam.B * 0.5);
+                    addRow("牛腿斜撑", brace, count, Math.Sqrt(corbelOut * corbelOut + 350.0 * 350.0));
+                    addRow("吊车梁", beam, 1, totalX);
+
+                    int bracedBays = (count - 1 + 1) / 2;
+                    double braceDz = Math.Max(500.0, craneZ - 300.0);
+                    double diagLen = Math.Sqrt(pitch * pitch + braceDz * braceDz);
+                    addRow("柱间支撑", brace, bracedBays * 2, diagLen);
+                    break;
+                }
+                case ParametricStructureType.PipeRackAssembly:
+                {
+                    int bays = Math.Max(1, Math.Min(20, Math.Max(2, p.BayCount)));
+                    double rackWidth = Math.Max(span, 1800.0);
+                    double bayPitch = Math.Max(1800.0, len > 1500.0 ? len / bays : 4000.0);
+                    double topH = Math.Max(h, 2400.0);
+                    double gap = subH > 800.0 && subH < topH * 0.75 ? subH : topH * 0.42;
+                    int tiers = Math.Max(2, Math.Min(4, (int)Math.Floor((topH - 1200.0) / gap) + 1));
+                    double colTop = Math.Max(500.0, topH - beam.H);
+                    double totalX = bays * bayPitch;
+
+                    int colCount = (bays + 1) * 2;
+                    addRow("管廊立柱", col, colCount, colTop);
+                    addPlate("柱脚底板", 22, col.H + 140, col.B + 140, colCount);
+                    for (int t = 0; t < tiers; t++)
+                    {
+                        double z = topH - beam.H * 0.5 - t * gap;
+                        if (z < 1200.0) break;
+                        addRow($"第{t + 1}层横梁", beam, bays + 1, rackWidth);
+                        addRow($"第{t + 1}层纵梁", beam, 2, totalX);
+                    }
+                    int endBays = bays == 1 ? 1 : 2;
+                    double braceDz = Math.Max(500.0, colTop - 250.0);
+                    double diagLen = Math.Sqrt(bayPitch * bayPitch + braceDz * braceDz);
+                    addRow("柱间支撑", brace, endBays * 4, diagLen);
+                    break;
+                }
+                case ParametricStructureType.StairAssembly:
+                {
+                    double runLength = Math.Max(span, 1200.0);
+                    double width = Math.Max(len, 700.0);
+                    double riseHeight = Math.Max(h, 800.0);
+                    double railH = Math.Max(subH, 1000.0);
+                    int steps = p.BayCount > 1 ? Math.Min(40, p.BayCount) : Math.Max(4, (int)Math.Round(riseHeight / 180.0));
+                    double slopeLen = Math.Sqrt(runLength * runLength + riseHeight * riseHeight);
+
+                    addRow("左梯梁", col, 1, slopeLen);
+                    addRow("右梯梁", col, 1, slopeLen);
+                    addPlate("梯脚底板", 14, 160, 180, 2);
+                    addPlate("踏步板", 8, width, 240.0, Math.Max(1, steps - 1));
+                    addRow("梯扶手", pipe, 2, slopeLen);
+                    addRow("梯中横杆", pipe, 2, slopeLen);
+                    addRow("扶手立柱", pipe, stepCountToPosts(steps) * 2, railH);
+
+                    double platformDepth = Math.Max(width, 1000.0);
+                    SectionProfile landingCol = SectionCatalogService.TryFindByName("F100x100x6")
+                        ?? SectionCatalogService.TryFindByName("HW150x150x7x10")
+                        ?? col;
+                    double beamH = Math.Max(80.0, col.H);
+                    double landingColTop = Math.Max(200.0, riseHeight - beamH);
+                    addRow("平台支撑柱", landingCol, 4, landingColTop);
+                    addPlate("平台柱脚底板", 16, landingCol.H + 80, landingCol.B + 80, 4);
+                    addRow("平台边梁", col, 2, width);
+                    addRow("平台边梁", col, 2, platformDepth);
+                    addPlate("休息平台板", 8, width, platformDepth, 1);
+                    double platRailLen = width + platformDepth * 2.0;
+                    addRow("平台扶手", pipe, 1, platRailLen);
+                    addRow("平台中横杆", pipe, 1, platRailLen);
+                    addRow("平台护栏立柱", pipe, 2, railH);
+                    break;
+                }
+                case ParametricStructureType.PortalHallAssembly:
+                {
+                    double sW = Math.Max(span, 6000.0);
+                    int bays = Math.Max(2, Math.Min(16, Math.Max(2, p.BayCount)));
+                    double totY = Math.Max(len, bays * 4000.0);
+                    double bayPitch = totY / bays;
+                    double eH = Math.Max(h, 3600.0);
+                    double rise = Math.Max(subH, sW * 0.06);
+                    double colTop = Math.Max(1000.0, eH - beam.H * 0.5);
+                    double rafterLen = Math.Sqrt(Math.Pow(sW * 0.5, 2) + rise * rise);
+                    SectionProfile purlin = SectionCatalogService.TryFindByName("C160x60x20x2.5") ?? brace;
+                    int frames = bays + 1;
+
+                    addRow("厂房钢柱", col, frames * 2, colTop);
+                    addPlate("柱脚底板", 24, col.H + 140, col.B + 140, frames * 2);
+                    addRow("屋面斜梁", beam, frames * 2, rafterLen);
+                    addRow("柱顶系杆", brace, 2, totY);
+                    addRow("屋脊系杆", purlin, 1, totY);
+                    int purlinsPerSlope = Math.Max(2, Math.Min(6, (int)Math.Round((sW * 0.5) / 1800.0)));
+                    addRow("屋面檩条", purlin, (purlinsPerSlope - 1) * 2, totY);
+                    double diagLen = Math.Sqrt(bayPitch * bayPitch + Math.Pow(Math.Max(600.0, colTop - 300.0), 2));
+                    addRow("柱间支撑", brace, 8, diagLen);
+                    break;
+                }
+                case ParametricStructureType.WalkwayBridgeAssembly:
+                {
+                    double totX = Math.Max(span, 4000.0);
+                    double w = Math.Max(len, 1000.0);
+                    double dH = Math.Max(h, 2000.0);
+                    double railH = Math.Max(subH, 1050.0);
+                    int bays = Math.Max(2, Math.Min(12, Math.Max(2, p.BayCount)));
+                    double bayPitch = totX / bays;
+                    double colTop = Math.Max(500.0, dH - beam.H);
+
+                    addRow("通廊支墩柱", col, (bays + 1) * 2, colTop);
+                    addPlate("柱脚底板", 20, col.H + 120, col.B + 120, (bays + 1) * 2);
+                    addRow("通廊横梁", beam, bays + 1, w);
+                    addRow("通廊纵梁", beam, 2, totX);
+                    int subCross = Math.Max(bays * 2, (int)Math.Ceiling(totX / 1800.0));
+                    addRow("通廊次梁", brace, Math.Max(1, subCross - 1), w);
+                    addPlate("通廊花纹钢板", 8, totX, w, 1);
+                    double diagLen = Math.Sqrt(bayPitch * bayPitch + Math.Pow(Math.Max(500.0, colTop - 250.0), 2));
+                    addRow("柱间支撑", brace, 8, diagLen);
+                    int posts = Math.Max(3, (int)Math.Ceiling(totX / 1500.0));
+                    addRow("通廊顶扶手", pipe, 2, totX);
+                    addRow("通廊中横杆", pipe, 2, totX);
+                    addRow("通廊护栏立柱", pipe, (posts + 1) * 2, railH);
+                    break;
+                }
+                case ParametricStructureType.EquipmentFrameAssembly:
+                {
+                    double fSpan = Math.Max(span, 3000.0);
+                    double fLen = Math.Max(len, 2400.0);
+                    double totH = Math.Max(h, 3600.0);
+                    double tierH = subH > 1500.0 && subH < totH * 0.75 ? subH : totH * 0.5;
+                    int floors = Math.Max(2, Math.Min(5, (int)Math.Round(totH / tierH)));
+                    int bx = Math.Max(1, Math.Min(4, Math.Min(Math.Max(2, p.BayCount), Math.Max(1, (int)Math.Floor(fSpan / 2500.0)))));
+                    int by = Math.Max(1, Math.Min(3, Math.Max(1, (int)Math.Floor(fLen / 2500.0))));
+                    double colTop = Math.Max(1000.0, totH - beam.H);
+                    int colCount = (bx + 1) * (by + 1);
+
+                    addRow("框架柱", col, colCount, colTop);
+                    addPlate("柱脚底板", 22, col.H + 140, col.B + 140, colCount);
+                    for (int f = 1; f <= floors; f++)
+                    {
+                        addRow($"第{f}层主梁", beam, by + 1, fSpan);
+                        addRow($"第{f}层主梁", beam, bx + 1, fLen);
+                        addRow($"第{f}层次梁", brace, by, fSpan);
+                    }
+                    addPlate("顶层操作平台板", 8, fSpan, fLen, 1);
+                    double railPerim = 2.0 * (fSpan + fLen);
+                    int px = Math.Max(2, (int)Math.Ceiling(fSpan / 1500.0));
+                    int py = Math.Max(2, (int)Math.Ceiling(fLen / 1500.0));
+                    addRow("顶层护栏扶手", pipe, 1, railPerim);
+                    addRow("顶层护栏中杆", pipe, 1, railPerim);
+                    addRow("顶层护栏立柱", pipe, (px + 1) * 2 + Math.Max(0, py - 1) * 2, 1050.0);
+                    double diagLen = Math.Sqrt(Math.Pow(fLen / by, 2) + Math.Pow(Math.Max(400.0, totH / floors - beam.H - 230.0), 2));
+                    addRow("柱间支撑", brace, 4, diagLen);
+                    break;
+                }
+                case ParametricStructureType.CanopyAssembly:
+                {
+                    double totX = Math.Max(span, 3000.0);
+                    double cW = Math.Max(len, 1800.0);
+                    double eH = Math.Max(h, 2600.0);
+                    double rise = Math.Max(subH, 250.0);
+                    int bays = Math.Max(2, Math.Min(12, Math.Max(2, p.BayCount)));
+                    int cols = bays + 1;
+                    double rafterLen = Math.Sqrt(cW * cW + rise * rise);
+                    double braceDrop = Math.Min(eH * 0.42, cW * 0.45);
+                    double braceLen = Math.Sqrt(Math.Pow(cW * 0.58, 2) + Math.Pow(braceDrop + rise * 0.58, 2));
+                    int purlinCount = Math.Max(3, Math.Min(7, (int)Math.Round(cW / 1000.0) + 1));
+
+                    addRow("雨棚立柱", col, cols, eH);
+                    addPlate("柱脚底板", 18, col.H + 120, col.B + 120, cols);
+                    addRow("悬挑斜梁", beam, cols, rafterLen);
+                    addRow("悬挑斜撑", brace, cols, braceLen);
+                    addRow("柱顶系杆", brace, 1, totX);
+                    addRow("雨棚檩条", brace, purlinCount - 1, totX);
                     break;
                 }
             }

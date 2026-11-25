@@ -134,13 +134,12 @@ namespace SteelStructureSuite.Services.Drawing
                 return hits >= samples * 0.6;
             }
 
-            /// <summary>合并共线重叠线段后落笔。</summary>
+            /// <summary>合并共线重叠线段后落笔（高精度容差，避免圆弧/斜线产生锯齿与断口）。</summary>
             public void Emit(Transaction tr, BlockTableRecord ms, Point3d basePt, double textH)
             {
                 if (_segments.Count == 0) return;
 
-                // 合并容差固定为 1mm：只合并真正重合/共线的重复段，不吞掉翼缘厚度线这类 6~12mm 的真实特征。
-                double tol = 1.0;
+                double tol = 0.15;
                 List<Seg> visible = Merge(_segments.Where(s => !s.Hidden), tol);
                 List<Seg> hidden = Merge(_segments.Where(s => s.Hidden), tol);
                 hidden = RemoveCovered(hidden, visible, tol);
@@ -173,22 +172,32 @@ namespace SteelStructureSuite.Services.Drawing
                         .OrderBy(x => x.Item1)
                         .ToList();
 
+                    // 未发生合并的单条线段直接保留精确原始端点，杜绝圆弧/斜线端点漂移产生锯齿和缝隙
+                    if (list.Count == 1)
+                    {
+                        result.Add(list[0].Item3);
+                        continue;
+                    }
+
                     Seg rep = list[0].Item3;
                     double start = list[0].Item1;
                     double end = list[0].Item2;
+                    bool mergedAny = false;
                     for (int i = 1; i < list.Count; i++)
                     {
                         if (list[i].Item1 <= end + tol)
                         {
                             end = Math.Max(end, list[i].Item2);
+                            mergedAny = true;
                             continue;
                         }
-                        result.Add(Rebuild(rep, start, end, kv.Key));
+                        result.Add(mergedAny ? Rebuild(rep, start, end, kv.Key) : rep);
                         rep = list[i].Item3;
                         start = list[i].Item1;
                         end = list[i].Item2;
+                        mergedAny = false;
                     }
-                    result.Add(Rebuild(rep, start, end, kv.Key));
+                    result.Add(mergedAny ? Rebuild(rep, start, end, kv.Key) : rep);
                 }
                 return result;
             }
@@ -200,20 +209,24 @@ namespace SteelStructureSuite.Services.Drawing
 
                 if (parts[0] == "H")
                 {
-                    double y = source.A.Y;
+                    double y = (source.A.Y + source.B.Y) * 0.5;
                     a = new Point2d(t0, y);
                     b = new Point2d(t1, y);
                 }
                 else if (parts[0] == "V")
                 {
-                    double x = source.A.X;
+                    double x = (source.A.X + source.B.X) * 0.5;
                     a = new Point2d(x, t0);
                     b = new Point2d(x, t1);
                 }
                 else
                 {
-                    double nx = double.Parse(parts[1], CultureInfo.InvariantCulture);
-                    double ny = double.Parse(parts[2], CultureInfo.InvariantCulture);
+                    double dx = source.B.X - source.A.X;
+                    double dy = source.B.Y - source.A.Y;
+                    double len = Math.Sqrt(dx * dx + dy * dy);
+                    double nx = len > 1e-9 ? dx / len : double.Parse(parts[1], CultureInfo.InvariantCulture);
+                    double ny = len > 1e-9 ? dy / len : double.Parse(parts[2], CultureInfo.InvariantCulture);
+                    if (nx < -1e-9 || (Math.Abs(nx) <= 1e-9 && ny < 0)) { nx = -nx; ny = -ny; }
                     double off = nx * source.A.Y - ny * source.A.X;
                     a = new Point2d(t0 * nx - off * ny, t0 * ny + off * nx);
                     b = new Point2d(t1 * nx - off * ny, t1 * ny + off * nx);
@@ -227,14 +240,15 @@ namespace SteelStructureSuite.Services.Drawing
                 double len = Math.Sqrt(dx * dx + dy * dy);
                 double bucket = tol * 2.0;
 
-                if (Math.Abs(dy) <= tol)
+                // 必须同时满足角度水平/竖直，防止短圆弧弦被误判为水平/竖直线造成阶梯锯齿
+                if (len > 1e-6 && Math.Abs(dy) <= len * 1e-3 && Math.Abs(dy) <= 0.05)
                 {
                     t0 = Math.Min(a.X, b.X);
                     t1 = Math.Max(a.X, b.X);
                     double y = (a.Y + b.Y) * 0.5;
                     return "H|" + Math.Round(y / bucket).ToString(CultureInfo.InvariantCulture);
                 }
-                if (Math.Abs(dx) <= tol)
+                if (len > 1e-6 && Math.Abs(dx) <= len * 1e-3 && Math.Abs(dx) <= 0.05)
                 {
                     t0 = Math.Min(a.Y, b.Y);
                     t1 = Math.Max(a.Y, b.Y);
@@ -252,8 +266,8 @@ namespace SteelStructureSuite.Services.Drawing
                 t0 = a.X * nx + a.Y * ny;
                 t1 = b.X * nx + b.Y * ny;
                 if (t0 > t1) { double tmp = t0; t0 = t1; t1 = tmp; }
-                return "D|" + Math.Round(nx, 4).ToString(CultureInfo.InvariantCulture) +
-                       "|" + Math.Round(ny, 4).ToString(CultureInfo.InvariantCulture) +
+                return "D|" + Math.Round(nx, 5).ToString(CultureInfo.InvariantCulture) +
+                       "|" + Math.Round(ny, 5).ToString(CultureInfo.InvariantCulture) +
                        "|" + Math.Round(off / bucket).ToString(CultureInfo.InvariantCulture);
             }
 
@@ -622,8 +636,8 @@ namespace SteelStructureSuite.Services.Drawing
 
                     double margin = 9.0 * scale;
                     double gap = 14.0 * scale;
-                    double dimPad = dimGapStep * 2.55;
-                    double belowOrtho = dimGapStep * 2.15 + 4.2 * textH;
+                    double dimPad = dimGapStep * 3.35;
+                    double belowOrtho = dimGapStep * 3.15 + 4.0 * textH;
                     double colGap = Math.Max(gap, dimPad * 1.15);
 
                     double titleW = 180.0 * scale;
@@ -811,8 +825,8 @@ namespace SteelStructureSuite.Services.Drawing
             double dimGapStep = 3.2 * textH;
             double margin = 9.0 * scale;
             double gap = 14.0 * scale;
-            double dimPad = dimGapStep * 2.55;
-            double belowOrtho = dimGapStep * 2.15 + 4.2 * textH;
+            double dimPad = dimGapStep * 3.35;
+            double belowOrtho = dimGapStep * 3.15 + 4.0 * textH;
             double colGap = Math.Max(gap, dimPad * 1.15);
 
             double orthoRowW = (hasFront ? dimPad + front.Width : 0.0)
@@ -961,16 +975,16 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// 出图用截面外轮廓：圆管用 48 边形逼近，保证投影后两端是平滑圆弧而不是 12 面棱柱的折线端面。
+        /// 出图用截面外轮廓：圆管/圆钢用 64 边形高精度逼近，保证投影端面圆滑无锯齿。
         /// </summary>
         private static List<Point2d> GetDrawingOutlinePoints(SectionProfile sec)
         {
             if (sec == null) return new List<Point2d>();
 
-            if (sec.Shape == SectionShapeType.PipeTube)
+            if (sec.Shape == SectionShapeType.PipeTube || sec.Shape == SectionShapeType.RoundBar)
             {
                 double r = Math.Max(6.0, sec.H * 0.5);
-                const int segments = 48;
+                const int segments = 64;
                 var pts = new List<Point2d>(segments);
                 for (int i = 0; i < segments; i++)
                 {
@@ -1303,45 +1317,11 @@ namespace SteelStructureSuite.Services.Drawing
 
             batch.Emit(tr, ms, viewBase, textH);
 
-            // 轴测图默认关闭后，件号引线改标在正立面图两侧（与材料表件号对应）。
-            if (isFrontView && options.IncludeLeaderAnnotations && boxes.Count > 0)
-            {
-                var leaderReqs = new List<LeaderRequest>();
-                var seen = new HashSet<int>();
-                double centerX = (minViewX + maxViewX) * 0.5;
-
-                foreach (ProjectedPart2D box in boxes)
-                {
-                    if (box.PartNo <= 0 || !seen.Add(box.PartNo)) continue;
-
-                    Point3d anchor3d = box.SourcePart != null && box.SourcePart.PathPoints != null && box.SourcePart.PathPoints.Count > 0
-                        ? box.SourcePart.PathPoints[box.SourcePart.PathPoints.Count / 2]
-                        : new Point3d((box.SourcePart.StartPt.X + box.SourcePart.EndPt.X) * 0.5,
-                                      (box.SourcePart.StartPt.Y + box.SourcePart.EndPt.Y) * 0.5,
-                                      (box.SourcePart.StartPt.Z + box.SourcePart.EndPt.Z) * 0.5);
-
-                    Point2d anchor2d = proj2d(anchor3d);
-                    leaderReqs.Add(new LeaderRequest
-                    {
-                        AnchorPt = new Point3d(viewBase.X + anchor2d.X, viewBase.Y + anchor2d.Y, 0),
-                        LabelText = box.PartNo.ToString(CultureInfo.InvariantCulture),
-                        Side = anchor2d.X >= centerX ? 1 : 0
-                    });
-                }
-
-                if (leaderReqs.Count > 0)
-                {
-                    PlaceCollisionFreeLeaders(
-                        tr, ms, leaderReqs,
-                        viewBase.X + minViewX, viewBase.X + maxViewX,
-                        viewBase.Y + minViewY, viewBase.Y + maxViewY,
-                        textStyleId, textH);
-                }
-            }
+            // 非轴测图（正立面/侧立面/平面图）不标注件号，件号仅统一标注在轴测图上。
 
             GetDesignDimensionTicks(
-                p, minViewX, maxViewX, minViewY, maxViewY,
-                isFrontView, isSideView, isPlanView, overallOnly,
+                p, parts3d, proj2d, minViewX, maxViewX, minViewY, maxViewY,
+                isFrontView, isSideView, isPlanView, overallOnly, textH,
                 out List<double> xTicks, out List<double> yTicks);
 
             // 结构中心轴线（红点划线，伸出构件边缘 1.6 * textH，不再画左下角 L 型包框）
@@ -1350,7 +1330,7 @@ namespace SteelStructureSuite.Services.Drawing
                 minViewX, maxViewX, minViewY, maxViewY,
                 xTicks, yTicks, isPlanView, textH);
 
-            // 标准工程尺寸标注（分跨轴线尺寸 + 总尺寸，严格对齐设计值如 3600 / 2600 / 5200）
+            // 标准工程尺寸标注（详细分跨/分层轴线尺寸 + 总轴距 + 总外包尺寸，排列整齐）
             if (options.IncludeAutoDimensions)
             {
                 AddAccurateDimensions(
@@ -1361,7 +1341,7 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             // 视图名称居中放置于最外层尺寸线下方
-            double titleY = minViewY - dimGapStep * 2.15 - 2.6 * textH;
+            double titleY = minViewY - dimGapStep * 3.15 - 2.4 * textH;
             double titleHalfW = EstimateSimSunTextWidth(viewTitle, textH * 1.12) * 0.5;
             Point3d titlePt = new Point3d(viewBase.X + (minViewX + maxViewX) * 0.5 - titleHalfW, viewBase.Y + titleY, 0);
             AppendSimSunText(tr, ms, titlePt, viewTitle, textStyleId, textH * 1.12, LayerFrame);
@@ -1503,14 +1483,17 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// 计算正立面、侧立面、平面图的设计轴线网格刻度（保证标出 3600 / 1800 / 2600 / 5200 等精确工程设计值）
+        /// 计算正立面、侧立面、平面图的设计轴线与构件详细刻度（涵盖柱距、分层标高、护栏、斜梯与区域组合，排列整齐不省略）。
         /// </summary>
         private static void GetDesignDimensionTicks(
             SteelStructureParams p,
+            List<SteelStructureBuilder.SolidMemberPart> parts3d,
+            Func<Point3d, Point2d> proj2d,
             double minViewX, double maxViewX,
             double minViewY, double maxViewY,
             bool isFrontView, bool isSideView, bool isPlanView,
             bool overallOnly,
+            double textH,
             out List<double> xTicks,
             out List<double> yTicks)
         {
@@ -1540,7 +1523,49 @@ namespace SteelStructureSuite.Services.Drawing
                 p.StructureType == ParametricStructureType.PipeShoeSupport ||
                 p.StructureType == ParametricStructureType.TankRoofHandrail;
 
-            // 1. 水平方向设计轴网刻度 (xTicks)
+            // 1. 从三维主构件中自动提取真实的柱轴线与梁/平台标高刻度（保证区域组合及各类复杂构件尺寸详尽无遗漏）
+            if (parts3d != null && parts3d.Count > 0 && proj2d != null)
+            {
+                foreach (var part in parts3d)
+                {
+                    if (part == null) continue;
+                    string role = part.RoleName ?? string.Empty;
+                    bool isRailOrStep = role.Contains("踏步") || role.Contains("梯扶手") || role.Contains("梯中横杆") || role.Contains("护栏立柱");
+                    if (isRailOrStep) continue;
+
+                    Vector3d axis = part.EndPt - part.StartPt;
+                    double axisLen = axis.Length;
+                    if (!part.IsPlate && axisLen > 120.0)
+                    {
+                        Point2d p0 = proj2d(part.StartPt);
+                        Point2d p1 = proj2d(part.EndPt);
+                        // 视图内竖直杆件（如立柱）提供精确 X 轴刻度
+                        if (Math.Abs(p1.X - p0.X) < 15.0 && Math.Abs(p1.Y - p0.Y) > 150.0)
+                        {
+                            xTicks.Add(Math.Round((p0.X + p1.X) * 0.5));
+                            if (!isPlanView)
+                            {
+                                yTicks.Add(Math.Round(Math.Min(p0.Y, p1.Y)));
+                                yTicks.Add(Math.Round(Math.Max(p0.Y, p1.Y)));
+                            }
+                        }
+                        // 视图内水平杆件（如主梁、横梁、吊车梁、扶手顶杆）提供精确 Y 标高/轴线刻度
+                        if (Math.Abs(p1.Y - p0.Y) < 15.0 && Math.Abs(p1.X - p0.X) > 150.0)
+                        {
+                            yTicks.Add(Math.Round((p0.Y + p1.Y) * 0.5));
+                            xTicks.Add(Math.Round(Math.Min(p0.X, p1.X)));
+                            xTicks.Add(Math.Round(Math.Max(p0.X, p1.X)));
+                        }
+                    }
+                    else if (part.IsPlate && (role.Contains("平台") || role.Contains("花纹")))
+                    {
+                        Point2d pc = proj2d(part.EndPt);
+                        if (!isPlanView) yTicks.Add(Math.Round(pc.Y));
+                    }
+                }
+            }
+
+            // 2. 补充精确设计轴网刻度 (xTicks)
             if (isFrontView || isPlanView)
             {
                 if (isCenteredXY)
@@ -1571,8 +1596,13 @@ namespace SteelStructureSuite.Services.Drawing
                              p.StructureType == ParametricStructureType.RoofTruss)
                         bays = 2;
 
-                    for (int i = 0; i <= bays; i++)
-                        xTicks.Add(Math.Round(i * (span / bays)));
+                    if (p.StructureType != ParametricStructureType.ColumnRowAssembly &&
+                        p.StructureType != ParametricStructureType.PipeRackAssembly &&
+                        p.StructureType != ParametricStructureType.StairAssembly)
+                    {
+                        for (int i = 0; i <= bays; i++)
+                            xTicks.Add(Math.Round(i * (span / bays)));
+                    }
                 }
             }
             else if (isSideView)
@@ -1622,14 +1652,14 @@ namespace SteelStructureSuite.Services.Drawing
                         xTicks.Add(Math.Round(len));
                     }
                 }
-                else
+                else if (xTicks.Count < 2)
                 {
                     xTicks.Add(Math.Round(minViewX));
                     xTicks.Add(Math.Round(maxViewX));
                 }
             }
 
-            // 2. 竖向设计轴网刻度 (yTicks)
+            // 3. 补充竖向设计轴网刻度 (yTicks)
             if (isPlanView)
             {
                 if (isCenteredXY)
@@ -1670,13 +1700,13 @@ namespace SteelStructureSuite.Services.Drawing
                         yTicks.Add(Math.Round(len * 2.0 / 3.0));
                         yTicks.Add(Math.Round(len));
                     }
-                    else
+                    else if (yTicks.Count < 2)
                     {
                         yTicks.Add(0.0);
                         yTicks.Add(Math.Round(len));
                     }
                 }
-                else
+                else if (yTicks.Count < 2)
                 {
                     yTicks.Add(Math.Round(minViewY));
                     yTicks.Add(Math.Round(maxViewY));
@@ -1691,6 +1721,7 @@ namespace SteelStructureSuite.Services.Drawing
                     case ParametricStructureType.MultiBaySpaceFrame:
                     case ParametricStructureType.BracedFrame:
                     case ParametricStructureType.CrossBracingFrame:
+                    case ParametricStructureType.ColumnRowAssembly:
                     {
                         double midZ = Math.Round(Math.Min(Math.Max(subH, 400.0), h - 300.0));
                         yTicks.Add(0.0);
@@ -1707,8 +1738,10 @@ namespace SteelStructureSuite.Services.Drawing
                         break;
                     }
                     case ParametricStructureType.SpacePlatform:
+                    case ParametricStructureType.PlatformAssembly:
                     case ParametricStructureType.CantileverWalkway:
                     case ParametricStructureType.StraightStair:
+                    case ParametricStructureType.StairAssembly:
                     {
                         double railH = Math.Max(subH, 1000.0);
                         yTicks.Add(0.0);
@@ -1745,7 +1778,7 @@ namespace SteelStructureSuite.Services.Drawing
                             yTicks.Add(0.0);
                             yTicks.Add(Math.Round(h));
                         }
-                        else
+                        else if (yTicks.Count < 2)
                         {
                             yTicks.Add(Math.Round(minViewY));
                             yTicks.Add(Math.Round(maxViewY));
@@ -1755,24 +1788,40 @@ namespace SteelStructureSuite.Services.Drawing
                 }
             }
 
-            xTicks = CleanSortedTicks(xTicks);
-            yTicks = CleanSortedTicks(yTicks);
+            // 过滤过近刻度，确保相邻尺寸数字排列整齐、互不重叠
+            double minTickGap = Math.Max(80.0, textH * 1.45);
+            xTicks = CleanSortedTicks(xTicks, minViewX, maxViewX, minTickGap);
+            yTicks = CleanSortedTicks(yTicks, minViewY, maxViewY, minTickGap);
         }
 
-        private static List<double> CleanSortedTicks(List<double> raw)
+        private static List<double> CleanSortedTicks(List<double> raw, double minBound, double maxBound, double minGap)
         {
-            var sorted = raw.OrderBy(v => v).ToList();
-            var clean = new List<double>();
-            foreach (double v in sorted)
+            double pad = 25.0;
+            var sorted = raw
+                .Where(v => v >= minBound - pad && v <= maxBound + pad)
+                .OrderBy(v => v)
+                .ToList();
+            if (sorted.Count < 2)
             {
-                if (clean.Count == 0 || Math.Abs(v - clean[clean.Count - 1]) >= 20.0)
+                return new List<double> { Math.Round(minBound), Math.Round(maxBound) };
+            }
+
+            var clean = new List<double> { sorted[0] };
+            double lastVal = sorted[sorted.Count - 1];
+            for (int i = 1; i < sorted.Count - 1; i++)
+            {
+                double v = sorted[i];
+                if (v - clean[clean.Count - 1] >= minGap && lastVal - v >= minGap)
                     clean.Add(v);
             }
-            if (clean.Count < 2 && sorted.Count >= 2)
+            if (lastVal - clean[clean.Count - 1] >= 20.0)
+                clean.Add(lastVal);
+
+            if (clean.Count < 2)
             {
                 clean.Clear();
-                clean.Add(sorted[0]);
-                clean.Add(sorted[sorted.Count - 1]);
+                clean.Add(Math.Round(minBound));
+                clean.Add(Math.Round(maxBound));
             }
             return clean;
         }
@@ -1833,12 +1882,13 @@ namespace SteelStructureSuite.Services.Drawing
             double textH,
             double dimGapStep)
         {
-            // 1. 底部水平尺寸标注（第一道：分跨轴线尺寸；第二道：总宽尺寸）
+            // 1. 底部水平尺寸标注（三道等距整齐排列：第一道分跨链式尺寸；第二道轴线总跨；第三道外包总宽）
             if (xTicks != null && xTicks.Count >= 2 && (xTicks[xTicks.Count - 1] - xTicks[0]) >= 5.0)
             {
                 double yAnchor = minViewY;
-                double yDimTier1 = viewBase.Y + minViewY - dimGapStep * 1.0;
-                double yDimTier2 = viewBase.Y + minViewY - dimGapStep * 1.85;
+                double yTier1 = viewBase.Y + minViewY - dimGapStep * 1.0;
+                double yTier2 = viewBase.Y + minViewY - dimGapStep * 1.95;
+                double yTier3 = viewBase.Y + minViewY - dimGapStep * 2.90;
                 bool hasSubBays = xTicks.Count > 2;
 
                 if (hasSubBays)
@@ -1850,26 +1900,39 @@ namespace SteelStructureSuite.Services.Drawing
                         AppendLinearDim(tr, ms,
                             new Point3d(viewBase.X + x0, viewBase.Y + yAnchor, 0),
                             new Point3d(viewBase.X + x1, viewBase.Y + yAnchor, 0),
-                            new Point3d(viewBase.X + (x0 + x1) * 0.5, yDimTier1, 0),
+                            new Point3d(viewBase.X + (x0 + x1) * 0.5, yTier1, 0),
                             0.0, dimStyleId, textH);
                     }
                 }
 
                 double xStart = xTicks[0];
                 double xEnd = xTicks[xTicks.Count - 1];
+                double totalY = hasSubBays ? yTier2 : yTier1;
                 AppendLinearDim(tr, ms,
                     new Point3d(viewBase.X + xStart, viewBase.Y + yAnchor, 0),
                     new Point3d(viewBase.X + xEnd, viewBase.Y + yAnchor, 0),
-                    new Point3d(viewBase.X + (xStart + xEnd) * 0.5, hasSubBays ? yDimTier2 : yDimTier1, 0),
+                    new Point3d(viewBase.X + (xStart + xEnd) * 0.5, totalY, 0),
                     0.0, dimStyleId, textH);
+
+                // 若外包总宽明显大于轴线总宽（如悬挑梁、底板、斜梯），增标最外层总外包尺寸
+                if (Math.Abs((maxViewX - minViewX) - (xEnd - xStart)) >= 35.0)
+                {
+                    double outerY = hasSubBays ? yTier3 : yTier2;
+                    AppendLinearDim(tr, ms,
+                        new Point3d(viewBase.X + minViewX, viewBase.Y + yAnchor, 0),
+                        new Point3d(viewBase.X + maxViewX, viewBase.Y + yAnchor, 0),
+                        new Point3d(viewBase.X + (minViewX + maxViewX) * 0.5, outerY, 0),
+                        0.0, dimStyleId, textH);
+                }
             }
 
-            // 2. 左侧竖向尺寸标注（第一道：分层高/分跨深；第二道：总高/总深）
+            // 2. 左侧竖向尺寸标注（三道等距整齐排列：第一道分层/分跨链式尺寸；第二道轴线总高/深；第三道外包总高/深）
             if (yTicks != null && yTicks.Count >= 2 && (yTicks[yTicks.Count - 1] - yTicks[0]) >= 5.0)
             {
                 double xAnchor = minViewX;
-                double xDimTier1 = viewBase.X + minViewX - dimGapStep * 1.0;
-                double xDimTier2 = viewBase.X + minViewX - dimGapStep * 1.85;
+                double xTier1 = viewBase.X + minViewX - dimGapStep * 1.0;
+                double xTier2 = viewBase.X + minViewX - dimGapStep * 1.95;
+                double xTier3 = viewBase.X + minViewX - dimGapStep * 2.90;
                 bool hasSubTiers = yTicks.Count > 2;
 
                 if (hasSubTiers)
@@ -1881,18 +1944,29 @@ namespace SteelStructureSuite.Services.Drawing
                         AppendLinearDim(tr, ms,
                             new Point3d(viewBase.X + xAnchor, viewBase.Y + y0, 0),
                             new Point3d(viewBase.X + xAnchor, viewBase.Y + y1, 0),
-                            new Point3d(xDimTier1, viewBase.Y + (y0 + y1) * 0.5, 0),
+                            new Point3d(xTier1, viewBase.Y + (y0 + y1) * 0.5, 0),
                             Math.PI * 0.5, dimStyleId, textH);
                     }
                 }
 
                 double yStart = yTicks[0];
                 double yEnd = yTicks[yTicks.Count - 1];
+                double totalX = hasSubTiers ? xTier2 : xTier1;
                 AppendLinearDim(tr, ms,
                     new Point3d(viewBase.X + xAnchor, viewBase.Y + yStart, 0),
                     new Point3d(viewBase.X + xAnchor, viewBase.Y + yEnd, 0),
-                    new Point3d(hasSubTiers ? xDimTier2 : xDimTier1, viewBase.Y + (yStart + yEnd) * 0.5, 0),
+                    new Point3d(totalX, viewBase.Y + (yStart + yEnd) * 0.5, 0),
                     Math.PI * 0.5, dimStyleId, textH);
+
+                if (Math.Abs((maxViewY - minViewY) - (yEnd - yStart)) >= 35.0)
+                {
+                    double outerX = hasSubTiers ? xTier3 : xTier2;
+                    AppendLinearDim(tr, ms,
+                        new Point3d(viewBase.X + xAnchor, viewBase.Y + minViewY, 0),
+                        new Point3d(viewBase.X + xAnchor, viewBase.Y + maxViewY, 0),
+                        new Point3d(outerX, viewBase.Y + (minViewY + maxViewY) * 0.5, 0),
+                        Math.PI * 0.5, dimStyleId, textH);
+                }
             }
         }
 
@@ -2194,6 +2268,77 @@ namespace SteelStructureSuite.Services.Drawing
             PlaceLeaderColumn(tr, ms, right, viewMaxX + 3.2 * textH, viewMinY, viewMaxY, false, textStyleId, textH);
         }
 
+        private const string PartBalloonBlockName = "SS_PART_BALLOON";
+
+        /// <summary>
+        /// 创建/获取标准圆形件号块（半径 1.0 + 居中属性 NO），供原生 MLeader 整体引用。
+        /// </summary>
+        private static ObjectId EnsurePartBalloonBlock(
+            Transaction tr,
+            Database db,
+            ObjectId textStyleId,
+            out ObjectId attDefId)
+        {
+            attDefId = ObjectId.Null;
+            BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
+            if (bt.Has(PartBalloonBlockName))
+            {
+                ObjectId existingId = bt[PartBalloonBlockName];
+                BlockTableRecord existingBtr = (BlockTableRecord)tr.GetObject(existingId, OpenMode.ForRead);
+                foreach (ObjectId id in existingBtr)
+                {
+                    if (tr.GetObject(id, OpenMode.ForRead) is AttributeDefinition ad)
+                    {
+                        attDefId = id;
+                        break;
+                    }
+                }
+                if (!attDefId.IsNull) return existingId;
+            }
+
+            bt.UpgradeOpen();
+            var btr = new BlockTableRecord { Name = PartBalloonBlockName };
+            ObjectId blockId = bt.Add(btr);
+            tr.AddNewlyCreatedDBObject(btr, true);
+
+            // 单位半径圆圈（由 MLeader.BlockScale 统一缩放到纸面半径）
+            var circle = new Circle(Point3d.Origin, Vector3d.ZAxis, 1.0);
+            circle.SetDatabaseDefaults(db);
+            circle.Layer = "0";
+            circle.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
+            btr.AppendEntity(circle);
+            tr.AddNewlyCreatedDBObject(circle, true);
+
+            // 居中件号属性
+            var attDef = new AttributeDefinition
+            {
+                Tag = "NO",
+                Prompt = "件号",
+                TextString = "1",
+                Height = 1.05,
+                WidthFactor = 0.8,
+                TextStyleId = textStyleId,
+                Justify = AttachmentPoint.MiddleCenter,
+                Position = Point3d.Origin,
+                AlignmentPoint = Point3d.Origin,
+                Layer = "0",
+                Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
+            };
+            attDef.SetDatabaseDefaults(db);
+            attDef.Justify = AttachmentPoint.MiddleCenter;
+            attDef.Position = Point3d.Origin;
+            attDef.AlignmentPoint = Point3d.Origin;
+            attDef.Height = 1.05;
+            attDef.WidthFactor = 0.8;
+            attDef.TextStyleId = textStyleId;
+            attDef.Layer = "0";
+            attDef.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
+            attDefId = btr.AppendEntity(attDef);
+            tr.AddNewlyCreatedDBObject(attDef, true);
+
+            return blockId;
+        }
+
         private static void AddLeaderLine(Transaction tr, BlockTableRecord ms, Point3d a, Point3d b, string layer)
         {
             var ln = new Line(a, b);
@@ -2203,9 +2348,10 @@ namespace SteelStructureSuite.Services.Drawing
             tr.AddNewlyCreatedDBObject(ln, true);
         }
 
+        /// <summary>兜底扁平标准箭头（长宽比约 3.2:1，符合国标机械/钢结构制图标准）。</summary>
         private static void AddLeaderArrow(Transaction tr, BlockTableRecord ms, Point3d tip, Point3d toward, double textH, string layer)
         {
-            double length = Math.Min(1.8 * textH, tip.DistanceTo(toward) * 0.6);
+            double length = Math.Min(1.35 * textH, tip.DistanceTo(toward) * 0.55);
             if (length < 1e-6) return;
 
             Vector3d dir = toward - tip;
@@ -2214,7 +2360,8 @@ namespace SteelStructureSuite.Services.Drawing
 
             Vector3d perp = dir.CrossProduct(Vector3d.ZAxis);
             if (perp.Length < 1e-9) perp = new Vector3d(0, 1, 0);
-            perp = perp.GetNormal() * (length * 0.30);
+            // 扁平标准箭头：半宽 = 0.16 * length（全宽约 1/3 箭长）
+            perp = perp.GetNormal() * (length * 0.16);
 
             Point3d b1 = tip + dir * length + perp;
             Point3d b2 = tip + dir * length - perp;
@@ -2238,7 +2385,8 @@ namespace SteelStructureSuite.Services.Drawing
         {
             if (items == null || items.Count == 0) return;
 
-            double minSpacing = 2.2 * textH;
+            double balloonR = 0.92 * textH;
+            double minSpacing = 2.6 * textH;
             double band = Math.Max(viewMaxY - viewMinY - 1.6 * textH, minSpacing);
             double spacing = items.Count > 1
                 ? Math.Max(minSpacing, band / (items.Count - 1))
@@ -2246,26 +2394,76 @@ namespace SteelStructureSuite.Services.Drawing
             double centerY = (viewMinY + viewMaxY) * 0.5;
             double startY = centerY + spacing * (items.Count - 1) * 0.5;
 
-            double shelfX = labelX + (toLeft ? -0.4 * textH : 0.4 * textH);
-            double elbowX = labelX + (toLeft ? 2.4 * textH : -2.4 * textH);
+            double circleCenterX = labelX + (toLeft ? -balloonR : balloonR);
+            double elbowX = labelX + (toLeft ? 1.8 * textH : -1.8 * textH);
+
+            ObjectId balloonBlockId = EnsurePartBalloonBlock(tr, ms.Database, textStyleId, out ObjectId attDefId);
 
             for (int i = 0; i < items.Count; i++)
             {
                 LeaderRequest req = items[i];
                 double y = startY - spacing * i;
-                double labelW = Math.Max(EstimateSimSunTextWidth(req.LabelText, textH), 1.6 * textH);
-                Point3d textPos = toLeft
-                    ? new Point3d(shelfX - 0.4 * textH - labelW, y - 0.35 * textH, 0)
-                    : new Point3d(shelfX + 0.4 * textH, y - 0.35 * textH, 0);
-
-                // 引线用「直线 + 实心小三角」，箭头尺寸按纸面 textH 计算，不再用 Leader 实体。
                 Point3d anchor = req.AnchorPt;
                 Point3d elbow = new Point3d(elbowX, y, 0);
-                Point3d shelf = new Point3d(shelfX, y, 0);
-                AddLeaderLine(tr, ms, anchor, elbow, LayerDim);
-                AddLeaderLine(tr, ms, elbow, shelf, LayerDim);
-                AddLeaderArrow(tr, ms, anchor, elbow, textH, LayerDim);
-                AppendSimSunText(tr, ms, textPos, req.LabelText, textStyleId, textH, LayerDim);
+                Point3d center = new Point3d(circleCenterX, y, 0);
+
+                // 优先使用原生 MLeader（带圆形件号块 + 标准扁平箭头，整体可选可拖拽）
+                bool emittedMLeader = false;
+                if (!balloonBlockId.IsNull && !attDefId.IsNull)
+                {
+                    try
+                    {
+                        var ml = new MLeader();
+                        ml.SetDatabaseDefaults(ms.Database);
+                        ml.Layer = LayerDim;
+                        ml.ContentType = ContentType.BlockContent;
+                        ml.BlockContentId = balloonBlockId;
+                        ml.BlockConnectionType = BlockConnectionType.ConnectExtents;
+                        ml.BlockScale = new Scale3d(balloonR, balloonR, balloonR);
+                        ml.BlockPosition = center;
+                        ml.EnableLanding = true;
+                        ml.EnableDogleg = true;
+                        ml.DoglegLength = 1.2 * textH;
+                        ml.LandingGap = 0.0;
+                        ml.ArrowSize = 0.95 * textH;
+                        ml.LeaderLineType = LeaderType.StraightLeader;
+
+                        int leaderIdx = ml.AddLeader();
+                        int lineIdx = ml.AddLeaderLine(leaderIdx);
+                        ml.AddFirstVertex(lineIdx, anchor);
+                        ml.AddLastVertex(lineIdx, elbow);
+
+                        ms.AppendEntity(ml);
+                        tr.AddNewlyCreatedDBObject(ml, true);
+
+                        // 写入圆圈内居中件号属性
+                        AttributeDefinition attDef = (AttributeDefinition)tr.GetObject(attDefId, OpenMode.ForRead);
+                        var attRef = new AttributeReference();
+                        attRef.SetAttributeFromBlock(attDef, Matrix3d.Displacement(center - Point3d.Origin) * Matrix3d.Scaling(balloonR, Point3d.Origin));
+                        attRef.TextString = req.LabelText ?? string.Empty;
+                        ml.SetBlockAttribute(attDefId, attRef);
+                        emittedMLeader = true;
+                    }
+                    catch
+                    {
+                        emittedMLeader = false;
+                    }
+                }
+
+                if (!emittedMLeader)
+                {
+                    Point3d edgePt = new Point3d(circleCenterX + (toLeft ? balloonR : -balloonR), y, 0);
+                    AddLeaderLine(tr, ms, anchor, elbow, LayerDim);
+                    AddLeaderLine(tr, ms, elbow, edgePt, LayerDim);
+                    AddLeaderArrow(tr, ms, anchor, elbow, textH, LayerDim);
+
+                    var c = new Circle(center, Vector3d.ZAxis, balloonR);
+                    c.SetDatabaseDefaults(ms.Database);
+                    c.Layer = LayerDim;
+                    ms.AppendEntity(c);
+                    tr.AddNewlyCreatedDBObject(c, true);
+                    AppendCenteredSimSunText(tr, ms, center, req.LabelText, textStyleId, textH, LayerDim);
+                }
             }
         }
 
@@ -2527,14 +2725,15 @@ namespace SteelStructureSuite.Services.Drawing
             dim.SetDatabaseDefaults();
             dim.Layer = LayerDim;
             dim.Dimtxt = textH;
-            dim.Dimasz = textH * 0.72;
-            dim.Dimgap = textH * 0.30;
-            dim.Dimexe = textH * 0.45;
+            dim.Dimasz = textH * 0.65;
+            dim.Dimgap = textH * 0.28;
+            dim.Dimexe = textH * 0.42;
             dim.Dimexo = textH * 0.35;
             dim.Dimdec = 0;
             dim.Dimtad = 1;
             dim.Dimtih = false;
             dim.Dimtoh = false;
+            dim.Dimtmove = 2;
             ms.AppendEntity(dim);
             tr.AddNewlyCreatedDBObject(dim, true);
         }
