@@ -1,0 +1,78 @@
+<Window x:Class="SteelStructureSuite.Views.UpdateAvailableWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="发现新版本 - 参数化钢结构套件"
+        Width="540"
+        MinWidth="460"
+        MinHeight="300"
+        SizeToContent="Height"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        ShowInTaskbar="False"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <TextBlock x:Name="TxtHeadline"
+                   Grid.Row="0"
+                   FontWeight="SemiBold"
+                   Text="检测到 SteelStructureSuite 新版本" />
+
+        <Grid Grid.Row="1" Margin="0,10,0,0" Grid.IsSharedSizeScope="True">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" MinWidth="76" SharedSizeGroup="UpdLabel" />
+                <ColumnDefinition Width="12" />
+                <ColumnDefinition Width="*" />
+            </Grid.ColumnDefinitions>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+
+            <TextBlock Grid.Row="0" Grid.Column="0" Text="当前版本" />
+            <TextBlock x:Name="TxtCurrentVersion" Grid.Row="0" Grid.Column="2" Text="-" />
+
+            <TextBlock Grid.Row="1" Grid.Column="0" Text="最新版本" Margin="0,4,0,0" />
+            <TextBlock x:Name="TxtLatestVersion" Grid.Row="1" Grid.Column="2" Margin="0,4,0,0" FontWeight="SemiBold" Text="-" />
+        </Grid>
+
+        <GroupBox Grid.Row="2" Header="更新说明" Margin="0,12,0,12">
+            <TextBox x:Name="TxtReleaseNotes"
+                     AcceptsReturn="True"
+                     TextWrapping="Wrap"
+                     IsReadOnly="True"
+                     VerticalScrollBarVisibility="Auto"
+                     MinHeight="140"
+                     MaxHeight="280" />
+        </GroupBox>
+
+        <DockPanel Grid.Row="3" LastChildFill="False">
+            <Button DockPanel.Dock="Left"
+                    Content="跳过此版本"
+                    Click="OnSkipVersionClick" />
+            <StackPanel DockPanel.Dock="Right" Orientation="Horizontal">
+                <Button Content="稍后提醒"
+                        Margin="0,0,8,0"
+                        IsCancel="True"
+                        Click="OnRemindLaterClick" />
+                <Button Content="前往下载"
+                        IsDefault="True"
+                        Click="OnOpenDownloadClick" />
+            </StackPanel>
+        </DockPanel>
+    </Grid>
+</Window>

@@ -8,6 +8,7 @@ using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Ribbon;
 using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Settings;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
 
 [assembly: ExtensionApplication(typeof(SteelStructureSuite.Core.PluginApplication))]
@@ -40,6 +41,7 @@ namespace SteelStructureSuite.Core
                     Application.DocumentManager.DocumentActivated += OnDocumentRibbonCheck;
                 }
                 TryLoadRibbonImmediately();
+                GitHubUpdateService.StartBackgroundCheckOnLoad();
 
                 Editor ed = Application.DocumentManager.MdiActiveDocument?.Editor;
                 ed?.WriteMessage(
@@ -61,6 +63,7 @@ namespace SteelStructureSuite.Core
 
         public void Terminate()
         {
+            GitHubUpdateService.CancelPendingNotification();
             Application.Idle -= OnApplicationIdleAutoLoadRibbon;
             ComponentManager.ItemInitialized -= OnComponentManagerItemInitialized;
             Application.SystemVariableChanged -= OnSystemVariableChanged;

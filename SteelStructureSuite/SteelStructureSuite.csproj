@@ -72,6 +72,7 @@
     <Compile Include="Services\Takeoff\MaterialTakeoffService.cs" />
     <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
     <Compile Include="Services\Settings\UserSettings.cs" />
+    <Compile Include="Services\Settings\GitHubUpdateService.cs" />
     <Compile Include="Services\Templates\StructureTemplate.cs" />
     <Compile Include="Services\Templates\StructureTemplateStore.cs" />
     <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
@@ -203,6 +204,15 @@
 
     <Compile Include="Views\AboutWindow.xaml.cs">
       <DependentUpon>AboutWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\UpdateAvailableWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+
+    <Compile Include="Views\UpdateAvailableWindow.xaml.cs">
+      <DependentUpon>UpdateAvailableWindow.xaml</DependentUpon>
     </Compile>
   </ItemGroup>
 
