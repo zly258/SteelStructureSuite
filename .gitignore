@@ -153,3 +153,7 @@ _tmp*/
 _probe/
 _test*/
 
+# AutoCAD 临时图纸
+_.PlantLoadTP.dwg
+
+
