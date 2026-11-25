@@ -1,4 +1,4 @@
-# ============================================================================================
+﻿# ============================================================================================
 #  SteelStructureSuite 发布脚本（PowerShell 7 / pwsh）
 #
 #  背景：
@@ -130,7 +130,7 @@ foreach ($t in $targets) {
     $tfm = $t.TargetFramework
     if (-not $SkipBuild) {
         Write-Host "编译 $($t.Key) ($tfm) → $acadDir" -ForegroundColor Cyan
-        & $msbuild $solution /t:Rebuild /p:Configuration=Release /p:Platform=x64 "/p:AutoCADDir=$acadDir" "/p:TargetFramework=$tfm" "/p:OutputPath=$outDir" /v:minimal /nologo
+        & $msbuild $solution /restore /t:Rebuild /p:Configuration=Release /p:Platform=x64 "/p:AutoCADDir=$acadDir" "/p:TargetFramework=$tfm" "/p:OutputPath=$outDir" /v:minimal /nologo
         if ($LASTEXITCODE -ne 0) { throw "编译失败：$($t.Key)" }
     }
 
@@ -170,7 +170,7 @@ if ($Install) {
 }
 
 # 4. 打包绿色 zip 包（仅包含统一的 SteelStructureSuite.bundle）
-$zip = Join-Path $root 'dist\SteelStructureSuite-bundle-1.1.0.zip'
+$zip = Join-Path $root 'dist\SteelStructureSuite-bundle-1.2.0.zip'
 if (Test-Path $zip) { Remove-Item $zip -Force }
 Compress-Archive -Path $bundleDir -DestinationPath $zip -Force
 Write-Host "已打包绿色分发包 $zip" -ForegroundColor Green

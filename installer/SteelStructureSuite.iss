@@ -12,7 +12,7 @@
 #define AppName "参数化钢结构套件"
 #define AppShortName "SteelStructureSuite"
 #ifndef AppVersion
-  #define AppVersion "1.1.0"
+  #define AppVersion "1.2.0"
 #endif
 #define AppPublisher "zhangly1403"
 #define AppCopyright "Copyright (c) 2026 zhangly1403 | zhangly1403@qq.com"

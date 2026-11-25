@@ -26,9 +26,9 @@
     <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
     <AssemblyName>SteelStructureSuite</AssemblyName>
     <RootNamespace>SteelStructureSuite</RootNamespace>
-    <Version>1.1.0</Version>
-    <AssemblyVersion>1.1.0.0</AssemblyVersion>
-    <FileVersion>1.1.0.0</FileVersion>
+    <Version>1.2.0</Version>
+    <AssemblyVersion>1.2.0.0</AssemblyVersion>
+    <FileVersion>1.2.0.0</FileVersion>
     <Product>SteelStructureSuite</Product>
     <Description>AutoCAD 参数化钢结构套件</Description>
     <Company>zhangly1403</Company>

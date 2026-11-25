@@ -10,17 +10,18 @@
   <a href="https://github.com/zly258/SteelStructureSuite/releases/latest"><img src="https://img.shields.io/github/v/release/zly258/SteelStructureSuite?style=flat-square&color=F59E0B&label=Release" alt="Latest Release"></a> <img src="https://img.shields.io/badge/AutoCAD-2019--2026%20x64-3776AB?style=flat-square" alt="AutoCAD 2019-2026 x64"> <img src="https://img.shields.io/badge/.NET-4.8%20%7C%208.0-3776AB?style=flat-square" alt=".NET 4.8 and 8.0"> <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11%20x64-4B5563?style=flat-square" alt="Windows 10/11 x64"> <a href="./docs/UserManual.md"><img src="https://img.shields.io/badge/Docs-User%20Manual-4F46E5?style=flat-square" alt="User Manual"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-22C55E?style=flat-square" alt="License: GPL-3.0"></a>
 </p>
 
-**SteelStructureSuite（参数化钢结构套件）** 基于 Autodesk ApplicationPlugins Bundle 规范集成至 AutoCAD (x64)，随 AutoCAD 启动自动加载并在顶部生成专属「参数化钢结构」功能区。套件覆盖 26 类参数化钢结构构件，适用于厂房刚架、平台梯道、空间管廊以及化工、电力与冶金行业的标准支承结构。
+**SteelStructureSuite（参数化钢结构套件）** 基于 Autodesk ApplicationPlugins Bundle 规范集成至 AutoCAD (x64)，随 AutoCAD 启动自动加载并在顶部生成专属「参数化钢结构」功能区。套件覆盖 34 类参数化钢结构构件（含 8 类区域组合布置），适用于厂房刚架、平台梯道、空间管廊、轻钢厂房、连廊通廊、设备框架、钢雨棚以及化工、电力与冶金行业的标准支承结构。
 
 ## 核心亮点
 
 | 亮点能力 | 工程价值 |
 |---|---|
-| 30 类行业参数化构件 | 涵盖门式刚架、平台、梯道、栏杆、单根型钢、化工/电力/冶金三大行业标准组件，以及钢平台成套、厂房柱列、管廊成套区段、楼梯成套等区域组合构件。 |
-| 5 大类 24 种型钢截面库 | 内置 `DefaultSectionCatalog.csv` 共 176 条预置规格，覆盖热轧、焊接/组合、冷弯薄壁、空心钢管与实心型材，支持 2D 实时轮廓预览、手册单重修正及 CSV/Excel 导入导出。 |
-| 动态预览与正交夹点编辑 | 支持单点动态落位、两点定向拉伸、`SS_LINEAR_CHAIN` 连续折线绘制，以及独立长宽高正交夹点拉伸与双击实体直接改参。 |
-| 全图模型管理与位号顺号 | 通过 `SS_MANAGER` 提供左树右表检索与视口聚焦高亮；通过 `SS_RENUMBER` 支持前缀统一、自定义编号位数与前后对比预览。 |
-| 材料统计与 AcBr 原生消隐出图 | 按截面规格、材质与单长合并累重，内置 OpenXML 导出 `.xlsx` 或插入 CAD 表格（`SS_BOM`）；基于 AcBr 实体边界消隐生成国标 A1–A4 施工详图（`SS_DRAWING`）。 |
+| 34 类行业参数化构件 | 涵盖单根型钢、门式刚架、平台梯道、化工/电力/冶金标准组件，以及钢平台成套、厂房柱列、管廊成套、楼梯成套、轻钢厂房成套、连廊通廊成套、设备框架成套、钢雨棚成套等 8 类区域组合构件（全支持单线动态预览与完整算量）。 |
+| 极简/详细双功能区与统一配色 | 默认极简菜单（6 大面板、按面板类型统一图标配色），一键切换详细菜单（`SS_RIBBONMODE`），兼顾小屏整洁与高效点选。 |
+| 左轴测图右参数两列可调编辑 | 建模窗口左侧实时渲染单幅三维轴测示意图，右侧采用分组 `PropertyGrid`（含可检索截面树形下拉），中间支持 `GridSplitter` 拖拽调宽并记忆比例。 |
+| 5 大类 24 种型钢截面库 | 内置 `DefaultSectionCatalog.csv` 共 176 条预置规格，成对保存「类型 + 截面」并校验全局名称唯一，支持 2D 实时轮廓预览、手册单重修正及 CSV/Excel 导入导出。 |
+| 真实参数模板与树形管理 | 每种构件内置 3 种常用预设，并接入本地 JSON 真实模板库（`%LocalAppData%\SteelStructureSuite\Templates.json`）；模板管理窗口提供左侧分类树 + 右侧列表 + 模糊检索 + JSON 导入导出。 |
+| 材料统计与高精度施工详图 | 按截面规格、材质与单长合并累重，导出 `.xlsx` 或插入 CAD 表格（`SS_BOM`）；`SS_DRAWING` / `SS_BATCHDRAW` 输出国标 A1–A4 施工详图，64 边圆弧平滑无锯齿、正/侧/平面三道整齐详细尺寸、仅在轴测图标注原生带圆圈 `MLeader` 件号引线。 |
 | 多版本自适应统一 Bundle | 单个 `SteelStructureSuite.bundle` 内置 R23（`2019–2020`，.NET 4.8）、R24（`2021–2024`，.NET 4.8）与 R25（`2025–2026`，.NET 8.0）三个运行时模块，按宿主 AutoCAD 版本自动匹配加载。 |
 
 ## 系统架构
@@ -64,6 +65,20 @@
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## 界面与出图预览
+
+### AutoCAD 功能区菜单（默认极简菜单，按面板统一配色）
+
+![AutoCAD 参数化钢结构功能区极简菜单](./docs/images/ribbon-compact.png)
+
+### 型钢截面库管理（`SS_SECTIONS`）
+
+![型钢截面库管理窗口，含左侧分类树、右侧规格表与 2D 实时截面预览](./docs/images/section-catalog.jpg)
+
+### 国标 A1–A4 施工详图输出（`SS_DRAWING`）
+
+![施工详图输出效果，含三视图详细尺寸标注、轴测图带圆圈 MLeader 件号引线与材料明细表](./docs/images/detail-drawing.png)
+
 ## 快速安装
 
 ### 环境要求
@@ -78,7 +93,7 @@
 ### 方式一：Windows 安装包（推荐）
 
 1. 先关闭所有正在运行的 AutoCAD（`acad.exe`）进程，避免 DLL 被占用。
-2. 前往 [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) 下载最新版本的 `SteelStructureSuite-1.1.0-setup.exe`。
+2. 前往 [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) 下载最新版本的 `SteelStructureSuite-1.2.0-setup.exe`。
 3. 运行安装向导，插件将自动安装到受 `SECURELOAD=1` 默认信任的系统插件目录：
 
 ```text
@@ -89,7 +104,7 @@ C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
 
 ### 方式二：绿色免安装 Bundle
 
-从 [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) 下载 `SteelStructureSuite-bundle-1.1.0.zip`，解压至 `C:\Program Files\Autodesk\ApplicationPlugins\`，保持如下目录结构：
+从 [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) 下载 `SteelStructureSuite-bundle-1.2.0.zip`，解压至 `C:\Program Files\Autodesk\ApplicationPlugins\`，保持如下目录结构：
 
 ```text
 C:\Program Files\Autodesk\ApplicationPlugins\
@@ -133,12 +148,12 @@ SS_DRAWING    # 生成国标 A1-A4 消隐施工详图
 | 命令 | 说明 |
 |---|---|
 | `SS_RIBBON` | 重新生成并激活顶部「参数化钢结构」功能区选项卡 |
-| `SS_RIBBONMODE` | 在详细（每构件一按钮）与极简（每大类一下拉菜单）两种功能区布局间切换 |
+| `SS_RIBBONMODE` | 在极简菜单（默认，每大类一下拉菜单）与详细菜单（每构件一按钮）间切换 |
 | `SS_MANAGER` | 打开全图模型管理器，支持分类树过滤、关键字搜索、视口居中高亮、参数修改与删除 |
 | `SS_RENUMBER` | 按构件类型前缀与编号位数批量顺号重排，支持统一前缀与前后对比预览 |
-| `SS_SECTIONS` | 打开 5 大类 24 种型钢截面库，支持 2D 轮廓预览、手册单重修正及 Excel/CSV 导入导出 |
+| `SS_SECTIONS` | 打开 5 大类 24 种型钢截面库，成对保存类型+截面且禁止重名，支持 2D 轮廓预览与 Excel/CSV 导入导出 |
 | `SS_BOM` | 框选或全图提取构件材料明细，导出 `.xlsx` 报表或插入 CAD 原生表格 |
-| `SS_DRAWING` | 拾取构件生成国标 A1–A4 消隐施工图（正/侧/俯视图、轴测图件号引线、明细表与接头放大图） |
+| `SS_DRAWING` | 拾取构件生成国标 A1–A4 施工详图（三视图三道详细尺寸、轴测图带圆圈 `MLeader` 件号引线与材料明细表） |
 | `SS_BATCHDRAW` | 批量出详图：相同构件自动复用图纸，附图纸目录与汇总材料表，带进度条可随时取消 |
 | `SS_DRAWCFG` | 配置详图图幅、比例、投影视图与输出目标（当前图纸或独立新 DWG） |
 | `SS_HELP` | 打开插件内置使用说明窗口 |
@@ -146,13 +161,12 @@ SS_DRAWING    # 生成国标 A1-A4 消隐施工详图
 
 ### 参数模板
 
-模板取代了原先写死的「轻 / 中 / 重」预设：任意构件配好参数后可存成具名模板，随时套用。
-模板库是单个可读的 JSON 文件，位于 `%LocalAppData%\SteelStructureSuite\Templates.json`，
-采用原子写入并自动保留 `.bak` 备份，可直接用文本编辑器查看、备份或同事间共享，无需数据库引擎。
+每种构件保留 3 种内置预设，同时接入真实用户模板库：任意构件配好参数后可就地存为具名模板并随时套用。
+模板库保存为单个可读 JSON 文件 `%LocalAppData%\SteelStructureSuite\Templates.json`（含截面类型与截面代号，原子写入并保留 `.bak` 备份），支持在模板管理窗口按左侧分类树筛选、模糊检索、在线重命名、删除确认及 JSON 导入导出。
 
 | 命令 | 作用 |
 |---|---|
-| `SS_TEMPLATES` | 模板管理窗口：重命名、删除、导入导出整个模板库 |
+| `SS_TEMPLATES` | 模板管理窗口：左侧分类树 + 右侧列表检索、重命名、删除、导入导出 |
 | `SS_SAVETEMPLATE` | 把选中构件的全部参数保存为具名模板 |
 | `SS_APPLYTEMPLATE` | 把模板参数套用到选中构件 |
 
@@ -176,10 +190,13 @@ SS_DRAWING    # 生成国标 A1-A4 消隐施工详图
 | `SS_OVERRULE_OFF` | 关闭参数夹点复写，回退为原生夹点 |
 | `SS_RESETSETTINGS` | 清除本地界面记忆，恢复默认预设值 |
 
-### 30 种参数化构件清单
+### 34 种参数化构件清单
 
 | 行业大类 | 构件名称 | 命令 | 参照标准 / 图集 | 绘制模式 |
 |---|---|---|---|---|
+| 单根型钢构件 | 单根直线型钢 | `SS_MEMBER` | GB/T 11263 | 三维两点拾取 |
+| | 单根弧形型钢 | `SS_ARC` | 沿圆弧/圆/多段线扫掠 | 拾取路径图元 |
+| | 单根螺旋型钢 | `SS_SPIRAL` | 沿 AutoCAD `HELIX` 扫掠 | 拾取螺旋线图元 |
 | 厂房与装置框架 | 单跨门式刚架 | `SS_PORTAL` | GB 51022 | 单点放置 |
 | | 多跨门式刚架 | `SS_MULTIPORTAL` | GB 51022 | 单点放置 |
 | | 人字斜撑框架 | `SS_BRACED` | GB 50017 | 单点放置 |
@@ -203,13 +220,14 @@ SS_DRAWING    # 生成国标 A1-A4 消隐施工详图
 | | 电力电缆沟多层支架 | `SS_CABLE_RACK` | DL/T 5221 | 两点 / 连续折线 |
 | | 冶金厂房重型吊车梁系统 | `SS_CRANE_BEAM` | 20G520-1~2 | 两点线性 |
 | | 冶金厂房柱间交叉支撑 | `SS_XBRACE` | 19G518-3 | 两点线性 |
-| 单根型钢构件 | 单根直线型钢 | `SS_MEMBER` | GB/T 11263 | 三维两点拾取 |
-| | 单根弧形型钢 | `SS_ARC` | 沿圆弧/圆/多段线扫掠 | 拾取路径图元 |
-| | 单根螺旋型钢 | `SS_SPIRAL` | 沿 AutoCAD `HELIX` 扫掠 | 拾取螺旋线图元 |
-| 区域组合构件 | 钢平台成套（柱+主次梁+花纹板+栏杆+斜梯） | `SS_ZONE_PLATFORM` | GB 50017 / GB 4053.3 | 单点放置 |
-| | 厂房柱列（柱+柱间支撑+吊车梁+系杆） | `SS_ZONE_COLROW` | GB 50017 / 16G519 | 单点放置 |
-| | 管廊成套区段（多层按跨数生成） | `SS_ZONE_PIPERACK` | HG/T 20670 | 单点放置 |
-| | 楼梯成套（梯梁+踏步+扶手+休息平台） | `SS_ZONE_STAIR` | GB 4053.1 | 单点放置 |
+| 区域组合构件 | 钢平台成套（柱+主次梁+花纹板+栏杆+斜梯） | `SS_ZONE_PLATFORM` | GB 50017 / GB 4053.3 | 单点（单线预览） |
+| | 厂房柱列（柱+柱间支撑+牛腿+吊车梁+系杆） | `SS_ZONE_COLROW` | GB 50017 / 16G519 | 单点（单线预览） |
+| | 管廊成套区段（多层按跨数生成） | `SS_ZONE_PIPERACK` | HG/T 20670 | 单点（单线预览） |
+| | 楼梯成套（梯梁+踏步板+扶手+落地休息平台） | `SS_ZONE_STAIR` | GB 4053.2 | 单点（单线预览） |
+| | 轻钢厂房成套（多榀双坡门架+檩条+柱间支撑） | `SS_ZONE_HALL` | GB 51022 | 单点（单线预览） |
+| | 连廊通廊成套（支墩柱+主次梁+铺板+双侧栏杆） | `SS_ZONE_WALKWAY` | GB 50017 / GB 4053.3 | 单点（单线预览） |
+| | 设备框架成套（多层多跨框架+顶层平台+护栏） | `SS_ZONE_EQFRAME` | GB 50017 | 单点（单线预览） |
+| | 钢雨棚成套（多榀立柱+悬挑斜梁+斜撑+檩条） | `SS_ZONE_CANOPY` | GB 50017 | 单点（单线预览） |
 
 ## 源码编译与打包
 
@@ -236,7 +254,7 @@ msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=
         /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2026" /p:TargetFramework=net8.0-windows
 ```
 
-使用发布脚本一键编译本机已安装的各版本目标、组装统一 Bundle 并生成 `dist\SteelStructureSuite-bundle-1.1.0.zip`（检测到 Inno Setup 6 时同步生成 `dist\SteelStructureSuite-1.1.0-setup.exe`）：
+使用发布脚本一键编译本机已安装的各版本目标、组装统一 Bundle 并生成 `dist\SteelStructureSuite-bundle-1.2.0.zip`（检测到 Inno Setup 6 时同步生成 `dist\SteelStructureSuite-1.2.0-setup.exe`）：
 
 ```powershell
 # 仅编译并在 dist\ 目录生成发布产物
@@ -249,7 +267,7 @@ pwsh tools\Publish.ps1 -Install
 单独调用 Inno Setup 6 构建安装包：
 
 ```powershell
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.1.0 installer\SteelStructureSuite.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.2.0 installer\SteelStructureSuite.iss
 ```
 
 ## 文档导航

@@ -28,7 +28,7 @@ SteelStructureSuite 依据 GNU 通用公共许可证第三版（GPL v3.0）发�
             string version =
                 asm.GetCustomAttribute<AssemblyInformationalVersionAttribute>()?.InformationalVersion
                 ?? asm.GetName().Version?.ToString()
-                ?? "1.1.0";
+                ?? "1.2.0";
             TxtVersion.Text = version;
 
             TxtCopyright.Text = "Copyright © 2026 zhangly1403 · GNU GPL v3.0";

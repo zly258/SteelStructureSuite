@@ -12,8 +12,8 @@
     NameChs="参数化钢结构套件"
     Description="Parametric Steel Structure Modeling and Detailing Suite for AutoCAD"
     DescriptionChs="参数化钢结构套件：门架/平台/梯道/栏杆参数化建模、夹点复写、材料统计与标准图框详图"
-    AppVersion="1.1.0"
-    FriendlyVersion="1.1.0"
+    AppVersion="1.2.0"
+    FriendlyVersion="1.2.0"
     ProductCode="{07A15AD4-44A2-4BF5-8F62-41DDF8E03F13}"
     UpgradeCode="{B7585238-DAB8-4F59-8C22-14F4ED107BE6}"
     Author="zhangly1403"
@@ -27,7 +27,7 @@
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R23.0" SeriesMax="R23.1" />
     <ComponentEntry
         AppName="SteelStructureSuite"
-        Version="1.1.0"
+        Version="1.2.0"
         ModuleName="./Contents/2019/SteelStructureSuite.dll"
         AppDescription="参数化钢结构套件 (AutoCAD 2019-2020)"
         LoadOnAutoCADStartup="True"
@@ -88,7 +88,7 @@
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R24.0" SeriesMax="R24.3" />
     <ComponentEntry
         AppName="SteelStructureSuite"
-        Version="1.1.0"
+        Version="1.2.0"
         ModuleName="./Contents/2021/SteelStructureSuite.dll"
         AppDescription="参数化钢结构套件 (AutoCAD 2021-2024)"
         LoadOnAutoCADStartup="True"
@@ -149,7 +149,7 @@
     <RuntimeRequirements OS="Win64" Platform="AutoCAD*" SeriesMin="R25.0" />
     <ComponentEntry
         AppName="SteelStructureSuite"
-        Version="1.1.0"
+        Version="1.2.0"
         ModuleName="./Contents/2026/SteelStructureSuite.dll"
         AppDescription="参数化钢结构套件 (AutoCAD 2025-2026)"
         LoadOnAutoCADStartup="True"

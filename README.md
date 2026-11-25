@@ -10,20 +10,18 @@
   <a href="https://github.com/zly258/SteelStructureSuite/releases/latest"><img src="https://img.shields.io/github/v/release/zly258/SteelStructureSuite?style=flat-square&color=F59E0B&label=Release" alt="Latest Release"></a> <img src="https://img.shields.io/badge/AutoCAD-2019--2026%20x64-3776AB?style=flat-square" alt="AutoCAD 2019-2026 x64"> <img src="https://img.shields.io/badge/.NET-4.8%20%7C%208.0-3776AB?style=flat-square" alt=".NET 4.8 and 8.0"> <img src="https://img.shields.io/badge/Platform-Windows%2010%2F11%20x64-4B5563?style=flat-square" alt="Windows 10/11 x64"> <a href="./docs/UserManual.md"><img src="https://img.shields.io/badge/Docs-User%20Manual-4F46E5?style=flat-square" alt="User Manual"></a> <a href="./LICENSE"><img src="https://img.shields.io/badge/License-GPL--3.0-22C55E?style=flat-square" alt="License: GPL-3.0"></a>
 </p>
 
-**SteelStructureSuite** is an AutoCAD (x64) plugin packaged as a unified Autodesk ApplicationPlugins Bundle. It loads automatically on AutoCAD startup, adds a dedicated Ribbon tab, and covers 26 parametric steel structure types across industrial buildings, platforms, stairs, pipe racks, and chemical, power, and metallurgy equipment supports.
+**SteelStructureSuite** is an AutoCAD (x64) plugin packaged as a unified Autodesk ApplicationPlugins Bundle. It loads automatically on AutoCAD startup, adds a dedicated Ribbon tab, and covers 34 parametric steel structure types (including 8 multi-member zone assemblies) across industrial buildings, platforms, stairs, pipe racks, walkways, canopies, and chemical, power, and metallurgy equipment supports.
 
 ## Highlights
 
 | Highlight | Why it matters |
 |---|---|
-| 26 parametric structure types | Covers portal frames, platforms, stairs, handrails, single members, and industrial standard assemblies for chemical, electric power, and metallurgy projects. |
-| 5-category, 24-shape section catalog | Ships with 176 preset specifications in `DefaultSectionCatalog.csv` covering hot-rolled, welded/composite, cold-formed, hollow tube, and solid bar sections with 2D preview and CSV/Excel import-export. |
-| Dynamic jig placement and orthogonal grips | Supports single-point placement, two-point directional placement, polyline chaining (`SS_LINEAR_CHAIN`), independent length/width/height grip stretching, and double-click parameter editing. |
-| Model manager and batch renumbering | Provides tree-and-table filtering with viewport zoom-to-focus (`SS_MANAGER`) and rule-based tag prefixing and sequential renumbering (`SS_RENUMBER`). |
-| Parameter templates (JSON) | Save any configured structure as a reusable named template; rename, delete, and import/export whole template libraries. No database engine required. |
-| Zone assemblies | Place an entire region in one command: platform set, column row, pipe rack bay, stair set — built from the same single-member builders so BOM, detailing, and batch drawing all work unchanged. |
-| Mitered joints and joint detail views | Member ends are mitered/trimmed for realistic connections while cut lengths keep the pre-cut design value; detailing adds enlarged joint views with angle and cut-face dimensions. |
-| BOM takeoff and AcBr hidden-line detailing | Aggregates member weights by section, material, and length into `.xlsx` (via built-in OpenXML) or native AutoCAD tables (`SS_BOM`), and generates A1–A4 engineering drawings with native boundary hidden-line removal (`SS_DRAWING`). |
+| 34 parametric structure types | Covers single members, portal frames, platforms, stairs, handrails, chemical/power/metallurgy standard assemblies, and 8 multi-member zone assemblies (platform, column row, pipe rack, stair, portal hall, walkway bridge, equipment frame, canopy) with single-line dynamic preview and full BOM takeoff. |
+| Compact/Detailed Ribbon with unified colors | Defaults to a clean Compact Ribbon (6 color-coded panels with category dropdowns) and toggles to Detailed mode (`SS_RIBBONMODE`) on demand. |
+| Resizable two-column parameter editor | Pairs a single live 3D isometric schematic on the left with a categorized `PropertyGrid` (including a searchable section tree dropdown) on the right, separated by a persistent `GridSplitter`. |
+| 5-category, 24-shape section catalog | Ships with 176 preset specifications in `DefaultSectionCatalog.csv`, stores section type + name pairs with global name uniqueness validation, 2D preview, manual weight overrides, and CSV/Excel import-export. |
+| Parameter templates with tree manager | Keeps 3 built-in presets per structure type alongside a persistent JSON user template library (`%LocalAppData%\SteelStructureSuite\Templates.json`); `SS_TEMPLATES` provides a left category tree, searchable right list, inline rename/notes, and JSON import/export. |
+| BOM takeoff and clean engineering detailing | Aggregates member weights into `.xlsx` (built-in OpenXML) or native AutoCAD tables (`SS_BOM`); `SS_DRAWING` and `SS_BATCHDRAW` generate A1–A4 drawings with smooth 64-segment circular profiles, 3-tier aligned orthographic dimensions, and native circled `MLeader` part callouts exclusively on the isometric view. |
 | Multi-version adaptive bundle | Bundles R23 (`2019–2020`, .NET 4.8), R24 (`2021–2024`, .NET 4.8), and R25 (`2025–2026`, .NET 8.0) runtimes in one `SteelStructureSuite.bundle` that matches the host AutoCAD version automatically. |
 
 ## Architecture
@@ -67,6 +65,20 @@
 └────────────────────────────────────────────────────────────────────────────┘
 ```
 
+## Interface and Output Preview
+
+### AutoCAD Ribbon (Default Compact Mode with Unified Panel Colors)
+
+![SteelStructureSuite Compact Ribbon in AutoCAD](./docs/images/ribbon-compact.png)
+
+### Section Catalog Manager (`SS_SECTIONS`)
+
+![Section Catalog Manager window with category tree, specification grid, and live 2D profile preview](./docs/images/section-catalog.jpg)
+
+### Engineering Detail Drawing (`SS_DRAWING`)
+
+![Generated A1-A4 engineering detail drawing with 3-tier orthographic dimensions, isometric circled MLeader callouts, and BOM table](./docs/images/detail-drawing.png)
+
 ## Quick Install
 
 ### Prerequisites
@@ -81,7 +93,7 @@
 ### Option 1: Windows Installer (Recommended)
 
 1. Close all running AutoCAD (`acad.exe`) instances.
-2. Download `SteelStructureSuite-1.1.0-setup.exe` from the [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) page.
+2. Download `SteelStructureSuite-1.2.0-setup.exe` from the [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) page.
 3. Run the installer. It installs the unified adaptive bundle into the trusted system plugin path (`SECURELOAD=1` compatible):
 
 ```text
@@ -92,7 +104,7 @@ C:\Program Files\Autodesk\ApplicationPlugins\SteelStructureSuite.bundle\
 
 ### Option 2: Portable Bundle (No Installer)
 
-Extract `SteelStructureSuite-bundle-1.1.0.zip` from [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) to `C:\Program Files\Autodesk\ApplicationPlugins\`, preserving this layout:
+Extract `SteelStructureSuite-bundle-1.2.0.zip` from [GitHub Releases](https://github.com/zly258/SteelStructureSuite/releases/latest) to `C:\Program Files\Autodesk\ApplicationPlugins\`, preserving this layout:
 
 ```text
 C:\Program Files\Autodesk\ApplicationPlugins\
@@ -136,12 +148,12 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 | Command | Purpose |
 |---|---|
 | `SS_RIBBON` | Rebuild and activate the plugin Ribbon tab |
-| `SS_RIBBONMODE` | Toggle Ribbon layout between Detailed (one button per type) and Compact (one dropdown menu per category) |
+| `SS_RIBBONMODE` | Toggle Ribbon layout between Compact (default, one dropdown per category) and Detailed (one button per type) |
 | `SS_MANAGER` | Open the drawing-wide model manager with tree filter, keyword search, viewport zoom-focus, edit, and delete |
 | `SS_RENUMBER` | Batch renumber structure tags with prefix unification, digit padding, and before/after preview |
-| `SS_SECTIONS` | Open the 5-category, 24-shape section catalog with 2D preview, weight override, and Excel/CSV import-export |
+| `SS_SECTIONS` | Open the 5-category, 24-shape section catalog (type+section storage, unique names, 2D preview, Excel/CSV import-export) |
 | `SS_BOM` | Extract material takeoff from selected entities or the entire drawing and export `.xlsx` or AutoCAD tables |
-| `SS_DRAWING` | Generate A1–A4 hidden-line detailing drawings with orthographic projections, isometric callouts, and BOM |
+| `SS_DRAWING` | Generate A1–A4 engineering drawings with 3-tier orthographic dimensions, isometric circled `MLeader` callouts, and BOM |
 | `SS_BATCHDRAW` | Batch detailing: reuse identical structures, add drawing index + consolidated BOM, progress bar with cancel |
 | `SS_DRAWCFG` | Configure detailing sheet size, scale, projection views, and output target (current drawing or new DWG) |
 | `SS_HELP` | Open the built-in user manual window |
@@ -149,14 +161,13 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 
 ### Parameter Templates
 
-Templates replace the old hard-coded light/medium/heavy presets: any structure can be saved as a
-named template and re-applied later. Stored as a single readable JSON file at
-`%LocalAppData%\SteelStructureSuite\Templates.json` (atomic write + automatic `.bak` backup),
-so it can be edited, backed up, or shared between colleagues without any database engine.
+Every structure type retains 3 built-in presets alongside a persistent JSON user template library at
+`%LocalAppData%\SteelStructureSuite\Templates.json` (storing section type + section name, atomic write + `.bak` backup).
+The template manager provides a left category tree, searchable right list, inline rename/notes, `MessageBox` delete confirmation, and JSON import/export.
 
 | Command | Purpose |
 |---|---|
-| `SS_TEMPLATES` | Template manager: rename, delete, import/export template libraries |
+| `SS_TEMPLATES` | Template manager with left category tree, search list, inline edit, delete, and JSON import/export |
 | `SS_SAVETEMPLATE` | Save the selected structure's full parameter set as a named template |
 | `SS_APPLYTEMPLATE` | Apply a template's parameters to the selected structure |
 
@@ -180,10 +191,13 @@ so it can be edited, backed up, or shared between colleagues without any databas
 | `SS_OVERRULE_OFF` | Disable parametric grip overrules and revert to native AutoCAD grips |
 | `SS_RESETSETTINGS` | Reset saved local UI preferences to factory defaults |
 
-### Parametric Structure Commands (30 Types)
+### Parametric Structure Commands (34 Types)
 
 | Category | Structure | Command | Reference Standard | Placement Mode |
 |---|---|---|---|---|
+| Single Steel Members | Straight Steel Member | `SS_MEMBER` | GB/T 11263 | Two-point 3D |
+| | Arc Steel Member | `SS_ARC` | Sweep along arc/circle/polyline | Pick path entity |
+| | Spiral Steel Member | `SS_SPIRAL` | Sweep along AutoCAD `HELIX` | Pick helix entity |
 | Industrial Frames | Single-Span Portal Frame | `SS_PORTAL` | GB 51022 | Single point |
 | | Multi-Span Portal Frame | `SS_MULTIPORTAL` | GB 51022 | Single point |
 | | Chevron-Braced Frame | `SS_BRACED` | GB 50017 | Single point |
@@ -207,13 +221,14 @@ so it can be edited, backed up, or shared between colleagues without any databas
 | | Cable Trench Multi-Tier Rack | `SS_CABLE_RACK` | DL/T 5221 | Two-point / chain |
 | | Heavy Crane Runway Girder | `SS_CRANE_BEAM` | 20G520-1~2 | Two-point linear |
 | | Column Cross Bracing | `SS_XBRACE` | 19G518-3 | Two-point linear |
-| Single Steel Members | Straight Steel Member | `SS_MEMBER` | GB/T 11263 | Two-point 3D |
-| | Arc Steel Member | `SS_ARC` | Sweep along arc/circle/polyline | Pick path entity |
-| | Spiral Steel Member | `SS_SPIRAL` | Sweep along AutoCAD `HELIX` | Pick helix entity |
-| Zone Assemblies | Platform Assembly (columns + beams + deck + railing + stair) | `SS_ZONE_PLATFORM` | GB 50017 / GB 4053.3 | Single point |
-| | Column Row (columns + bracing + crane girder + tie) | `SS_ZONE_COLROW` | GB 50017 / 16G519 | Single point |
-| | Pipe Rack Bay Set (multi-tier by bay count) | `SS_ZONE_PIPERACK` | HG/T 20670 | Single point |
-| | Stair Set (stringers + treads + handrails + landing) | `SS_ZONE_STAIR` | GB 4053.1 | Single point |
+| Zone Assemblies | Platform Assembly (columns + beams + deck + railing + stair) | `SS_ZONE_PLATFORM` | GB 50017 / GB 4053.3 | Single point (wire preview) |
+| | Column Row (columns + bracing + corbels + crane girder + tie) | `SS_ZONE_COLROW` | GB 50017 / 16G519 | Single point (wire preview) |
+| | Pipe Rack Bay Set (multi-tier by bay count) | `SS_ZONE_PIPERACK` | HG/T 20670 | Single point (wire preview) |
+| | Stair Set (stringers + tread plates + handrails + supported landing) | `SS_ZONE_STAIR` | GB 4053.2 | Single point (wire preview) |
+| | Portal Hall Set (multi-bay portal frames + purlins + bracing) | `SS_ZONE_HALL` | GB 51022 | Single point (wire preview) |
+| | Walkway Bridge Set (piers + girders + deck + dual handrails) | `SS_ZONE_WALKWAY` | GB 50017 / GB 4053.3 | Single point (wire preview) |
+| | Equipment Frame Set (multi-tier/bay frame + top deck + railing) | `SS_ZONE_EQFRAME` | GB 50017 | Single point (wire preview) |
+| | Steel Canopy Set (columns + cantilevered rafters + struts + purlins) | `SS_ZONE_CANOPY` | GB 50017 | Single point (wire preview) |
 
 ## Build and Packaging
 
@@ -240,7 +255,7 @@ msbuild SteelStructureSuite.sln /t:Rebuild /p:Configuration=Release /p:Platform=
         /p:AutoCADDir="C:\Program Files\Autodesk\AutoCAD 2026" /p:TargetFramework=net8.0-windows
 ```
 
-Build all installed targets, assemble the unified bundle, and generate `dist\SteelStructureSuite-bundle-1.1.0.zip` (and `dist\SteelStructureSuite-1.1.0-setup.exe` when Inno Setup 6 is installed):
+Build all installed targets, assemble the unified bundle, and generate `dist\SteelStructureSuite-bundle-1.2.0.zip` (and `dist\SteelStructureSuite-1.2.0-setup.exe` when Inno Setup 6 is installed):
 
 ```powershell
 # Build and package into dist\
@@ -253,7 +268,7 @@ pwsh tools\Publish.ps1 -Install
 To invoke Inno Setup 6 directly:
 
 ```powershell
-"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.1.0 installer\SteelStructureSuite.iss
+"C:\Program Files (x86)\Inno Setup 6\ISCC.exe" /DAppVersion=1.2.0 installer\SteelStructureSuite.iss
 ```
 
 ## Documentation

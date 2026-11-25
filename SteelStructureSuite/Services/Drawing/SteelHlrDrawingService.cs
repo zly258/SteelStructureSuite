@@ -68,8 +68,72 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static readonly double[] StandardScales =
         {
-            1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 100, 125, 150, 200, 250, 300, 400, 500
+            1, 2, 5, 10, 15, 20, 25, 30, 40, 50, 60, 75, 80, 100, 125, 150, 200, 250, 300, 400, 500
         };
+
+        private struct SheetLayoutMetrics
+        {
+            public double TextH;
+            public double DimGapStep;
+            public double Margin;
+            public double ZoneGap;
+            public double DimPad;
+            public double BelowOrtho;
+            public double OrthoColGap;
+            public double LeaderSideReserve;
+            public double IsoFloorReserve;
+            public double IsoCeilReserve;
+            public double TitleW;
+            public double TitleH;
+            public double BomRowH;
+            public double BomHeaderH;
+            public double BomH;
+
+            public static SheetLayoutMetrics Create(double scale, bool hasIso, bool hasBom, int billCount)
+            {
+                // 严格执行：字体宋体 3.5 x 0.8（字高 = 3.5 * scale，宽度因子 = 0.8）
+                double textH = 3.5 * scale;
+                // 国标尺寸线间距 7~10mm（2.45 * 3.5 = 8.575mm），紧凑清晰不空旷
+                double dimGapStep = 2.45 * textH;
+                double margin = 7.0 * scale;
+                double zoneGap = 10.0 * scale;
+                // 左侧三道尺寸最外层位于 2.90 * dimGapStep，加上字高留白共 3.05 * dimGapStep + 0.8 * textH
+                double dimPad = dimGapStep * 3.05 + 0.8 * textH;
+                // 底部三道尺寸 + 视图标题行
+                double belowOrtho = dimGapStep * 3.05 + 3.6 * textH;
+                // 正立面与侧立面之间仅需清晰净距（侧立面自身已包含左侧 dimPad，避免重复叠加）
+                double orthoColGap = zoneGap;
+                // 轴测图单段短引线 + 圆圈件号安全留白
+                double leaderSideReserve = hasIso ? 5.2 * textH : 0.0;
+                double isoFloorReserve = hasIso ? 4.6 * textH : 0.0;
+                double isoCeilReserve = hasIso ? 3.0 * textH : 0.0;
+
+                double titleW = 180.0 * scale;
+                double titleH = 32.0 * scale;
+                double bomRowH = textH * 2.05;
+                double bomHeaderH = textH * 2.45;
+                double bomH = hasBom ? bomHeaderH + (billCount + 2) * bomRowH : 0.0;
+
+                return new SheetLayoutMetrics
+                {
+                    TextH = textH,
+                    DimGapStep = dimGapStep,
+                    Margin = margin,
+                    ZoneGap = zoneGap,
+                    DimPad = dimPad,
+                    BelowOrtho = belowOrtho,
+                    OrthoColGap = orthoColGap,
+                    LeaderSideReserve = leaderSideReserve,
+                    IsoFloorReserve = isoFloorReserve,
+                    IsoCeilReserve = isoCeilReserve,
+                    TitleW = titleW,
+                    TitleH = titleH,
+                    BomRowH = bomRowH,
+                    BomHeaderH = bomHeaderH,
+                    BomH = bomH
+                };
+            }
+        }
 
         private class LeaderRequest
         {
@@ -608,9 +672,9 @@ namespace SteelStructureSuite.Services.Drawing
             double scale = SelectBestScale(options, paperWMm, paperHMm, bomRows.Count,
                 hasFront, frontBounds, hasSide, sideBounds, hasPlan, planBounds, hasIso, isoBounds, hasBom);
 
-            // 严格执行：字体宋体 3.5 x 0.8（字高 = 3.5 * scale，宽度因子 = 0.8）
-            double textH = 3.5 * scale;
-            double dimGapStep = 3.2 * textH;
+            SheetLayoutMetrics m = SheetLayoutMetrics.Create(scale, hasIso, hasBom, bomRows.Count);
+            double textH = m.TextH;
+            double dimGapStep = m.DimGapStep;
 
             double frameW = paperWMm * scale;
             double frameH = paperHMm * scale;
@@ -634,18 +698,18 @@ namespace SteelStructureSuite.Services.Drawing
                     double innerW = innerX1 - innerX0;
                     double innerH = innerY1 - innerY0;
 
-                    double margin = 9.0 * scale;
-                    double gap = 14.0 * scale;
-                    double dimPad = dimGapStep * 3.35;
-                    double belowOrtho = dimGapStep * 3.15 + 4.0 * textH;
-                    double colGap = Math.Max(gap, dimPad * 1.15);
+                    double margin = m.Margin;
+                    double gap = m.ZoneGap;
+                    double dimPad = m.DimPad;
+                    double belowOrtho = m.BelowOrtho;
+                    double colGap = m.OrthoColGap;
 
-                    double titleW = 180.0 * scale;
-                    double titleH = 32.0 * scale;
+                    double titleW = m.TitleW;
+                    double titleH = m.TitleH;
                     double titleTop = innerY0 + titleH;
-                    double bomRowH = textH * 2.05;
-                    double bomHeaderH = textH * 2.45;
-                    double bomH = hasBom ? bomHeaderH + (bomRows.Count + 2) * bomRowH : 0.0;
+                    double bomRowH = m.BomRowH;
+                    double bomHeaderH = m.BomHeaderH;
+                    double bomH = m.BomH;
                     double rightTableTop = titleTop + bomH;
 
                     double frontW = hasFront ? frontBounds.Width : 0.0;
@@ -658,7 +722,7 @@ namespace SteelStructureSuite.Services.Drawing
                     double isoH = hasIso ? isoBounds.Height : 0.0;
 
                     double orthoH = Math.Max(frontH, sideH);
-                    double leaderSideReserve = hasIso ? 12.5 * textH : 0.0;
+                    double leaderSideReserve = m.LeaderSideReserve;
 
                     // 左中区（正立面 + 侧立面 + 平面图）与右区（轴测图 + 材料表 + 标题栏）双区独立核算
                     double orthoRowW = (hasFront ? dimPad + frontW : 0.0)
@@ -671,8 +735,8 @@ namespace SteelStructureSuite.Services.Drawing
                         titleW);
 
                     double freeW = Math.Max(0.0, innerW - margin * 2.0 - leftZoneW - rightZoneW - (leftZoneW > 0 && rightZoneW > 0 ? gap : 0.0));
-                    double extraColGap = freeW * 0.35;
-                    double leftStartX = innerX0 + margin + freeW * 0.18;
+                    double extraColGap = freeW * 0.30;
+                    double leftStartX = innerX0 + margin + freeW * 0.16;
 
                     // 左中区竖向均衡排布（正/侧立面在上，平面图在下）
                     double leftStackH = (orthoH > 0 ? orthoH + belowOrtho : 0.0)
@@ -730,7 +794,7 @@ namespace SteelStructureSuite.Services.Drawing
                             options, simSunTextStyleId, simSunDimStyleId, textH, dimGapStep, groupSheet);
                     }
 
-                    // 右上区：西南等轴测图（严格控制在 [rightTableTop + 6*textH, innerY1 - margin] 与左右引线安全边距内，绝不穿出图框！）
+                    // 右上区：西南等轴测图（严格控制在 [rightTableTop + IsoFloorReserve, innerY1 - margin - IsoCeilReserve] 与左右引线安全边距内，绝不穿出图框！）
                     if (hasIso)
                     {
                         double rightZoneLeft = Math.Max(cursorX, innerX1 - margin - rightZoneW);
@@ -742,10 +806,10 @@ namespace SteelStructureSuite.Services.Drawing
                             isoLeft = (innerX1 - margin * 0.6) - leaderSideReserve - isoW;
                         }
 
-                        double isoFloorY = rightTableTop + 6.6 * textH;
-                        double isoCeilY = innerY1 - margin - 4.4 * textH;
+                        double isoFloorY = rightTableTop + m.IsoFloorReserve;
+                        double isoCeilY = innerY1 - margin - m.IsoCeilReserve;
                         double isoFreeY = Math.Max(0.0, (isoCeilY - isoFloorY) - isoH);
-                        double isoBottom = isoFloorY + isoFreeY * 0.52;
+                        double isoBottom = isoFloorY + isoFreeY * 0.50;
                         if (isoBottom + isoH > isoCeilY)
                         {
                             isoBottom = isoCeilY - isoH;
@@ -821,38 +885,26 @@ namespace SteelStructureSuite.Services.Drawing
             bool hasIso, ViewBounds iso,
             bool hasBom)
         {
-            double textH = 3.5 * scale;
-            double dimGapStep = 3.2 * textH;
-            double margin = 9.0 * scale;
-            double gap = 14.0 * scale;
-            double dimPad = dimGapStep * 3.35;
-            double belowOrtho = dimGapStep * 3.15 + 4.0 * textH;
-            double colGap = Math.Max(gap, dimPad * 1.15);
+            SheetLayoutMetrics m = SheetLayoutMetrics.Create(scale, hasIso, hasBom, billCount);
 
-            double orthoRowW = (hasFront ? dimPad + front.Width : 0.0)
-                             + (hasFront && hasSide ? colGap : 0.0)
-                             + (hasSide ? dimPad + side.Width : 0.0);
-            double planRowW = hasPlan ? dimPad + plan.Width : 0.0;
+            double orthoRowW = (hasFront ? m.DimPad + front.Width : 0.0)
+                             + (hasFront && hasSide ? m.OrthoColGap : 0.0)
+                             + (hasSide ? m.DimPad + side.Width : 0.0);
+            double planRowW = hasPlan ? m.DimPad + plan.Width : 0.0;
             double leftZoneW = Math.Max(orthoRowW, planRowW);
 
-            double leaderSideReserve = hasIso ? 12.5 * textH : 0.0;
-            double titleW = 180.0 * scale;
             double rightZoneW = Math.Max(
-                hasIso ? iso.Width + leaderSideReserve * 2.0 : 0.0,
-                hasBom ? titleW : titleW);
+                hasIso ? iso.Width + m.LeaderSideReserve * 2.0 : 0.0,
+                m.TitleW);
 
             double orthoH = Math.Max(hasFront ? front.Height : 0.0, hasSide ? side.Height : 0.0);
-            double leftZoneH = (orthoH > 0 ? orthoH + belowOrtho : 0.0)
-                             + (hasPlan ? plan.Height + belowOrtho : 0.0);
+            double leftZoneH = (orthoH > 0 ? orthoH + m.BelowOrtho : 0.0)
+                             + (hasPlan ? plan.Height + m.BelowOrtho : 0.0);
 
-            double titleBlockH = 32.0 * scale;
-            double bomRowH = textH * 2.05;
-            double bomHeaderH = textH * 2.45;
-            double bomH = hasBom ? bomHeaderH + (billCount + 2) * bomRowH : 0.0;
-            double rightZoneH = titleBlockH + bomH + (hasIso ? iso.Height + 11.2 * textH : 0.0);
+            double rightZoneH = m.TitleH + m.BomH + (hasIso ? iso.Height + m.IsoFloorReserve + m.IsoCeilReserve : 0.0);
 
-            double requiredW = margin * 2.0 + leftZoneW + (leftZoneW > 0 && rightZoneW > 0 ? gap : 0.0) + rightZoneW;
-            double requiredH = margin * 2.0 + Math.Max(leftZoneH, rightZoneH);
+            double requiredW = m.Margin * 2.0 + leftZoneW + (leftZoneW > 0 && rightZoneW > 0 ? m.ZoneGap : 0.0) + rightZoneW;
+            double requiredH = m.Margin * 2.0 + Math.Max(leftZoneH, rightZoneH);
 
             double innerW = (paperW - 35.0) * scale;
             double innerH = (paperH - 20.0) * scale;
@@ -1341,7 +1393,7 @@ namespace SteelStructureSuite.Services.Drawing
             }
 
             // 视图名称居中放置于最外层尺寸线下方
-            double titleY = minViewY - dimGapStep * 3.15 - 2.4 * textH;
+            double titleY = minViewY - dimGapStep * 3.05 - 2.2 * textH;
             double titleHalfW = EstimateSimSunTextWidth(viewTitle, textH * 1.12) * 0.5;
             Point3d titlePt = new Point3d(viewBase.X + (minViewX + maxViewX) * 0.5 - titleHalfW, viewBase.Y + titleY, 0);
             AppendSimSunText(tr, ms, titlePt, viewTitle, textStyleId, textH * 1.12, LayerFrame);
@@ -2074,8 +2126,18 @@ namespace SteelStructureSuite.Services.Drawing
 
             if (options.IncludeLeaderAnnotations && isoParts.Count > 0)
             {
+                var allLocalPts = new List<Point2d>();
+                foreach (var ip in isoParts)
+                {
+                    if (ip.Hull != null) allLocalPts.AddRange(ip.Hull);
+                }
+                List<Point2d> viewHullLocal = ConvexHull(allLocalPts);
+
                 var leaderReqs = new List<LeaderRequest>();
                 double cx = (minIsoX + maxIsoX) * 0.5;
+                double diag = Math.Max(1.0, Math.Sqrt(
+                    (maxIsoX - minIsoX) * (maxIsoX - minIsoX) +
+                    (maxIsoY - minIsoY) * (maxIsoY - minIsoY)));
 
                 // 收集所有已映射 PartNo 的构件组，同时补齐未直接命中但存在于 billItems 的件号
                 var groupedByNo = isoParts
@@ -2092,24 +2154,48 @@ namespace SteelStructureSuite.Services.Drawing
                     }
                 }
 
-                foreach (int partNo in targetPartNos)
+                // 候选数少的件号优先选点，避免多根同类构件（如立柱/斜撑/主梁）全部扎堆到同一端跨
+                var orderedPartNos = targetPartNos
+                    .OrderBy(no => groupedByNo.TryGetValue(no, out var list) ? list.Count : int.MaxValue)
+                    .ThenBy(no => no)
+                    .ToList();
+
+                double minDepth = isoParts.Min(x => x.Depth);
+                double maxDepth = isoParts.Max(x => x.Depth);
+                double depthSpan = Math.Max(1.0, maxDepth - minDepth);
+                var chosenAnchors = new List<Point2d>();
+
+                foreach (int partNo in orderedPartNos)
                 {
                     IsoPart2D rep = null;
                     if (groupedByNo.TryGetValue(partNo, out List<IsoPart2D> candidates) && candidates.Count > 0)
                     {
-                        // 优先选取离轴测图左右两侧边缘更近的代表性构件，使水平引线最短且最清晰
-                        rep = candidates.OrderByDescending(x =>
+                        double bestScore = double.NegativeInfinity;
+                        foreach (var cand in candidates)
                         {
-                            double dx = x.Anchor2D.X - cx;
-                            double dy = x.Anchor2D.Y - ((minIsoY + maxIsoY) * 0.5);
-                            return dx * dx + dy * dy;
-                        }).First();
+                            // 1) 离外包轮廓越近，引线越短且越不易穿越其它杆件
+                            double distToEdge = DistanceToHullBoundary(cand.Anchor2D, viewHullLocal);
+                            // 2) 与已选锚点保持分散，避免多条引线挤在同一区域
+                            double minSep = chosenAnchors.Count == 0
+                                ? diag * 0.25
+                                : Math.Min(diag * 0.28, chosenAnchors.Min(a => a.GetDistanceTo(cand.Anchor2D)));
+                            // 3) 优先选靠近观察者、外露清晰的构件
+                            double depthNorm = (cand.Depth - minDepth) / depthSpan;
+
+                            double score = minSep * 1.15 - distToEdge * 1.35 + depthNorm * (diag * 0.08);
+                            if (score > bestScore)
+                            {
+                                bestScore = score;
+                                rep = cand;
+                            }
+                        }
                     }
                     else
                     {
                         rep = isoParts[(partNo - 1) % isoParts.Count];
                     }
 
+                    chosenAnchors.Add(rep.Anchor2D);
                     int side = rep.Anchor2D.X >= cx ? 1 : 0;
                     leaderReqs.Add(new LeaderRequest
                     {
@@ -2119,8 +2205,12 @@ namespace SteelStructureSuite.Services.Drawing
                     });
                 }
 
+                var viewHullWorld = viewHullLocal
+                    .Select(pt => new Point2d(isoBase.X + pt.X, isoBase.Y + pt.Y))
+                    .ToList();
+
                 PlaceCollisionFreeLeaders(
-                    tr, ms, leaderReqs,
+                    tr, ms, leaderReqs, viewHullWorld,
                     isoBase.X + minIsoX,
                     isoBase.X + maxIsoX,
                     isoBase.Y + minIsoY,
@@ -2132,7 +2222,7 @@ namespace SteelStructureSuite.Services.Drawing
             double titleHalfW = EstimateSimSunTextWidth(isoTitle, textH * 1.12) * 0.5;
             Point3d titlePt = new Point3d(
                 isoBase.X + (minIsoX + maxIsoX) * 0.5 - titleHalfW,
-                isoBase.Y + minIsoY - 4.0 * textH,
+                isoBase.Y + minIsoY - 3.2 * textH,
                 0);
             AppendSimSunText(
                 tr, ms, titlePt,
@@ -2231,13 +2321,14 @@ namespace SteelStructureSuite.Services.Drawing
         }
 
         /// <summary>
-        /// 件号引线按左右两列排布：锚点位于视图中心左侧的排到左列，右侧的排到右列。
-        /// 每列自上而下等间距排列，且列内顺序与锚点上下顺序严格一致，保证引线互不交叉。
+        /// 单段直线箭头件号引线：沿轴测图实际外包凸包就近向外引出（不拉到包围盒远角），
+        /// 经圆圈防重叠排斥与 2-opt 去交叉后，直接绘制「单段箭头直线 + 圆圈件号文字」。
         /// </summary>
         private static void PlaceCollisionFreeLeaders(
             Transaction tr,
             BlockTableRecord ms,
             List<LeaderRequest> requests,
+            List<Point2d> viewHull,
             double viewMinX,
             double viewMaxX,
             double viewMinY,
@@ -2252,91 +2343,294 @@ namespace SteelStructureSuite.Services.Drawing
                 .ToList();
             if (valid.Count == 0) return;
 
-            double cx = (viewMinX + viewMaxX) * 0.5;
-            List<LeaderRequest> left = valid
-                .Where(x => x.AnchorPt.X < cx)
-                .OrderByDescending(x => x.AnchorPt.Y)
-                .ThenBy(x => x.AnchorPt.X)
-                .ToList();
-            List<LeaderRequest> right = valid
-                .Where(x => x.AnchorPt.X >= cx)
-                .OrderByDescending(x => x.AnchorPt.Y)
-                .ThenBy(x => x.AnchorPt.X)
-                .ToList();
+            int n = valid.Count;
+            double[] radii = new double[n];
+            Point2d[] anchors = new Point2d[n];
+            Point2d[] centers = new Point2d[n];
 
-            PlaceLeaderColumn(tr, ms, left, viewMinX - 3.2 * textH, viewMinY, viewMaxY, true, textStyleId, textH);
-            PlaceLeaderColumn(tr, ms, right, viewMaxX + 3.2 * textH, viewMinY, viewMaxY, false, textStyleId, textH);
-        }
+            double viewCx = (viewMinX + viewMaxX) * 0.5;
+            double maxSideOut = 4.6 * textH;
+            double maxTopOut = 2.6 * textH;
+            double titleSafeY = viewMinY - 0.6 * textH;
+            double minXBound = viewMinX - maxSideOut;
+            double maxXBound = viewMaxX + maxSideOut;
+            double maxYBound = viewMaxY + maxTopOut;
 
-        private const string PartBalloonBlockName = "SS_PART_BALLOON";
+            double baseClearance = 2.4 * textH;
+            double minHullGap = 1.6 * textH;
 
-        /// <summary>
-        /// 创建/获取标准圆形件号块（半径 1.0 + 居中属性 NO），供原生 MLeader 整体引用。
-        /// </summary>
-        private static ObjectId EnsurePartBalloonBlock(
-            Transaction tr,
-            Database db,
-            ObjectId textStyleId,
-            out ObjectId attDefId)
-        {
-            attDefId = ObjectId.Null;
-            BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
-            if (bt.Has(PartBalloonBlockName))
+            // 1. 逐件按就近外法向在凸包外侧生成紧凑圆心位置
+            for (int i = 0; i < n; i++)
             {
-                ObjectId existingId = bt[PartBalloonBlockName];
-                BlockTableRecord existingBtr = (BlockTableRecord)tr.GetObject(existingId, OpenMode.ForRead);
-                foreach (ObjectId id in existingBtr)
+                string label = valid[i].LabelText ?? string.Empty;
+                double textW = EstimateSimSunTextWidth(label, textH * 0.92);
+                double r = Math.Max(0.90 * textH, textW * 0.58 + 0.28 * textH);
+                radii[i] = r;
+                anchors[i] = new Point2d(valid[i].AnchorPt.X, valid[i].AnchorPt.Y);
+
+                double desiredClearance = baseClearance + r;
+                FindBestHullExit(
+                    anchors[i], viewHull, viewCx, titleSafeY, desiredClearance,
+                    out Point2d exitPt, out Vector2d outDir);
+
+                Point2d c = exitPt + outDir * desiredClearance;
+                // 保证箭头直线长度足够清晰（至少 2.0 * textH + r）
+                Vector2d fromAnchor = c - anchors[i];
+                double minLen = 2.0 * textH + r;
+                if (fromAnchor.Length < minLen)
                 {
-                    if (tr.GetObject(id, OpenMode.ForRead) is AttributeDefinition ad)
-                    {
-                        attDefId = id;
-                        break;
-                    }
+                    Vector2d dir = fromAnchor.Length > 1e-6 ? fromAnchor.GetNormal() : outDir;
+                    c = anchors[i] + dir * minLen;
                 }
-                if (!attDefId.IsNull) return existingId;
+
+                centers[i] = ClampBalloonCenter(c, minXBound, maxXBound, titleSafeY, maxYBound);
             }
 
-            bt.UpgradeOpen();
-            var btr = new BlockTableRecord { Name = PartBalloonBlockName };
-            ObjectId blockId = bt.Add(btr);
-            tr.AddNewlyCreatedDBObject(btr, true);
-
-            // 单位半径圆圈（由 MLeader.BlockScale 统一缩放到纸面半径）
-            var circle = new Circle(Point3d.Origin, Vector3d.ZAxis, 1.0);
-            circle.SetDatabaseDefaults(db);
-            circle.Layer = "0";
-            circle.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
-            btr.AppendEntity(circle);
-            tr.AddNewlyCreatedDBObject(circle, true);
-
-            // 居中件号属性
-            var attDef = new AttributeDefinition
+            // 2. 迭代松弛：圆圈间防重叠 + 保持严格位于视图凸包外侧
+            for (int iter = 0; iter < 32; iter++)
             {
-                Tag = "NO",
-                Prompt = "件号",
-                TextString = "1",
-                Height = 1.05,
-                WidthFactor = 0.8,
-                TextStyleId = textStyleId,
-                Justify = AttachmentPoint.MiddleCenter,
-                Position = Point3d.Origin,
-                AlignmentPoint = Point3d.Origin,
-                Layer = "0",
-                Color = Color.FromColorIndex(ColorMethod.ByBlock, 0)
-            };
-            attDef.SetDatabaseDefaults(db);
-            attDef.Justify = AttachmentPoint.MiddleCenter;
-            attDef.Position = Point3d.Origin;
-            attDef.AlignmentPoint = Point3d.Origin;
-            attDef.Height = 1.05;
-            attDef.WidthFactor = 0.8;
-            attDef.TextStyleId = textStyleId;
-            attDef.Layer = "0";
-            attDef.Color = Color.FromColorIndex(ColorMethod.ByBlock, 0);
-            attDefId = btr.AppendEntity(attDef);
-            tr.AddNewlyCreatedDBObject(attDef, true);
+                bool moved = false;
 
-            return blockId;
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = i + 1; j < n; j++)
+                    {
+                        double minDist = radii[i] + radii[j] + 0.95 * textH;
+                        Vector2d delta = centers[j] - centers[i];
+                        double d = delta.Length;
+                        if (d < minDist)
+                        {
+                            Vector2d pushDir = d > 1e-6 ? delta / d : new Vector2d(0, 1);
+                            double shift = (minDist - d) * 0.52;
+                            centers[i] -= pushDir * shift;
+                            centers[j] += pushDir * shift;
+                            moved = true;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < n; i++)
+                {
+                    Point2d pushed = EnsureOutsideHull(centers[i], viewHull, viewCx, minHullGap + radii[i]);
+                    pushed = ClampBalloonCenter(pushed, minXBound, maxXBound, titleSafeY, maxYBound);
+                    if (pushed.GetDistanceTo(centers[i]) > 1e-3)
+                    {
+                        centers[i] = pushed;
+                        moved = true;
+                    }
+                }
+
+                if (!moved) break;
+            }
+
+            // 3. 2-opt 去交叉：若两条引线线段相交，交换目标圆心（三角不等式保证总长严格缩短且必收敛）
+            int maxPasses = n * n + 4;
+            for (int pass = 0; pass < maxPasses; pass++)
+            {
+                bool swapped = false;
+                for (int i = 0; i < n; i++)
+                {
+                    for (int j = i + 1; j < n; j++)
+                    {
+                        if (SegmentsProperlyIntersect(anchors[i], centers[i], anchors[j], centers[j]))
+                        {
+                            Point2d tmp = centers[i];
+                            centers[i] = centers[j];
+                            centers[j] = tmp;
+                            swapped = true;
+                        }
+                    }
+                }
+                if (!swapped) break;
+            }
+
+            // 4. 落笔绘制：单段直线 + 标准扁平箭头 + 圆圈 + 居中件号文字（无两段折线、无缺口）
+            for (int i = 0; i < n; i++)
+            {
+                Point3d anchor = new Point3d(anchors[i].X, anchors[i].Y, 0);
+                Point3d center = new Point3d(centers[i].X, centers[i].Y, 0);
+                double balloonR = radii[i];
+
+                Vector3d toCenter = center - anchor;
+                double dist = toCenter.Length;
+                if (dist > balloonR + 1e-3)
+                {
+                    Point3d edgePt = center - toCenter.GetNormal() * balloonR;
+                    AddLeaderLine(tr, ms, anchor, edgePt, LayerDim);
+                    AddLeaderArrow(tr, ms, anchor, edgePt, textH, LayerDim);
+                }
+
+                var circle = new Circle(center, Vector3d.ZAxis, balloonR);
+                circle.SetDatabaseDefaults(ms.Database);
+                circle.Layer = LayerDim;
+                ms.AppendEntity(circle);
+                tr.AddNewlyCreatedDBObject(circle, true);
+
+                AppendCenteredSimSunText(tr, ms, center, valid[i].LabelText, textStyleId, textH * 0.92, LayerDim);
+            }
+        }
+
+        private static double DistanceToHullBoundary(Point2d pt, List<Point2d> hull)
+        {
+            if (hull == null || hull.Count < 2) return 0.0;
+            double best = double.MaxValue;
+            for (int i = 0; i < hull.Count; i++)
+            {
+                Point2d a = hull[i];
+                Point2d b = hull[(i + 1) % hull.Count];
+                Point2d proj = ProjectPointToSegment2d(pt, a, b);
+                double d = pt.GetDistanceTo(proj);
+                if (d < best) best = d;
+            }
+            return best;
+        }
+
+        private static Point2d ProjectPointToSegment2d(Point2d p, Point2d a, Point2d b)
+        {
+            double dx = b.X - a.X;
+            double dy = b.Y - a.Y;
+            double len2 = dx * dx + dy * dy;
+            if (len2 < 1e-9) return a;
+            double t = ((p.X - a.X) * dx + (p.Y - a.Y) * dy) / len2;
+            if (t < 0.0) t = 0.0;
+            else if (t > 1.0) t = 1.0;
+            return new Point2d(a.X + t * dx, a.Y + t * dy);
+        }
+
+        private static bool IsInsideCcwHull(Point2d p, List<Point2d> hull)
+        {
+            if (hull == null || hull.Count < 3) return false;
+            for (int i = 0; i < hull.Count; i++)
+            {
+                Point2d a = hull[i];
+                Point2d b = hull[(i + 1) % hull.Count];
+                if (Cross(a, b, p) < -1e-6) return false;
+            }
+            return true;
+        }
+
+        private static void FindBestHullExit(
+            Point2d anchor,
+            List<Point2d> hull,
+            double viewCx,
+            double titleSafeY,
+            double clearance,
+            out Point2d exitPt,
+            out Vector2d outDir)
+        {
+            exitPt = anchor;
+            outDir = new Vector2d(anchor.X < viewCx ? -1.0 : 1.0, 0.25).GetNormal();
+            if (hull == null || hull.Count < 3) return;
+
+            double bestSafeDist = double.MaxValue;
+            Point2d bestSafeExit = exitPt;
+            Vector2d bestSafeDir = outDir;
+
+            double bestAnyDist = double.MaxValue;
+            Point2d bestAnyExit = exitPt;
+            Vector2d bestAnyDir = outDir;
+
+            for (int i = 0; i < hull.Count; i++)
+            {
+                Point2d a = hull[i];
+                Point2d b = hull[(i + 1) % hull.Count];
+                double ex = b.X - a.X;
+                double ey = b.Y - a.Y;
+                double len = Math.Sqrt(ex * ex + ey * ey);
+                if (len < 1e-6) continue;
+
+                // CCW 凸包边的右手外法向
+                Vector2d normal = new Vector2d(ey / len, -ex / len);
+                Point2d proj = ProjectPointToSegment2d(anchor, a, b);
+                double d = anchor.GetDistanceTo(proj);
+
+                if (d < bestAnyDist)
+                {
+                    bestAnyDist = d;
+                    bestAnyExit = proj;
+                    bestAnyDir = normal;
+                }
+
+                // 避开视图正下方标题区域（轴测图 (仅标件号)）
+                Point2d testCenter = proj + normal * clearance;
+                if (testCenter.Y >= titleSafeY && d < bestSafeDist)
+                {
+                    bestSafeDist = d;
+                    bestSafeExit = proj;
+                    bestSafeDir = normal;
+                }
+            }
+
+            if (bestSafeDist < double.MaxValue)
+            {
+                exitPt = bestSafeExit;
+                outDir = bestSafeDir;
+            }
+            else
+            {
+                exitPt = bestAnyExit;
+                outDir = new Vector2d(anchor.X < viewCx ? -1.0 : 1.0, Math.Max(0.0, bestAnyDir.Y)).GetNormal();
+            }
+        }
+
+        private static Point2d EnsureOutsideHull(Point2d pt, List<Point2d> hull, double viewCx, double minMargin)
+        {
+            if (hull == null || hull.Count < 3) return pt;
+
+            bool inside = IsInsideCcwHull(pt, hull);
+            double bestDist = double.MaxValue;
+            Point2d bestProj = pt;
+            Vector2d bestNormal = new Vector2d(pt.X < viewCx ? -1.0 : 1.0, 0.0);
+
+            for (int i = 0; i < hull.Count; i++)
+            {
+                Point2d a = hull[i];
+                Point2d b = hull[(i + 1) % hull.Count];
+                double ex = b.X - a.X;
+                double ey = b.Y - a.Y;
+                double len = Math.Sqrt(ex * ex + ey * ey);
+                if (len < 1e-6) continue;
+
+                Point2d proj = ProjectPointToSegment2d(pt, a, b);
+                double d = pt.GetDistanceTo(proj);
+                if (d < bestDist)
+                {
+                    bestDist = d;
+                    bestProj = proj;
+                    bestNormal = new Vector2d(ey / len, -ex / len);
+                }
+            }
+
+            if (inside)
+            {
+                return bestProj + bestNormal * minMargin;
+            }
+
+            if (bestDist < minMargin)
+            {
+                Vector2d away = pt - bestProj;
+                Vector2d dir = away.Length > 1e-6 ? away.GetNormal() : bestNormal;
+                return bestProj + dir * minMargin;
+            }
+
+            return pt;
+        }
+
+        private static Point2d ClampBalloonCenter(Point2d pt, double minX, double maxX, double minY, double maxY)
+        {
+            double x = Math.Max(minX, Math.Min(maxX, pt.X));
+            double y = Math.Max(minY, Math.Min(maxY, pt.Y));
+            return new Point2d(x, y);
+        }
+
+        private static bool SegmentsProperlyIntersect(Point2d a1, Point2d a2, Point2d b1, Point2d b2)
+        {
+            double d1 = Cross(a1, a2, b1);
+            double d2 = Cross(a1, a2, b2);
+            double d3 = Cross(b1, b2, a1);
+            double d4 = Cross(b1, b2, a2);
+            return ((d1 > 1e-6 && d2 < -1e-6) || (d1 < -1e-6 && d2 > 1e-6)) &&
+                   ((d3 > 1e-6 && d4 < -1e-6) || (d3 < -1e-6 && d4 > 1e-6));
         }
 
         private static void AddLeaderLine(Transaction tr, BlockTableRecord ms, Point3d a, Point3d b, string layer)
@@ -2348,10 +2642,10 @@ namespace SteelStructureSuite.Services.Drawing
             tr.AddNewlyCreatedDBObject(ln, true);
         }
 
-        /// <summary>兜底扁平标准箭头（长宽比约 3.2:1，符合国标机械/钢结构制图标准）。</summary>
+        /// <summary>扁平标准箭头（长宽比约 3.2:1，符合国标机械/钢结构制图标准）。</summary>
         private static void AddLeaderArrow(Transaction tr, BlockTableRecord ms, Point3d tip, Point3d toward, double textH, string layer)
         {
-            double length = Math.Min(1.35 * textH, tip.DistanceTo(toward) * 0.55);
+            double length = Math.Min(1.25 * textH, tip.DistanceTo(toward) * 0.45);
             if (length < 1e-6) return;
 
             Vector3d dir = toward - tip;
@@ -2370,101 +2664,6 @@ namespace SteelStructureSuite.Services.Drawing
             arrow.Layer = layer;
             ms.AppendEntity(arrow);
             tr.AddNewlyCreatedDBObject(arrow, true);
-        }
-
-        private static void PlaceLeaderColumn(
-            Transaction tr,
-            BlockTableRecord ms,
-            List<LeaderRequest> items,
-            double labelX,
-            double viewMinY,
-            double viewMaxY,
-            bool toLeft,
-            ObjectId textStyleId,
-            double textH)
-        {
-            if (items == null || items.Count == 0) return;
-
-            double balloonR = 0.92 * textH;
-            double minSpacing = 2.6 * textH;
-            double band = Math.Max(viewMaxY - viewMinY - 1.6 * textH, minSpacing);
-            double spacing = items.Count > 1
-                ? Math.Max(minSpacing, band / (items.Count - 1))
-                : 0.0;
-            double centerY = (viewMinY + viewMaxY) * 0.5;
-            double startY = centerY + spacing * (items.Count - 1) * 0.5;
-
-            double circleCenterX = labelX + (toLeft ? -balloonR : balloonR);
-            double elbowX = labelX + (toLeft ? 1.8 * textH : -1.8 * textH);
-
-            ObjectId balloonBlockId = EnsurePartBalloonBlock(tr, ms.Database, textStyleId, out ObjectId attDefId);
-
-            for (int i = 0; i < items.Count; i++)
-            {
-                LeaderRequest req = items[i];
-                double y = startY - spacing * i;
-                Point3d anchor = req.AnchorPt;
-                Point3d elbow = new Point3d(elbowX, y, 0);
-                Point3d center = new Point3d(circleCenterX, y, 0);
-
-                // 优先使用原生 MLeader（带圆形件号块 + 标准扁平箭头，整体可选可拖拽）
-                bool emittedMLeader = false;
-                if (!balloonBlockId.IsNull && !attDefId.IsNull)
-                {
-                    try
-                    {
-                        var ml = new MLeader();
-                        ml.SetDatabaseDefaults(ms.Database);
-                        ml.Layer = LayerDim;
-                        ml.ContentType = ContentType.BlockContent;
-                        ml.BlockContentId = balloonBlockId;
-                        ml.BlockConnectionType = BlockConnectionType.ConnectExtents;
-                        ml.BlockScale = new Scale3d(balloonR, balloonR, balloonR);
-                        ml.BlockPosition = center;
-                        ml.EnableLanding = true;
-                        ml.EnableDogleg = true;
-                        ml.DoglegLength = 1.2 * textH;
-                        ml.LandingGap = 0.0;
-                        ml.ArrowSize = 0.95 * textH;
-                        ml.LeaderLineType = LeaderType.StraightLeader;
-
-                        int leaderIdx = ml.AddLeader();
-                        int lineIdx = ml.AddLeaderLine(leaderIdx);
-                        ml.AddFirstVertex(lineIdx, anchor);
-                        ml.AddLastVertex(lineIdx, elbow);
-
-                        ms.AppendEntity(ml);
-                        tr.AddNewlyCreatedDBObject(ml, true);
-
-                        // 写入圆圈内居中件号属性
-                        AttributeDefinition attDef = (AttributeDefinition)tr.GetObject(attDefId, OpenMode.ForRead);
-                        var attRef = new AttributeReference();
-                        attRef.SetAttributeFromBlock(attDef, Matrix3d.Displacement(center - Point3d.Origin) * Matrix3d.Scaling(balloonR, Point3d.Origin));
-                        attRef.TextString = req.LabelText ?? string.Empty;
-                        ml.SetBlockAttribute(attDefId, attRef);
-                        emittedMLeader = true;
-                    }
-                    catch
-                    {
-                        emittedMLeader = false;
-                    }
-                }
-
-                if (!emittedMLeader)
-                {
-                    Point3d edgePt = new Point3d(circleCenterX + (toLeft ? balloonR : -balloonR), y, 0);
-                    AddLeaderLine(tr, ms, anchor, elbow, LayerDim);
-                    AddLeaderLine(tr, ms, elbow, edgePt, LayerDim);
-                    AddLeaderArrow(tr, ms, anchor, elbow, textH, LayerDim);
-
-                    var c = new Circle(center, Vector3d.ZAxis, balloonR);
-                    c.SetDatabaseDefaults(ms.Database);
-                    c.Layer = LayerDim;
-                    ms.AppendEntity(c);
-                    tr.AddNewlyCreatedDBObject(c, true);
-                    AppendCenteredSimSunText(tr, ms, center, req.LabelText, textStyleId, textH, LayerDim);
-                }
-            }
         }
 
         /// <summary>
