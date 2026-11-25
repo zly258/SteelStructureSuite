@@ -34,20 +34,17 @@ namespace SteelStructureSuite.Ribbon
 
             // Panel 1: 构建管理
             RibbonPanelSource mgrPanel = CreatePanel(tab, "构建管理");
-            mgrPanel.Items.Add(CreateLargeButton("模型管理", "SS_MANAGER ", "打开全图钢结构树状模型管理器（支持检索、视角定位、高亮、编辑与删除）", "manager"));
-            mgrPanel.Items.Add(CreateLargeButton("位号顺号", "SS_RENUMBER ", "按构件类型前缀与编号位数批量顺号重排，支持强制统一前缀与前后对比预览", "renumber"));
-            mgrPanel.Items.Add(CreateLargeButton("截面管理", "SS_SECTIONS ", "按 5 大类 24 种型钢分类树管理截面与国标手册特性，支持 2D 预览与 Excel/CSV 导入导出", "section"));
-            mgrPanel.Items.Add(CreateLargeButton("重置设置", "SS_RESETSETTINGS ", "清除界面记忆，各构件恢复自己的初始预设。不修改截面库。", "regen"));
+            mgrPanel.Items.Add(CreateLargeButton("模型管理", "SS_MANAGER ", "检索、定位、编辑、删除全图构件", "manager"));
+            mgrPanel.Items.Add(CreateLargeButton("位号顺号", "SS_RENUMBER ", "批量统一前缀与顺号", "renumber"));
+            mgrPanel.Items.Add(CreateLargeButton("截面管理", "SS_SECTIONS ", "管理截面库与国标特性", "section"));
+            mgrPanel.Items.Add(CreateLargeButton("编辑参数", "SS_EDIT ", "修改选中构件的参数与截面", "edit"));
+            mgrPanel.Items.Add(CreateLargeButton("重置设置", "SS_RESETSETTINGS ", "清除界面记忆，不修改截面库", "regen"));
 
             // Panel 2: 厂房框架
             // Panel 1.5: 构件模板（可保存/加载/删除参数模板，替代写死的轻中重预设）
             RibbonPanelSource templatePanel = CreatePanel(tab, "构件模板");
-            templatePanel.Items.Add(CreateLargeButton("模板管理", "SS_TEMPLATES ", "管理参数模板：重命名、删除、导入导出。模板保存在本地 JSON，可随时备份与共享", "templ"));
-            RibbonRowPanel tplCol = new RibbonRowPanel();
-            tplCol.Items.Add(CreateSmallButton("保存模板", "SS_SAVETEMPLATE ", "选中已有构件，把它的全部参数保存成模板", "tplsave"));
-            tplCol.Items.Add(CreateRowBreak());
-            tplCol.Items.Add(CreateSmallButton("套用模板", "SS_APPLYTEMPLATE ", "选中构件后用模板参数快速改写", "tplapply"));
-            templatePanel.Items.Add(tplCol);
+            templatePanel.Items.Add(CreateLargeButton("模板管理", "SS_TEMPLATES ", "重命名、删除、导入导出参数模板", "templ"));
+            templatePanel.Items.Add(CreateLargeButton("存为模板", "SS_SAVETEMPLATE ", "把选中构件的参数存成模板", "tplsave"));
 
             RibbonPanelSource framePanel = CreatePanel(tab, "厂房框架");
             RibbonRowPanel fCol1 = new RibbonRowPanel();
@@ -69,32 +66,25 @@ namespace SteelStructureSuite.Ribbon
             // Panel 3: 区域组合（一次布置一整片区域，内部复用单构件构建器）
             RibbonPanelSource zonePanel = CreatePanel(tab, "区域组合");
             RibbonRowPanel zCol1 = new RibbonRowPanel();
-            zCol1.Items.Add(CreateSmallButton("钢平台成套", "SS_ZONE_PLATFORM ", "柱 + 主次梁 + 花纹板 + 四周栏杆 + 单跑斜梯，一次布置整片平台", "zoneplat"));
+            zCol1.Items.Add(CreateSmallButton("钢平台成套", "SS_ZONE_PLATFORM ", "柱+梁+板+栏杆+斜梯", "zoneplat"));
             zCol1.Items.Add(CreateRowBreak());
-            zCol1.Items.Add(CreateSmallButton("厂房柱列", "SS_ZONE_COLROW ", "一排厂房柱 + 柱间支撑 + 吊车梁 + 柱顶系杆，按柱距阵列", "zonecol"));
+            zCol1.Items.Add(CreateSmallButton("厂房柱列", "SS_ZONE_COLROW ", "柱+支撑+吊车梁+系杆", "zonecol"));
             zonePanel.Items.Add(zCol1);
 
             RibbonRowPanel zCol2 = new RibbonRowPanel();
-            zCol2.Items.Add(CreateSmallButton("管廊成套", "SS_ZONE_PIPERACK ", "多层管廊按跨数生成：立柱 + 各层横纵梁 + 端跨支撑", "zonerack"));
+            zCol2.Items.Add(CreateSmallButton("管廊成套", "SS_ZONE_PIPERACK ", "多层管廊按跨数生成", "zonerack"));
             zCol2.Items.Add(CreateRowBreak());
-            zCol2.Items.Add(CreateSmallButton("楼梯成套", "SS_ZONE_STAIR ", "梯梁 + 踏步 + 双侧扶手 + 顶部休息平台，按层高自动分步", "zonestair"));
+            zCol2.Items.Add(CreateSmallButton("楼梯成套", "SS_ZONE_STAIR ", "梯梁+踏步+扶手+平台", "zonestair"));
             zonePanel.Items.Add(zCol2);
 
-            // Panel 3.5: 连续绘制（把支持折线连续绘制的类型集中在这里）
+            // Panel 3.5: 连续绘制（唯一入口，不再按构件类型重复放按钮）
             RibbonPanelSource chainPanel = CreatePanel(tab, "连续绘制");
-            chainPanel.Items.Add(CreateLargeButton("连续绘制", "SS_LINEAR_CHAIN ", "连续多段线性动态绘制：栏杆、走道、电缆支架、钢梁、斜梯、桁桥等", "chain"));
-            RibbonRowPanel chainCol = new RibbonRowPanel();
-            chainCol.Items.Add(CreateSmallButton("连续栏杆", "SS_LINEAR_CHAIN ", "连续绘制平台安全栏杆（支持折线）", "rail"));
-            chainCol.Items.Add(CreateRowBreak());
-            chainCol.Items.Add(CreateSmallButton("连续电缆架", "SS_LINEAR_CHAIN ", "连续绘制电缆沟多层支架（支持折线）", "cable"));
-            chainCol.Items.Add(CreateRowBreak());
-            chainCol.Items.Add(CreateSmallButton("连续钢梁", "SS_LINEAR_CHAIN ", "连续绘制单根型钢梁（支持折线）", "member"));
-            chainPanel.Items.Add(chainCol);
+            chainPanel.Items.Add(CreateLargeButton("连续绘制", "SS_LINEAR_CHAIN ", "连续折线绘制栏杆、走道、电缆架、钢梁等", "chain"));
 
             // Panel 4: 平台梯道
             RibbonPanelSource platformStairPanel = CreatePanel(tab, "平台梯道");
             RibbonRowPanel pCol1 = new RibbonRowPanel();
-            pCol1.Items.Add(CreateSmallButton("四柱平台", "SS_PLATFORM ", "四柱空间检修钢平台", "platform"));
+            pCol1.Items.Add(CreateSmallButton("四柱平台", "SS_PLATFORM ", "四柱空间检修平台", "platform"));
             pCol1.Items.Add(CreateRowBreak());
             pCol1.Items.Add(CreateSmallButton("悬臂托架", "SS_BRACKET ", "悬臂三角托架", "bracket"));
             pCol1.Items.Add(CreateRowBreak());
@@ -104,7 +94,7 @@ namespace SteelStructureSuite.Ribbon
             RibbonRowPanel pCol2 = new RibbonRowPanel();
             pCol2.Items.Add(CreateSmallButton("管廊桁桥", "SS_PIPEBRIDGE ", "空间管廊桁架桥（支持两点绘制）", "bridge"));
             pCol2.Items.Add(CreateRowBreak());
-            pCol2.Items.Add(CreateSmallButton("直跑斜梯", "SS_STAIR_STRAIGHT ", "直跑钢斜梯（支持两点绘制）", "stair"));
+            pCol2.Items.Add(CreateSmallButton("直跑斜梯", "SS_STAIR_STRAIGHT ", "直跑钢斜梯", "stair"));
             pCol2.Items.Add(CreateRowBreak());
             pCol2.Items.Add(CreateSmallButton("护笼直梯", "SS_LADDER ", "GB 4053.1 带安全护笼钢直梯", "ladder"));
             platformStairPanel.Items.Add(pCol2);
@@ -112,37 +102,37 @@ namespace SteelStructureSuite.Ribbon
             RibbonRowPanel pCol3 = new RibbonRowPanel();
             pCol3.Items.Add(CreateSmallButton("螺旋盘梯", "SS_STAIR ", "储罐连续螺旋盘梯", "spiral"));
             pCol3.Items.Add(CreateRowBreak());
-            pCol3.Items.Add(CreateSmallButton("安全栏杆", "SS_HANDRAIL ", "GB 4053.3 平台安全栏杆（支持两点绘制）", "rail"));
+            pCol3.Items.Add(CreateSmallButton("安全栏杆", "SS_HANDRAIL ", "GB 4053.3 平台栏杆", "rail"));
             platformStairPanel.Items.Add(pCol3);
 
             // Panel 4: 化工设备 (HG/T, NB/T, SH/T)
             RibbonPanelSource chemPanel = CreatePanel(tab, "化工设备");
             RibbonRowPanel cCol1 = new RibbonRowPanel();
-            cCol1.Items.Add(CreateSmallButton("塔器平台", "SS_TOWER_PLAT ", "HG/T 21574 塔器环形检修平台（带扇形牛腿与外环护栏）", "tower"));
+            cCol1.Items.Add(CreateSmallButton("塔器平台", "SS_TOWER_PLAT ", "HG/T 21574 塔器环形平台", "tower"));
             cCol1.Items.Add(CreateRowBreak());
-            cCol1.Items.Add(CreateSmallButton("塔器裙座", "SS_SKIRT ", "NB/T 47041 立式塔器/容器钢裙座（含地脚螺栓座圈与检查孔）", "skirt"));
+            cCol1.Items.Add(CreateSmallButton("塔器裙座", "SS_SKIRT ", "NB/T 47041 立式塔器裙座", "skirt"));
             cCol1.Items.Add(CreateRowBreak());
-            cCol1.Items.Add(CreateSmallButton("管道管托", "SS_PIPESHOE ", "HG/T 21629 化工管道加劲管托/支座（含双管卡与加劲肋）", "shoe"));
+            cCol1.Items.Add(CreateSmallButton("管道管托", "SS_PIPESHOE ", "HG/T 21629 管道加劲管托", "shoe"));
             chemPanel.Items.Add(cCol1);
 
             RibbonRowPanel cCol2 = new RibbonRowPanel();
-            cCol2.Items.Add(CreateSmallButton("罐顶栏杆", "SS_TANK_RAIL ", "SH/T 3070 储罐拱顶环形安全栏杆", "tank"));
+            cCol2.Items.Add(CreateSmallButton("罐顶栏杆", "SS_TANK_RAIL ", "SH/T 3070 罐顶环形栏杆", "tank"));
             cCol2.Items.Add(CreateRowBreak());
-            cCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "NB/T 47042 卧式容器鞍式钢支座", "saddle"));
+            cCol2.Items.Add(CreateSmallButton("容器鞍座", "SS_SADDLE ", "NB/T 47042 卧式容器鞍座", "saddle"));
             chemPanel.Items.Add(cCol2);
 
             // Panel 5: 电力冶金 (DL/T, 16G519, 19G518)
             RibbonPanelSource powerMetaPanel = CreatePanel(tab, "电力冶金");
             RibbonRowPanel pmCol1 = new RibbonRowPanel();
-            pmCol1.Items.Add(CreateSmallButton("变电构架", "SS_GANTRY ", "DL/T 5218 变电站 A 字型钢管龙门构架与格构横梁", "gantry"));
+            pmCol1.Items.Add(CreateSmallButton("变电构架", "SS_GANTRY ", "DL/T 5218 变电站 A 字构架", "gantry"));
             pmCol1.Items.Add(CreateRowBreak());
-            pmCol1.Items.Add(CreateSmallButton("电缆支架", "SS_CABLE_RACK ", "DL/T 5221 电力电缆沟/隧道多层角钢支架（支持两点绘制）", "cable"));
+            pmCol1.Items.Add(CreateSmallButton("电缆支架", "SS_CABLE_RACK ", "DL/T 5221 电缆沟多层支架", "cable"));
             powerMetaPanel.Items.Add(pmCol1);
 
             RibbonRowPanel pmCol2 = new RibbonRowPanel();
-            pmCol2.Items.Add(CreateSmallButton("重吊车梁", "SS_CRANE_BEAM ", "16G519 冶金厂房重型焊接吊车梁、制动板与重轨（支持两点绘制）", "crane"));
+            pmCol2.Items.Add(CreateSmallButton("重吊车梁", "SS_CRANE_BEAM ", "16G519 重型吊车梁", "crane"));
             pmCol2.Items.Add(CreateRowBreak());
-            pmCol2.Items.Add(CreateSmallButton("柱间支撑", "SS_XBRACE ", "19G518 冶金厂房上下柱双片十字交叉支撑（支持两点绘制）", "xbrace"));
+            pmCol2.Items.Add(CreateSmallButton("柱间支撑", "SS_XBRACE ", "19G518 柱间交叉支撑", "xbrace"));
             powerMetaPanel.Items.Add(pmCol2);
 
             // Panel 6: 单根型钢与参数编辑
@@ -154,7 +144,6 @@ namespace SteelStructureSuite.Ribbon
             mCol.Items.Add(CreateRowBreak());
             mCol.Items.Add(CreateSmallButton("螺旋型钢", "SS_SPIRAL ", "选择已有螺旋线，截面沿螺旋扫掠", "helix"));
             memberPanel.Items.Add(mCol);
-            memberPanel.Items.Add(CreateLargeButton("编辑参数", "SS_EDIT ", "选中已有三维钢结构修改参数", "edit"));
 
             // Panel 7: 定位复写与统计出图
             RibbonPanelSource locatePanel = CreatePanel(tab, "定位复写");
@@ -167,19 +156,19 @@ namespace SteelStructureSuite.Ribbon
             locatePanel.Items.Add(alignCol);
 
             RibbonRowPanel overruleCol = new RibbonRowPanel();
-            overruleCol.Items.Add(CreateSmallButton("开启复写", "SS_OVERRULE_ON ", "开启参数化夹点复写 (SS_OVERRULE_ON)", "gripon"));
+            overruleCol.Items.Add(CreateSmallButton("开启复写", "SS_OVERRULE_ON ", "开启夹点复写", "gripon"));
             overruleCol.Items.Add(CreateRowBreak());
-            overruleCol.Items.Add(CreateSmallButton("关闭复写", "SS_OVERRULE_OFF ", "关闭参数化夹点复写 (SS_OVERRULE_OFF)", "gripoff"));
+            overruleCol.Items.Add(CreateSmallButton("关闭复写", "SS_OVERRULE_OFF ", "关闭夹点复写", "gripoff"));
             locatePanel.Items.Add(overruleCol);
 
             RibbonPanelSource filePanel = CreatePanel(tab, "图纸工具");
-            filePanel.Items.Add(CreateLargeButton("批量转DXF", "SS_DWG2DXF ", "把多个 DWG 批量转成 DXF，可选择当前 AutoCAD 支持的 DXF 版本", "dxf"));
-            filePanel.Items.Add(CreateLargeButton("合并图纸", "SS_DWGMERGE ", "按模型空间范围把多个 DWG 或 DXF 横向或纵向合并成一个新图纸", "merge"));
+            filePanel.Items.Add(CreateLargeButton("批量转DXF", "SS_DWG2DXF ", "批量 DWG 转 DXF", "dxf"));
+            filePanel.Items.Add(CreateLargeButton("合并图纸", "SS_DWGMERGE ", "合并多张 DWG/DXF", "merge"));
 
             RibbonPanelSource outPanel = CreatePanel(tab, "统计出图");
-            outPanel.Items.Add(CreateLargeButton("材料统计", "SS_BOM ", "统计全图或框选钢结构材料，导出 Excel (.xlsx) 或插入 CAD 表", "bom"));
-            outPanel.Items.Add(CreateLargeButton("施工详图", "SS_DRAWING ", "生成标准 A1~A4 图框消隐详图（支持当前文件或新建独立 DWG）", "drawing"));
-            outPanel.Items.Add(CreateLargeButton("批量出详图", "SS_BATCHDRAW ", "一次框选多个构件批量出详图：相同构件自动复用图纸，附图纸目录与汇总材料表，带进度可取消", "drawing"));
+            outPanel.Items.Add(CreateLargeButton("材料统计", "SS_BOM ", "材料统计并导出 Excel", "bom"));
+            outPanel.Items.Add(CreateLargeButton("施工详图", "SS_DRAWING ", "生成 A1~A4 施工详图", "drawing"));
+            outPanel.Items.Add(CreateLargeButton("批量出详图", "SS_BATCHDRAW ", "批量出详图，相同构件复用", "drawing"));
             outPanel.Items.Add(CreateLargeButton("使用说明", "SS_HELP ", "查看插件完整功能与命令使用说明", "help"));
             outPanel.Items.Add(CreateLargeButton("关于", "SS_ABOUT ", "查看版本、版权与 MIT 许可证信息", "about"));
 

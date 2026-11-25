@@ -32,7 +32,7 @@
         <!-- 页头：标题 + 一行说明 -->
         <StackPanel Grid.Row="0" Margin="0,0,0,8">
             <TextBlock Text="合并图纸" FontWeight="SemiBold" />
-            <TextBlock Text="支持 DWG 与 DXF 混排，按模型空间范围横向或纵向排布" Margin="0,2,0,0" />
+            <TextBlock Text="支持 DWG/DXF 混排" Margin="0,2,0,0" />
         </StackPanel>
 
         <!-- 待合并文件 -->

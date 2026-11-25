@@ -30,7 +30,7 @@
 
         <StackPanel Grid.Row="0" Margin="0,0,0,8">
             <TextBlock Text="批量 DWG 转 DXF" FontWeight="SemiBold" />
-            <TextBlock Text="按当前 AutoCAD 支持的版本批量导出 DXF" Margin="0,2,0,0" />
+            <TextBlock Text="批量导出 DXF" Margin="0,2,0,0" />
         </StackPanel>
 
         <Border Grid.Row="1" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">

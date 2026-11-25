@@ -520,19 +520,14 @@ namespace SteelStructureSuite.Commands
                 return;
             }
 
-            var dlg = new TemplateNameWindow(picked.StructureTypeDisplayName);
-            if (UserSettings.ShowModalWindowOnAutoCad(dlg) != true) return;
+            // 直接进编辑窗口：模板名称/备注在窗口内就地填，不再额外弹输入框
+            var win = new StructureEditWindow(picked, isEditMode: true, lockStructureType: true)
+            {
+                StartInTemplateSaveMode = true
+            };
+            if (UserSettings.ShowModalWindowOnAutoCad(win) != true) return;
 
-            try
-            {
-                var tpl = StructureTemplate.FromParams(picked, dlg.TemplateName, dlg.TemplateNote, dlg.IsGeneric);
-                StructureTemplateStore.Save(tpl);
-                ed.WriteMessage($"\n[SteelStructureSuite] 模板「{tpl.Name}」已保存。\n");
-            }
-            catch (System.Exception ex)
-            {
-                ed.WriteMessage($"\n[SteelStructureSuite] 保存模板失败：{ex.Message}\n");
-            }
+            ed.WriteMessage("\n[SteelStructureSuite] 模板操作完成。\n");
         }
 
         [CommandMethod("SS_APPLYTEMPLATE", CommandFlags.Modal | CommandFlags.UsePickSet)]

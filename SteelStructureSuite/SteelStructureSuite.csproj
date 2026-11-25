@@ -171,14 +171,6 @@
       <DependentUpon>TemplateManagerWindow.xaml</DependentUpon>
     </Compile>
 
-    <Page Include="Views\TemplateNameWindow.xaml">
-      <SubType>Designer</SubType>
-      <Generator>MSBuild:Compile</Generator>
-    </Page>
-    <Compile Include="Views\TemplateNameWindow.xaml.cs">
-      <DependentUpon>TemplateNameWindow.xaml</DependentUpon>
-    </Compile>
-
     <Page Include="Views\DwgToDxfWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

@@ -49,6 +49,12 @@ namespace SteelStructureSuite.Views
             Closed += (s, e) => UserSettings.SaveWindowState(this, "MaterialTakeoffWindow");
         }
 
+        /// <summary>在顶部横幅就地提示，替代一次性弹窗。</summary>
+        private void SetBanner(string text)
+        {
+            if (TxtBanner != null) TxtBanner.Text = text ?? string.Empty;
+        }
+
         private void ReloadData(IEnumerable<ObjectId> filterIds)
         {
             var structures = MaterialTakeoffService.CollectStructures(_db, filterIds);
@@ -101,7 +107,7 @@ namespace SteelStructureSuite.Views
         {
             if (_summaryRows.Count == 0)
             {
-                MessageBox.Show("当前没有可导出的材料数据。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                SetBanner("当前没有可导出的材料数据");
                 return;
             }
 
@@ -117,11 +123,11 @@ namespace SteelStructureSuite.Views
                 try
                 {
                     MaterialTakeoffService.ExportToExcelXlsx(sfd.FileName, _detailedItems, _summaryRows);
-                    MessageBox.Show($"已导出 Excel：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SetBanner("已导出 Excel：" + System.IO.Path.GetFileName(sfd.FileName));
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    SetBanner("导出失败：" + ex.Message);
                 }
             }
         }

@@ -201,7 +201,7 @@
 
         <TextBlock x:Name="TxtTip"
                    Grid.Row="2"
-                   Text="仅更新已勾选且位号发生变化的构件，不会改动构件三维几何尺寸与位置。"
+                   Text="仅改位号，不改几何"
                    Margin="0,0,0,8" />
 
         <StackPanel Grid.Row="3" Orientation="Horizontal" HorizontalAlignment="Right">

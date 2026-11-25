@@ -45,8 +45,7 @@
                            ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                     <Button Content="导入" ToolTip="从 Excel (.xlsx) 或 CSV 导入截面" Margin="0,0,8,0" Click="OnImportClick" />
-                    <Button Content="导出 Excel" ToolTip="按 5 大类分工作表导出 Excel" Margin="0,0,8,0" Click="OnExportXlsxClick" />
-                    <Button Content="导出 CSV" ToolTip="导出全部截面为 CSV" Margin="0,0,8,0" Click="OnExportCsvClick" />
+                    <Button Content="导出" ToolTip="导出全部截面（Excel 分 5 类工作表，或 CSV）" Margin="0,0,8,0" Click="OnExportClick" />
                     <Button Content="恢复默认库" ToolTip="重置为内置国标与工程截面库" Click="OnResetDefaultClick" />
                 </StackPanel>
             </Grid>

@@ -45,6 +45,12 @@ namespace SteelStructureSuite.Views
             Closed += (s, e) => UserSettings.SaveWindowState(this, "StructureManagerWindow");
         }
 
+        /// <summary>在窗口底部状态栏就地提示，替代一次性弹窗。</summary>
+        private void SetStatus(string text)
+        {
+            if (TxtStatus != null) TxtStatus.Text = text ?? string.Empty;
+        }
+
         private void ReloadAllStructures()
         {
             _allRecords.Clear();
@@ -209,7 +215,7 @@ namespace SteelStructureSuite.Views
             StructureRecordItem rec = GetSelectedRecord();
             if (rec == null)
             {
-                MessageBox.Show("请先选择构件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                SetStatus("请先选择构件");
                 return;
             }
 
@@ -246,7 +252,7 @@ namespace SteelStructureSuite.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"定位失败: {ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                SetStatus("定位失败：" + ex.Message);
             }
         }
 
@@ -281,7 +287,7 @@ namespace SteelStructureSuite.Views
             StructureRecordItem rec = GetSelectedRecord();
             if (rec == null)
             {
-                MessageBox.Show("请先选择要编辑的构件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                SetStatus("请先选择要编辑的构件");
                 return;
             }
 
@@ -305,7 +311,7 @@ namespace SteelStructureSuite.Views
             StructureRecordItem rec = GetSelectedRecord();
             if (rec == null)
             {
-                MessageBox.Show("请先选择要出图的构件。", "提示", MessageBoxButton.OK, MessageBoxImage.Information);
+                SetStatus("请先选择要出图的构件");
                 return;
             }
 
@@ -325,7 +331,7 @@ namespace SteelStructureSuite.Views
                     SteelHlrDrawingService.GenerateDetailDrawingToNewDwgFile(parms, savePath, options);
                     if (options.OpenNewDwgAfterSave && File.Exists(savePath))
                         Application.DocumentManager.Open(savePath, false);
-                    MessageBox.Show($"已生成新 DWG 详图：\n{savePath}", "完成", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SetStatus("已生成新 DWG 详图：" + System.IO.Path.GetFileName(savePath));
                 });
             }
             else
@@ -350,11 +356,11 @@ namespace SteelStructureSuite.Views
                         SteelHlrDrawingService.GenerateDetailDrawingSheet(doc.Database, parms, insertPt, options);
                     }
                     doc.Editor.WriteMessage("\n[SteelStructureSuite] " + "详图已写入当前图。\n");
-                });
+                }, SetStatus);
             }
         }
 
-        private static void RunInCommandContext(Document doc, Action action)
+        private static void RunInCommandContext(Document doc, Action action, Action<string> report = null)
         {
             if (doc != null && !string.IsNullOrEmpty(doc.CommandInProgress))
             {
@@ -377,7 +383,7 @@ namespace SteelStructureSuite.Views
                     catch
                     {
                     }
-                    MessageBox.Show(ex.Message, "出图失败", MessageBoxButton.OK, MessageBoxImage.Error);
+                    report?.Invoke("出图失败：" + ex.Message);
                 }
                 return System.Threading.Tasks.Task.CompletedTask;
             }, null);

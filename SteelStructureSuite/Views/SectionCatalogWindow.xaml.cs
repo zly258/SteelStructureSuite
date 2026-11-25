@@ -70,6 +70,12 @@ namespace SteelStructureSuite.Views
         /// 初始化 WinForms PropertyGrid：无工具栏、按类别分组、按字母序展示。
         /// 字段集合与中文名由 <see cref="SectionParameterModel"/> 按截面类型动态决定。
         /// </summary>
+        /// <summary>在底部状态栏就地显示提示，替代一次性成功/失败弹窗。</summary>
+        private void SetStatus(string text)
+        {
+            if (TxtStorageInfo != null) TxtStorageInfo.Text = text ?? string.Empty;
+        }
+
         private void InitPropertyGrid()
         {
             _propertyGrid = new System.Windows.Forms.PropertyGrid
@@ -386,49 +392,48 @@ namespace SteelStructureSuite.Views
             }
         }
 
-        private void OnExportXlsxClick(object sender, RoutedEventArgs e)
+        /// <summary>统一导出入口：按扩展名自动选择 Excel 或 CSV，不再放两个按钮。</summary>
+        private void OnExportClick(object sender, RoutedEventArgs e)
         {
-            SaveFileDialog sfd = new SaveFileDialog
+            var dlg = new Microsoft.Win32.SaveFileDialog
             {
-                Title = "导出型钢截面库 (.xlsx)",
-                Filter = "Excel 工作簿 (*.xlsx)|*.xlsx",
-                FileName = $"钢结构型钢截面库_{DateTime.Now:yyyyMMdd_HHmm}.xlsx"
+                Title = "导出截面库",
+                Filter = "Excel 工作簿 (*.xlsx)|*.xlsx|CSV 文件 (*.csv)|*.csv",
+                DefaultExt = ".xlsx",
+                FileName = $"截面库_{DateTime.Now:yyyyMMdd}"
             };
+            if (dlg.ShowDialog(this) != true) return;
 
-            if (sfd.ShowDialog() == true)
+            bool csv = dlg.FilterIndex == 2 ||
+                       dlg.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase);
+
+            if (csv) ExportCsvCore(dlg.FileName);
+            else ExportXlsxCore(dlg.FileName);
+        }
+
+        private void ExportXlsxCore(string path)
+        {
+            try
             {
-                try
-                {
-                    SectionCatalogService.ExportCatalogToXlsx(sfd.FileName);
-                    MessageBox.Show($"已按 5 大类工作表导出 Excel 至：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                SectionCatalogService.ExportCatalogToXlsx(path);
+                SetStatus("已导出 Excel：" + System.IO.Path.GetFileName(path));
+            }
+            catch (Exception ex)
+            {
+                SetStatus("导出失败：" + ex.Message);
             }
         }
 
-        private void OnExportCsvClick(object sender, RoutedEventArgs e)
+        private void ExportCsvCore(string path)
         {
-            SaveFileDialog sfd = new SaveFileDialog
+            try
             {
-                Title = "导出型钢截面库 (.csv)",
-                Filter = "CSV 文件 (*.csv)|*.csv",
-                FileName = $"钢结构型钢截面库_{DateTime.Now:yyyyMMdd_HHmm}.csv"
-            };
-
-            if (sfd.ShowDialog() == true)
+                SectionCatalogService.ExportCatalogToCsv(path);
+                SetStatus("已导出 CSV：" + System.IO.Path.GetFileName(path));
+            }
+            catch (Exception ex)
             {
-                try
-                {
-                    SectionCatalogService.ExportCatalogToCsv(sfd.FileName);
-                    MessageBox.Show($"已导出 CSV 至：\n{sfd.FileName}", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
-                }
-                catch (Exception ex)
-                {
-                    MessageBox.Show($"导出失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
-                }
+                SetStatus("导出失败：" + ex.Message);
             }
         }
 
@@ -447,11 +452,11 @@ namespace SteelStructureSuite.Views
                     int count = SectionCatalogService.ImportCatalogFromFile(ofd.FileName, replaceExisting: false);
                     RebuildCategoryTree(_currentFilter?.Key ?? "ALL");
                     RefreshTableAndSummary();
-                    MessageBox.Show($"已成功导入/更新 {count} 条截面规格！", "成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                    SetStatus($"已导入/更新 {count} 条截面规格");
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"导入失败：{ex.Message}", "错误", MessageBoxButton.OK, MessageBoxImage.Error);
+                    SetStatus("导入失败：" + ex.Message);
                 }
             }
         }
@@ -485,7 +490,7 @@ namespace SteelStructureSuite.Views
             }
             catch (Exception ex)
             {
-                MessageBox.Show($"无法打开目录：{ex.Message}", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                SetStatus("无法打开目录：" + ex.Message);
             }
         }
 

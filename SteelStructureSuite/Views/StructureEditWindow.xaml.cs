@@ -25,6 +25,9 @@ namespace SteelStructureSuite.Views
         public bool UseCurvePick { get; private set; }
         public bool ChainPlacementMode { get; }
 
+        /// <summary>打开窗口后直接展开「存为模板」输入区（供 SS_SAVETEMPLATE 使用）。</summary>
+        public bool StartInTemplateSaveMode { get; set; }
+
         private bool _isInitializing = true;
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
         private List<StructureTemplate> _currentTemplates = new List<StructureTemplate>();
@@ -121,6 +124,15 @@ namespace SteelStructureSuite.Views
                 SaveLastSettings();
                 UserSettings.SaveWindowState(this, "StructureEditWindow");
             };
+
+            if (StartInTemplateSaveMode)
+            {
+                Loaded += (s, e) =>
+                {
+                    if (GridTemplateSave.Visibility != Visibility.Visible)
+                        OnSaveAsTemplateClick(this, new RoutedEventArgs());
+                };
+            }
         }
 
         /// <summary>只恢复当前构件类型自己记住的截面，没有记录时用该类型的初始预设。</summary>
@@ -229,48 +241,80 @@ namespace SteelStructureSuite.Views
             RefreshLivePreview();
         }
 
-        /// <summary>把当前全部参数保存成一条模板。</summary>
+        /// <summary>就地展开模板名称/备注输入区，不弹独立对话框。</summary>
         private void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
         {
-            if (!TryReadFormToData(out string err))
+            if (GridTemplateSave.Visibility == Visibility.Visible)
             {
-                MessageBox.Show(this, err, "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                GridTemplateSave.Visibility = Visibility.Collapsed;
                 return;
             }
 
-            var dlg = new TemplateNameWindow(Data.StructureTypeDisplayName)
+            TxtTemplateName.Text = string.Format(
+                CultureInfo.CurrentCulture,
+                "{0} {1:MMdd-HHmm}",
+                Data.StructureTypeDisplayName,
+                DateTime.Now);
+            TxtTemplateNote.Text = string.Empty;
+
+            GridTemplateSave.Visibility = Visibility.Visible;
+            TxtTemplateName.Focus();
+            TxtTemplateName.SelectAll();
+        }
+
+        /// <summary>确认保存模板（就地输入，保存结果写状态提示，不弹窗）。</summary>
+        private void OnConfirmSaveTemplateClick(object sender, RoutedEventArgs e)
+        {
+            string name = (TxtTemplateName.Text ?? string.Empty).Trim();
+            if (name.Length == 0)
             {
-                Owner = this
-            };
-            if (dlg.ShowDialog() != true) return;
+                TxtTemplateName.Focus();
+                return;
+            }
+
+            if (!TryReadFormToData(out string err))
+            {
+                SetInlineHint(err);
+                return;
+            }
 
             try
             {
                 StructureTemplate tpl = StructureTemplate.FromParams(
-                    Data, dlg.TemplateName, dlg.TemplateNote, dlg.IsGeneric);
+                    Data, name, TxtTemplateNote.Text);
 
                 StructureTemplateStore.Save(tpl);
                 ReloadPresetsForCurrentType();
 
-                MessageBox.Show(this,
-                    $"模板「{tpl.Name}」已保存，可在模板下拉中直接套用。",
-                    "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+                GridTemplateSave.Visibility = Visibility.Collapsed;
+                SetInlineHint($"已存为模板「{tpl.Name}」");
             }
             catch (Exception ex)
             {
-                MessageBox.Show(this, "保存模板失败：" + ex.Message, "错误",
-                    MessageBoxButton.OK, MessageBoxImage.Error);
+                SetInlineHint("保存失败：" + ex.Message);
             }
         }
 
-        /// <summary>打开模板管理窗口。</summary>
+        private void OnCancelSaveTemplateClick(object sender, RoutedEventArgs e)
+        {
+            GridTemplateSave.Visibility = Visibility.Collapsed;
+        }
+
+        /// <summary>在窗口底部就地显示一条提示，不弹窗。</summary>
+        private void SetInlineHint(string text)
+        {
+            if (TxtHint == null) return;
+            TxtHint.Text = text ?? string.Empty;
+        }
+
+        /// <summary>打开模板管理窗口（管理窗口内部不弹提示，全部走状态栏）。</summary>
         private void OnManageTemplatesClick(object sender, RoutedEventArgs e)
         {
             var win = new TemplateManagerWindow { Owner = this };
             win.ShowDialog();
 
-            // 管理窗口可能改名或删除，回来后刷新下拉
             ReloadPresetsForCurrentType();
+            SetInlineHint("模板已更新");
         }
 
         private void UpdatePlacementButtons()
@@ -795,7 +839,7 @@ namespace SteelStructureSuite.Views
         {
             if (!TryReadFormToData(out string err))
             {
-                MessageBox.Show(err, "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                SetInlineHint(err);
                 return;
             }
 

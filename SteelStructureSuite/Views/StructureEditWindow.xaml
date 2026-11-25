@@ -45,6 +45,7 @@
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
                                         <RowDefinition Height="Auto" />
+                                        <RowDefinition Height="Auto" />
                                     </Grid.RowDefinitions>
 
                                     <TextBlock x:Name="LblType" Grid.Row="0" Grid.Column="0" Text="结构类型" />
@@ -56,28 +57,57 @@
                                             <ColumnDefinition Width="*" MinWidth="120" />
                                             <ColumnDefinition Width="Auto" />
                                             <ColumnDefinition Width="Auto" />
-                                            <ColumnDefinition Width="Auto" />
                                         </Grid.ColumnDefinitions>
                                         <ComboBox x:Name="CmbPreset"
                                                   Grid.Column="0"
-                                                  ToolTip="选择参数模板快速套用（模板可在「保存为模板」中新建）"
+                                                  ToolTip="选择模板快速套用"
                                                   SelectionChanged="OnPresetSelectionChanged" />
                                         <Button x:Name="BtnSaveTemplate"
                                                 Grid.Column="1"
-                                                Content="保存为模板"
+                                                Content="存为模板"
                                                 Margin="8,0,0,0"
-                                                ToolTip="把当前全部参数保存成模板，便于以后一键套用"
+                                                ToolTip="把当前参数存成模板"
                                                 Click="OnSaveAsTemplateClick" />
                                         <Button x:Name="BtnManageTemplate"
                                                 Grid.Column="2"
                                                 Content="管理"
                                                 Margin="8,0,0,0"
-                                                ToolTip="打开参数模板管理：重命名、删除、导入导出"
+                                                ToolTip="重命名、删除、导入导出模板"
                                                 Click="OnManageTemplatesClick" />
                                     </Grid>
 
-                                    <TextBlock Grid.Row="2" Grid.Column="0" Text="构件位号" />
-                                    <Grid Grid.Row="2" Grid.Column="1">
+                                    <!-- 存为模板时的名称/备注：就地展开，不弹窗 -->
+                                    <Grid x:Name="GridTemplateSave"
+                                          Grid.Row="2"
+                                          Grid.Column="1"
+                                          Visibility="Collapsed"
+                                          Margin="0,4,0,0">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MinWidth="110" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="*" MinWidth="110" />
+                                            <ColumnDefinition Width="8" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <TextBox x:Name="TxtTemplateName"
+                                                 Grid.Column="0"
+                                                 ToolTip="模板名称" />
+                                        <TextBox x:Name="TxtTemplateNote"
+                                                 Grid.Column="2"
+                                                 ToolTip="备注（可留空）" />
+                                        <Button Grid.Column="4"
+                                                Content="保存"
+                                                Margin="0,0,8,0"
+                                                IsDefault="False"
+                                                Click="OnConfirmSaveTemplateClick" />
+                                        <Button Grid.Column="5"
+                                                Content="取消"
+                                                Click="OnCancelSaveTemplateClick" />
+                                    </Grid>
+
+                                    <TextBlock Grid.Row="3" Grid.Column="0" Text="构件位号" />
+                                    <Grid Grid.Row="3" Grid.Column="1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" MinWidth="120" />
                                             <ColumnDefinition Width="Auto" />
@@ -193,11 +223,25 @@
             </TabItem>
         </TabControl>
 
-        <StackPanel Grid.Row="1" Orientation="Horizontal" HorizontalAlignment="Right" Margin="0,8,0,0">
-            <Button x:Name="BtnUpdate" Content="更新模型" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
-            <Button x:Name="BtnSinglePt" Content="单点放置" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
-            <Button x:Name="BtnLinearTwoPt" Content="两点线性绘制" Margin="0,0,8,0" Click="OnLinearDrawConfirmClick" />
-            <Button x:Name="BtnCancel" Content="取消" IsCancel="True" Click="OnCancelClick" />
-        </StackPanel>
+        <Grid Grid.Row="1" Margin="0,8,0,0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" MinWidth="120" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock x:Name="TxtHint"
+                       Grid.Column="0"
+                       Foreground="{x:Static SystemColors.GrayTextBrush}"
+                       VerticalAlignment="Center"
+                       TextTrimming="CharacterEllipsis"
+                       ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal">
+                <Button x:Name="BtnUpdate" Content="更新模型" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
+                <Button x:Name="BtnSinglePt" Content="单点放置" Margin="0,0,8,0" Click="OnSinglePointConfirmClick" />
+                <Button x:Name="BtnLinearTwoPt" Content="两点线性绘制" Margin="0,0,8,0" Click="OnLinearDrawConfirmClick" />
+                <Button x:Name="BtnCancel" Content="取消" IsCancel="True" Click="OnCancelClick" />
+            </StackPanel>
+        </Grid>
     </Grid>
 </Window>
