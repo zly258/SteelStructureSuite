@@ -79,7 +79,7 @@
                     <TextBlock Grid.Row="4" Grid.Column="2" Text="zhangly1403@qq.com" />
                 </Grid>
 
-                <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0">
+                <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0,14,0,0">
                     <TextBox x:Name="TxtLicenseSummary" AcceptsReturn="True" TextWrapping="Wrap" IsReadOnly="True" VerticalScrollBarVisibility="Auto" MaxHeight="240" MinHeight="120" />
                 </GroupBox>
             </StackPanel>

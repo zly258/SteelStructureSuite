@@ -185,7 +185,9 @@ namespace SteelStructureSuite.Views
                 SheetSizeName = new[] { "A1", "A2", "A3", "A4" }[
                     Math.Max(0, Math.Min(3, CmbSheetSize.SelectedIndex))],
                 IncludeJointDetailViews = ChkJoint.IsChecked == true,
-                ReuseIdenticalStructures = ChkReuse.IsChecked == true
+                ReuseIdenticalStructures = ChkReuse.IsChecked == true,
+                IncludeDrawingIndex = ChkIndex.IsChecked == true,
+                IncludeSummaryBom = ChkSummaryBom.IsChecked == true
             };
 
             int scaleIdx = CmbScale.SelectedIndex;

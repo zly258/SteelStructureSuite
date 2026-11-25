@@ -150,7 +150,7 @@
                                     <TextBlock x:Name="LblBayCount" Grid.Row="4" Grid.Column="0" Text="跨数 / 层数" />
                                     <TextBox x:Name="TxtBayCount" Grid.Row="4" Grid.Column="1" TextChanged="OnAnyParameterChanged" />
 
-                                    <TextBlock x:Name="LblAngleAndDz" Grid.Row="5" Grid.Column="0" Text="平面旋转角 (°)" />
+                                    <TextBlock x:Name="LblAngleAndDz" Grid.Row="5" Grid.Column="0" Text="旋转角 (°)" VerticalAlignment="Center" />
                                     <Grid Grid.Row="5" Grid.Column="1">
                                         <Grid.ColumnDefinitions>
                                             <ColumnDefinition Width="*" MinWidth="80" />

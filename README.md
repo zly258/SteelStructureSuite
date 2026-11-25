@@ -136,6 +136,7 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 | Command | Purpose |
 |---|---|
 | `SS_RIBBON` | Rebuild and activate the plugin Ribbon tab |
+| `SS_RIBBONMODE` | Toggle Ribbon layout between Detailed (one button per type) and Compact (one dropdown menu per category) |
 | `SS_MANAGER` | Open the drawing-wide model manager with tree filter, keyword search, viewport zoom-focus, edit, and delete |
 | `SS_RENUMBER` | Batch renumber structure tags with prefix unification, digit padding, and before/after preview |
 | `SS_SECTIONS` | Open the 5-category, 24-shape section catalog with 2D preview, weight override, and Excel/CSV import-export |

@@ -77,17 +77,18 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto" />
-                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" MinWidth="72" />
+                    <ColumnDefinition Width="10" />
+                    <ColumnDefinition Width="*" MinWidth="200" />
                     <ColumnDefinition Width="Auto" />
                 </Grid.ColumnDefinitions>
 
-                <TextBlock Grid.Row="0" Grid.Column="0" Text="输出目录" />
-                <TextBox x:Name="TxtOutput" Grid.Row="0" Grid.Column="1" ToolTip="DXF 输出目录" />
-                <Button Grid.Row="0" Grid.Column="2" Content="浏览" Margin="8,3,0,3" Click="OnBrowseOutputClick" />
+                <TextBlock Grid.Row="0" Grid.Column="0" Text="输出目录" VerticalAlignment="Center" />
+                <TextBox x:Name="TxtOutput" Grid.Row="0" Grid.Column="2" ToolTip="DXF 输出目录" />
+                <Button Grid.Row="0" Grid.Column="3" Content="浏览" Margin="8,0,0,0" Click="OnBrowseOutputClick" />
 
-                <TextBlock Grid.Row="1" Grid.Column="0" Text="DXF 版本" />
-                <ComboBox x:Name="CmbVersion" Grid.Row="1" Grid.Column="1" Grid.ColumnSpan="2">
+                <TextBlock Grid.Row="1" Grid.Column="0" Text="DXF 版本" VerticalAlignment="Center" />
+                <ComboBox x:Name="CmbVersion" Grid.Row="1" Grid.Column="2" Grid.ColumnSpan="2">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding Label}" ToolTip="{Binding Label}" TextTrimming="CharacterEllipsis" />
@@ -95,7 +96,7 @@
                     </ComboBox.ItemTemplate>
                 </ComboBox>
 
-                <CheckBox x:Name="ChkOverwrite" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan="2" Content="覆盖已有 DXF" />
+                <CheckBox x:Name="ChkOverwrite" Grid.Row="2" Grid.Column="2" Grid.ColumnSpan="2" Content="覆盖已有 DXF" />
             </Grid>
         </Border>
 

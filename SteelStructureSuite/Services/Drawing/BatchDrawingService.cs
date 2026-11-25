@@ -151,12 +151,17 @@ namespace SteelStructureSuite.Services.Drawing
                 progress?.Invoke(state);
             }
 
-            // 2. 图纸目录 + 汇总材料表
-            if (placed.Count > 0)
+            // 2. 图纸目录 + 汇总材料表（按选项决定是否生成）
+            bool wantIndex = options.IncludeDrawingIndex;
+            bool wantSummary = options.IncludeSummaryBom;
+
+            if (placed.Count > 0 && (wantIndex || wantSummary))
             {
                 if (shouldCancel == null || !shouldCancel())
                 {
-                    state.Message = "正在生成图纸目录与汇总材料表...";
+                    state.Message = wantIndex && wantSummary
+                        ? "正在生成图纸目录与汇总材料表..."
+                        : (wantIndex ? "正在生成图纸目录..." : "正在生成汇总材料表...");
                     progress?.Invoke(state);
 
                     try
@@ -166,7 +171,9 @@ namespace SteelStructureSuite.Services.Drawing
                             plan,
                             placed,
                             new Point3d(origin.X, origin.Y - ((plan.Groups.Count - 1) / perRow + 1) * cellH, origin.Z),
-                            options);
+                            options,
+                            wantIndex,
+                            wantSummary);
                     }
                     catch (Exception ex)
                     {
@@ -223,7 +230,9 @@ namespace SteelStructureSuite.Services.Drawing
             BatchDrawingPlan plan,
             List<string> sheetCaptions,
             Point3d origin,
-            DrawingGenerationOptions options)
+            DrawingGenerationOptions options,
+            bool wantIndex,
+            bool wantSummary)
         {
             GetSheetSizeMm(options.SheetSizeName, out double paperW, out double paperH);
             double scale = options.AutoScale ? 20.0 : Math.Max(1.0, options.DrawingScale);
@@ -235,6 +244,12 @@ namespace SteelStructureSuite.Services.Drawing
             {
                 BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
+
+                if (!wantIndex)
+                {
+                    tr.Commit();
+                    return;
+                }
 
                 // ---- 图纸目录 ----
                 double tableW = 180.0 * scale;

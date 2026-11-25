@@ -22,6 +22,12 @@ namespace SteelStructureSuite.Domain.Models
         /// <summary>批量出图时是否把完全相同的构件合并为一张图。</summary>
         public bool ReuseIdenticalStructures { get; set; } = true;
 
+        /// <summary>批量出图时是否生成图纸目录表。</summary>
+        public bool IncludeDrawingIndex { get; set; } = true;
+
+        /// <summary>批量出图时是否生成汇总材料表。</summary>
+        public bool IncludeSummaryBom { get; set; } = true;
+
         public DrawingGenerationOptions Clone()
         {
             return new DrawingGenerationOptions
@@ -40,7 +46,9 @@ namespace SteelStructureSuite.Domain.Models
                 NewDwgFilePath = NewDwgFilePath,
                 OpenNewDwgAfterSave = OpenNewDwgAfterSave,
                 IncludeJointDetailViews = IncludeJointDetailViews,
-                ReuseIdenticalStructures = ReuseIdenticalStructures
+                ReuseIdenticalStructures = ReuseIdenticalStructures,
+                IncludeDrawingIndex = IncludeDrawingIndex,
+                IncludeSummaryBom = IncludeSummaryBom
             };
         }
     }

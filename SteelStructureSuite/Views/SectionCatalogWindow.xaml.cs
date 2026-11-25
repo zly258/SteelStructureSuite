@@ -55,7 +55,8 @@ namespace SteelStructureSuite.Views
             RebuildCategoryTree(UserSettings.GetString("Catalog.LastTreeNode", "ALL"));
             RefreshTableAndSummary();
             UpdateLivePreview();
-            TxtStorageInfo.Text = $"本地数据文件 (UTF-8 CSV，支持 Excel 编辑与多表导入导出): {SectionCatalogService.CatalogFilePath}";
+            // 不显示具体路径，避免泄露本机目录；需要时点「打开目录」即可
+            TxtStorageInfo.Text = "本地截面库（UTF-8 CSV，可用 Excel 编辑）";
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
             Closed += (s, e) =>

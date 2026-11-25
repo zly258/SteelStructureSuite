@@ -211,7 +211,7 @@
             </Border>
         </Grid>
 
-        <!-- Zone 3.8: 数据存储路径与格式说明（独占底部操作栏上方一行） -->
+        <!-- Zone 3.8: 底部状态/操作栏（不显示具体路径，只保留打开目录） -->
         <Border Grid.Row="3" Style="{StaticResource Panel.InfoBar}" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
@@ -226,7 +226,7 @@
                            ToolTip="{Binding Text, RelativeSource={RelativeSource Self}}" />
                 <Button Grid.Column="2"
                         Content="打开目录"
-                        ToolTip="在文件资源管理器中定位本地截面库 CSV 文件"
+                        ToolTip="在文件资源管理器中定位本地截面库文件"
                         Click="OnOpenStorageFolderClick" />
             </Grid>
         </Border>

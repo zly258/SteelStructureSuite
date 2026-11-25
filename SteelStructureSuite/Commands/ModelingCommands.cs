@@ -39,6 +39,20 @@ namespace SteelStructureSuite.Commands
                 "\n[SteelStructureSuite] 顶部 [参数化钢结构] 选项卡已激活。\n");
         }
 
+        /// <summary>在「详细」与「极简」功能区布局之间切换。</summary>
+        [CommandMethod("SS_RIBBONMODE", CommandFlags.Modal)]
+        public void ToggleRibbonDisplayMode()
+        {
+            SteelRibbonBuilder.ToggleDisplayMode();
+
+            string mode = SteelRibbonBuilder.DisplayMode == SteelRibbonBuilder.RibbonDisplayMode.Compact
+                ? "极简（每个大类一个下拉菜单）"
+                : "详细（每个构件一个按钮）";
+
+            Application.DocumentManager.MdiActiveDocument?.Editor.WriteMessage(
+                $"\n[SteelStructureSuite] 功能区已切换为：{mode}\n");
+        }
+
         [CommandMethod("SS_OVERRULE_ON", CommandFlags.Modal)]
         public void TurnOverruleOn()
         {

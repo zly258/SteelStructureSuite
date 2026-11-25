@@ -28,21 +28,22 @@
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
             <StackPanel>
                 <GroupBox Header="图框与比例">
-                    <Grid>
+                    <Grid Grid.IsSharedSizeScope="True">
                         <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" MinWidth="96" SharedSizeGroup="DwgCfgLabel" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" MinWidth="180" />
                         </Grid.ColumnDefinitions>
                         <Grid.RowDefinitions>
                             <RowDefinition Height="Auto" />
                             <RowDefinition Height="Auto" />
                         </Grid.RowDefinitions>
 
-                        <TextBlock Grid.Row="0" Grid.Column="0" Text="标准图框幅面" />
-                        <ComboBox x:Name="CmbSheetSize" Grid.Row="0" Grid.Column="1" />
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="标准图框幅面" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbSheetSize" Grid.Row="0" Grid.Column="2" />
 
-                        <TextBlock Grid.Row="1" Grid.Column="0" Text="绘图比例" />
-                        <ComboBox x:Name="CmbScale" Grid.Row="1" Grid.Column="1" />
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="绘图比例" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbScale" Grid.Row="1" Grid.Column="2" />
                     </Grid>
                 </GroupBox>
 
