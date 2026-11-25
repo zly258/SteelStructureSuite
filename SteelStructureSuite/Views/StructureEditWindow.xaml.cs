@@ -32,6 +32,10 @@ namespace SteelStructureSuite.Views
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
         private List<StructureTemplate> _currentTemplates = new List<StructureTemplate>();
 
+        private System.Windows.Forms.PropertyGrid _paramGrid;
+        private StructureParameterModel _paramModel;
+        private bool _suppressParamSync;
+
         public StructureEditWindow(
             SteelStructureParams initialParams,
             bool isEditMode = false,
@@ -87,6 +91,8 @@ namespace SteelStructureSuite.Views
                     ? lastMaterial
                     : Data.Material ?? "Q355B";
             if (CmbMaterial.SelectedIndex < 0) CmbMaterial.SelectedIndex = 1;
+
+            InitParamPropertyGrid();
 
             if (isEditMode)
             {
@@ -191,8 +197,145 @@ namespace SteelStructureSuite.Views
             UserSettings.Save();
         }
 
+        /// <summary>初始化参数 PropertyGrid（WinForms），关闭工具栏、按类别分组。</summary>
+        private void InitParamPropertyGrid()
+        {
+            _paramGrid = new System.Windows.Forms.PropertyGrid
+            {
+                Dock = System.Windows.Forms.DockStyle.Fill,
+                ToolbarVisible = false,
+                HelpVisible = true,
+                PropertySort = System.Windows.Forms.PropertySort.Categorized,
+                BackColor = System.Drawing.Color.White,
+                LineColor = System.Drawing.SystemColors.ControlDark,
+                CategoryForeColor = System.Drawing.SystemColors.ControlText,
+                HelpBackColor = System.Drawing.SystemColors.Control
+            };
+            _paramGrid.PropertyValueChanged += (s, e) => OnParamValueChanged();
+
+            _paramModel = new StructureParameterModel(new List<StructureParameterModel.FieldSpec>());
+            _paramGrid.SelectedObject = _paramModel;
+            ParamPropertyHost.Child = _paramGrid;
+        }
+
+        /// <summary>PropertyGrid 值变化：写回已在模型里完成，这里同步隐藏控件与预览。</summary>
+        private void OnParamValueChanged()
+        {
+            if (_suppressParamSync || _isInitializing) return;
+
+            _isInitializing = true;
+            SyncControlsFromData();
+            _isInitializing = false;
+
+            RefreshLivePreview();
+        }
+
+        /// <summary>根据当前构件类型的标签/可见性重建 PropertyGrid 字段。</summary>
+        private void RefreshParamGrid()
+        {
+            if (_paramGrid == null || _paramModel == null) return;
+
+            _suppressParamSync = true;
+            _paramModel.ReplaceFields(BuildParamFieldSpecs());
+            _paramGrid.SelectedObject = null;
+            _paramGrid.SelectedObject = _paramModel;
+            _paramGrid.Refresh();
+            _suppressParamSync = false;
+        }
+
+        private static string StripLabel(string text, string fallback = null)
+        {
+            if (string.IsNullOrWhiteSpace(text)) return fallback ?? "参数";
+            string s = text.Trim().TrimEnd(':', '：').Trim();
+            return string.IsNullOrEmpty(s) ? (fallback ?? "参数") : s;
+        }
+
+        private static bool IsShown(UIElement el)
+        {
+            return el != null && el.Visibility == Visibility.Visible;
+        }
+
+        /// <summary>由既有标签控制与显隐状态构建 PropertyGrid 字段（不重复 30 种类型的映射规则）。</summary>
+        private List<StructureParameterModel.FieldSpec> BuildParamFieldSpecs()
+        {
+            const string catBasic = "基本参数";
+            const string catGeo = "几何尺寸 (mm)";
+            const string catSec = "截面规格";
+
+            var list = new List<StructureParameterModel.FieldSpec>
+            {
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = "构件位号", Category = catBasic, ValueType = typeof(string),
+                    Get = () => Data.Tag, Set = v => Data.Tag = (v as string) ?? string.Empty
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = "材质", Category = catBasic, ValueType = typeof(string), IsMaterial = true,
+                    Get = () => Data.Material, Set = v => Data.Material = (v as string) ?? "Q355B"
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblSpan.Text), Category = catGeo, ValueType = typeof(double),
+                    Visible = IsShown(LblSpan), Get = () => Data.Span, Set = v => Data.Span = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblLength.Text), Category = catGeo, ValueType = typeof(double),
+                    Visible = IsShown(LblLength), Get = () => Data.Length, Set = v => Data.Length = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblHeight.Text), Category = catGeo, ValueType = typeof(double),
+                    Visible = IsShown(LblHeight), Get = () => Data.Height, Set = v => Data.Height = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblSubHeight.Text), Category = catGeo, ValueType = typeof(double),
+                    Visible = IsShown(LblSubHeight), Get = () => Data.SubHeight, Set = v => Data.SubHeight = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblBayCount.Text), Category = catGeo, ValueType = typeof(int),
+                    Visible = IsShown(LblBayCount), Get = () => Data.BayCount, Set = v => Data.BayCount = Convert.ToInt32(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = "旋转角 (°)", Category = catGeo, ValueType = typeof(double),
+                    Get = () => Data.RotationDeg, Set = v => Data.RotationDeg = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblEndDz.Text), Category = catGeo, ValueType = typeof(double),
+                    Visible = IsShown(TxtEndOffsetZ), Get = () => Data.EndPointOffsetZ, Set = v => Data.EndPointOffsetZ = Convert.ToDouble(v)
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblColSec.Text), Category = catSec, ValueType = typeof(string), IsSection = true,
+                    Visible = IsShown(ColTypePicker), Get = () => Data.ColumnSection, Set = v => Data.ColumnSection = (v as string) ?? Data.ColumnSection
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblBeamSec.Text), Category = catSec, ValueType = typeof(string), IsSection = true,
+                    Visible = IsShown(BeamTypePicker), Get = () => Data.BeamSection, Set = v => Data.BeamSection = (v as string) ?? Data.BeamSection
+                },
+                new StructureParameterModel.FieldSpec
+                {
+                    Label = StripLabel(LblBraceSec.Text), Category = catSec, ValueType = typeof(string), IsSection = true,
+                    Visible = IsShown(BraceTypePicker), Get = () => Data.BraceSection, Set = v => Data.BraceSection = (v as string) ?? Data.BraceSection
+                }
+            };
+            return list;
+        }
+
         private void SyncControlsFromData()
         {
+            TxtTag.Text = Data.Tag;
+            if (!string.IsNullOrEmpty(Data.Material))
+            {
+                if (!CmbMaterial.Items.Contains(Data.Material)) CmbMaterial.Items.Add(Data.Material);
+                CmbMaterial.SelectedItem = Data.Material;
+            }
             TxtSpan.Text = Data.Span.ToString("0.#", CultureInfo.InvariantCulture);
             TxtLength.Text = Data.Length.ToString("0.#", CultureInfo.InvariantCulture);
             TxtHeight.Text = Data.Height.ToString("0.#", CultureInfo.InvariantCulture);
@@ -739,6 +882,8 @@ namespace SteelStructureSuite.Views
                     LblBraceSec.Text = "交叉斜撑:";
                     break;
             }
+        
+            RefreshParamGrid();
         }
 
         private void OnAnyParameterChanged(object sender, EventArgs e)

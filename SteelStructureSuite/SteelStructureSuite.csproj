@@ -88,8 +88,16 @@
     <!-- 6. Views (WPF XAML 界面与自定义示意图控件) -->
     <Compile Include="Views\Controls\StructureSchematicControl.cs" />
     <Compile Include="Views\Controls\SectionPreviewControl.cs" />
-    <Compile Include="Views\Controls\SectionParameterModel.cs" />
-    <Page Include="Views\Controls\SectionPickerControl.xaml">
+    <Compile Include="Views\Controls\StructureParameterModel.cs" />
+    <Compile Include="Views\Controls\SectionSelectEditor.cs" />
+
+    <Page Include="Views\Controls\SectionSelectDialog.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\Controls\SectionSelectDialog.xaml.cs">
+      <DependentUpon>SectionSelectDialog.xaml</DependentUpon>
+    </Compile>    <Page Include="Views\Controls\SectionPickerControl.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>
     </Page>
