@@ -40,6 +40,15 @@ namespace SteelStructureSuite.Ribbon
             mgrPanel.Items.Add(CreateLargeButton("重置设置", "SS_RESETSETTINGS ", "清除界面记忆，各构件恢复自己的初始预设。不修改截面库。", "regen"));
 
             // Panel 2: 厂房框架
+            // Panel 1.5: 构件模板（可保存/加载/删除参数模板，替代写死的轻中重预设）
+            RibbonPanelSource templatePanel = CreatePanel(tab, "构件模板");
+            templatePanel.Items.Add(CreateLargeButton("模板管理", "SS_TEMPLATES ", "管理参数模板：重命名、删除、导入导出。模板保存在本地 JSON，可随时备份与共享", "templ"));
+            RibbonRowPanel tplCol = new RibbonRowPanel();
+            tplCol.Items.Add(CreateSmallButton("保存模板", "SS_SAVETEMPLATE ", "选中已有构件，把它的全部参数保存成模板", "tplsave"));
+            tplCol.Items.Add(CreateRowBreak());
+            tplCol.Items.Add(CreateSmallButton("套用模板", "SS_APPLYTEMPLATE ", "选中构件后用模板参数快速改写", "tplapply"));
+            templatePanel.Items.Add(tplCol);
+
             RibbonPanelSource framePanel = CreatePanel(tab, "厂房框架");
             RibbonRowPanel fCol1 = new RibbonRowPanel();
             fCol1.Items.Add(CreateSmallButton("单跨门架", "SS_PORTAL ", "单跨门式刚架", "portal"));
@@ -57,10 +66,33 @@ namespace SteelStructureSuite.Ribbon
             fCol2.Items.Add(CreateSmallButton("屋面桁架", "SS_TRUSS ", "双坡屋面钢桁架", "truss"));
             framePanel.Items.Add(fCol2);
 
-            // Panel 3: 平台梯道
-            RibbonPanelSource platformStairPanel = CreatePanel(tab, "平台梯道");
-            platformStairPanel.Items.Add(CreateLargeButton("连续绘制", "SS_LINEAR_CHAIN ", "连续多段线性动态绘制安全栏杆、走道、电缆支架或钢梁", "chain"));
+            // Panel 3: 区域组合（一次布置一整片区域，内部复用单构件构建器）
+            RibbonPanelSource zonePanel = CreatePanel(tab, "区域组合");
+            RibbonRowPanel zCol1 = new RibbonRowPanel();
+            zCol1.Items.Add(CreateSmallButton("钢平台成套", "SS_ZONE_PLATFORM ", "柱 + 主次梁 + 花纹板 + 四周栏杆 + 单跑斜梯，一次布置整片平台", "zoneplat"));
+            zCol1.Items.Add(CreateRowBreak());
+            zCol1.Items.Add(CreateSmallButton("厂房柱列", "SS_ZONE_COLROW ", "一排厂房柱 + 柱间支撑 + 吊车梁 + 柱顶系杆，按柱距阵列", "zonecol"));
+            zonePanel.Items.Add(zCol1);
 
+            RibbonRowPanel zCol2 = new RibbonRowPanel();
+            zCol2.Items.Add(CreateSmallButton("管廊成套", "SS_ZONE_PIPERACK ", "多层管廊按跨数生成：立柱 + 各层横纵梁 + 端跨支撑", "zonerack"));
+            zCol2.Items.Add(CreateRowBreak());
+            zCol2.Items.Add(CreateSmallButton("楼梯成套", "SS_ZONE_STAIR ", "梯梁 + 踏步 + 双侧扶手 + 顶部休息平台，按层高自动分步", "zonestair"));
+            zonePanel.Items.Add(zCol2);
+
+            // Panel 3.5: 连续绘制（把支持折线连续绘制的类型集中在这里）
+            RibbonPanelSource chainPanel = CreatePanel(tab, "连续绘制");
+            chainPanel.Items.Add(CreateLargeButton("连续绘制", "SS_LINEAR_CHAIN ", "连续多段线性动态绘制：栏杆、走道、电缆支架、钢梁、斜梯、桁桥等", "chain"));
+            RibbonRowPanel chainCol = new RibbonRowPanel();
+            chainCol.Items.Add(CreateSmallButton("连续栏杆", "SS_LINEAR_CHAIN ", "连续绘制平台安全栏杆（支持折线）", "rail"));
+            chainCol.Items.Add(CreateRowBreak());
+            chainCol.Items.Add(CreateSmallButton("连续电缆架", "SS_LINEAR_CHAIN ", "连续绘制电缆沟多层支架（支持折线）", "cable"));
+            chainCol.Items.Add(CreateRowBreak());
+            chainCol.Items.Add(CreateSmallButton("连续钢梁", "SS_LINEAR_CHAIN ", "连续绘制单根型钢梁（支持折线）", "member"));
+            chainPanel.Items.Add(chainCol);
+
+            // Panel 4: 平台梯道
+            RibbonPanelSource platformStairPanel = CreatePanel(tab, "平台梯道");
             RibbonRowPanel pCol1 = new RibbonRowPanel();
             pCol1.Items.Add(CreateSmallButton("四柱平台", "SS_PLATFORM ", "四柱空间检修钢平台", "platform"));
             pCol1.Items.Add(CreateRowBreak());

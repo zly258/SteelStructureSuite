@@ -1,4 +1,4 @@
-﻿namespace SteelStructureSuite.Domain.Enums
+namespace SteelStructureSuite.Domain.Enums
 {
     public enum ParametricStructureType
     {
@@ -36,6 +36,12 @@
         SubstationGantryFrame = 22, // 23. 变电站A字型龙门构架(DL/T 5218)
         CableTrenchSupport = 23,    // 24. 电力电缆沟多层支架(DL/T 5221，支持线性绘制)
         CraneRunwayGirder = 24,     // 25. 冶金厂房重型吊车梁系统(16G519，支持线性绘制)
-        CrossBracingFrame = 25      // 26. 冶金厂房柱间交叉支撑(19G518，支持线性绘制)
+        CrossBracingFrame = 25,     // 26. 冶金厂房柱间交叉支撑(19G518，支持线性绘制)
+
+        // 六、区域组合构件 (Zone Assemblies - 一次布置一整片区域，内部复用单构件构建器)
+        PlatformAssembly = 26,      // 27. 钢平台成套(柱+主次梁+铺板+栏杆+斜梯)
+        ColumnRowAssembly = 27,     // 28. 厂房柱列(柱+柱间支撑+吊车梁+系杆，按柱距阵列)
+        PipeRackAssembly = 28,      // 29. 管廊成套区段(多层管廊按跨数生成)
+        StairAssembly = 29          // 30. 楼梯成套(梯梁+踏步+扶手+平台)
     }
 }

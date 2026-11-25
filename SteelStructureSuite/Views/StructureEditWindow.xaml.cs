@@ -11,6 +11,7 @@ using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Modeling;
 using SteelStructureSuite.Services.Settings;
+using SteelStructureSuite.Services.Templates;
 using SteelStructureSuite.Views.Controls;
 
 namespace SteelStructureSuite.Views
@@ -26,7 +27,7 @@ namespace SteelStructureSuite.Views
 
         private bool _isInitializing = true;
         private readonly List<ParametricStructureType> _availableTypes = new List<ParametricStructureType>();
-        private List<StructurePresetItem> _currentPresets = new List<StructurePresetItem>();
+        private List<StructureTemplate> _currentTemplates = new List<StructureTemplate>();
 
         public StructureEditWindow(
             SteelStructureParams initialParams,
@@ -193,38 +194,83 @@ namespace SteelStructureSuite.Views
             ApplySectionToPickers(BraceTypePicker, BraceSpecPicker, Data.BraceSection);
         }
 
+        /// <summary>重新加载当前构件类型可用的参数模板（该类型专属 + 通用模板）。</summary>
         private void ReloadPresetsForCurrentType()
         {
-            _currentPresets = SteelStructureParams.GetPresetsForType(Data.StructureType);
+            _currentTemplates = StructureTemplateStore.GetForType(Data.StructureType);
+
+            _isInitializing = true;
             CmbPreset.Items.Clear();
-            CmbPreset.Items.Add("-- 选择工程标准预设快速填充 --");
-            foreach (var pr in _currentPresets)
+            CmbPreset.Items.Add("-- 选择参数模板快速套用 --");
+            foreach (StructureTemplate tpl in _currentTemplates)
             {
-                CmbPreset.Items.Add(pr.Name);
+                string suffix = tpl.IsGeneric ? "（通用）" : string.Empty;
+                CmbPreset.Items.Add(tpl.Name + suffix);
             }
             CmbPreset.SelectedIndex = 0;
+            _isInitializing = false;
         }
 
         private void OnPresetSelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             if (_isInitializing) return;
             int idx = CmbPreset.SelectedIndex - 1;
-            if (idx < 0 || idx >= _currentPresets.Count) return;
+            if (idx < 0 || idx >= _currentTemplates.Count) return;
 
-            var pr = _currentPresets[idx];
+            StructureTemplate tpl = _currentTemplates[idx];
+
             _isInitializing = true;
-            Data.Span = pr.Span;
-            Data.Length = pr.Length;
-            Data.Height = pr.Height;
-            Data.SubHeight = pr.SubHeight;
-            if (pr.BayCount > 0) Data.BayCount = pr.BayCount;
-            if (!string.IsNullOrEmpty(pr.ColSec)) Data.ColumnSection = pr.ColSec;
-            if (!string.IsNullOrEmpty(pr.BeamSec)) Data.BeamSection = pr.BeamSec;
-            if (!string.IsNullOrEmpty(pr.BraceSec)) Data.BraceSection = pr.BraceSec;
+            // 模板整体套用（保留当前位号、插入点与坐标系）
+            tpl.ApplyTo(Data);
             SyncControlsFromData();
             _isInitializing = false;
 
+            UpdatePerComponentFieldVisibilityAndLabels();
             RefreshLivePreview();
+        }
+
+        /// <summary>把当前全部参数保存成一条模板。</summary>
+        private void OnSaveAsTemplateClick(object sender, RoutedEventArgs e)
+        {
+            if (!TryReadFormToData(out string err))
+            {
+                MessageBox.Show(this, err, "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
+                return;
+            }
+
+            var dlg = new TemplateNameWindow(Data.StructureTypeDisplayName)
+            {
+                Owner = this
+            };
+            if (dlg.ShowDialog() != true) return;
+
+            try
+            {
+                StructureTemplate tpl = StructureTemplate.FromParams(
+                    Data, dlg.TemplateName, dlg.TemplateNote, dlg.IsGeneric);
+
+                StructureTemplateStore.Save(tpl);
+                ReloadPresetsForCurrentType();
+
+                MessageBox.Show(this,
+                    $"模板「{tpl.Name}」已保存，可在模板下拉中直接套用。",
+                    "保存成功", MessageBoxButton.OK, MessageBoxImage.Information);
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "保存模板失败：" + ex.Message, "错误",
+                    MessageBoxButton.OK, MessageBoxImage.Error);
+            }
+        }
+
+        /// <summary>打开模板管理窗口。</summary>
+        private void OnManageTemplatesClick(object sender, RoutedEventArgs e)
+        {
+            var win = new TemplateManagerWindow { Owner = this };
+            win.ShowDialog();
+
+            // 管理窗口可能改名或删除，回来后刷新下拉
+            ReloadPresetsForCurrentType();
         }
 
         private void UpdatePlacementButtons()

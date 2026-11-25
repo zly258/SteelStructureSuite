@@ -18,6 +18,7 @@ using SteelStructureSuite.Services.Interaction;
 using SteelStructureSuite.Services.Modeling;
 
 using SteelStructureSuite.Services.Settings;
+using SteelStructureSuite.Services.Templates;
 using SteelStructureSuite.Services.Takeoff;
 using SteelStructureSuite.Views;
 using Application = Autodesk.AutoCAD.ApplicationServices.Application;
@@ -475,6 +476,108 @@ namespace SteelStructureSuite.Commands
             }
         }
 
+        // ==================== 区域组合构件 ====================
+
+        [CommandMethod("SS_ZONE_PLATFORM", CommandFlags.Modal)]
+        public void CreateZonePlatformAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.PlatformAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_COLROW", CommandFlags.Modal)]
+        public void CreateZoneColumnRowAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.ColumnRowAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_PIPERACK", CommandFlags.Modal)]
+        public void CreateZonePipeRackAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.PipeRackAssembly, lockType: true);
+
+        [CommandMethod("SS_ZONE_STAIR", CommandFlags.Modal)]
+        public void CreateZoneStairAssembly() =>
+            CreateStructureInteractive(ParametricStructureType.StairAssembly, lockType: true);
+
+        // ==================== 参数模板 ====================
+
+        [CommandMethod("SS_TEMPLATES", CommandFlags.Modal)]
+        public void OpenTemplateManager()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+
+            var win = new TemplateManagerWindow();
+            UserSettings.ShowModalWindowOnAutoCad(win);
+        }
+
+        [CommandMethod("SS_SAVETEMPLATE", CommandFlags.Modal | CommandFlags.UsePickSet)]
+        public void SaveSelectedAsTemplate()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+
+            SteelStructureParams picked = PickSingleStructure(ed, doc.Database);
+            if (picked == null)
+            {
+                ed.WriteMessage("\n[SteelStructureSuite] 未选择到有效的参数化钢结构，已取消。\n");
+                return;
+            }
+
+            var dlg = new TemplateNameWindow(picked.StructureTypeDisplayName);
+            if (UserSettings.ShowModalWindowOnAutoCad(dlg) != true) return;
+
+            try
+            {
+                var tpl = StructureTemplate.FromParams(picked, dlg.TemplateName, dlg.TemplateNote, dlg.IsGeneric);
+                StructureTemplateStore.Save(tpl);
+                ed.WriteMessage($"\n[SteelStructureSuite] 模板「{tpl.Name}」已保存。\n");
+            }
+            catch (System.Exception ex)
+            {
+                ed.WriteMessage($"\n[SteelStructureSuite] 保存模板失败：{ex.Message}\n");
+            }
+        }
+
+        [CommandMethod("SS_APPLYTEMPLATE", CommandFlags.Modal | CommandFlags.UsePickSet)]
+        public void ApplyTemplateToSelected()
+        {
+            Document doc = Application.DocumentManager.MdiActiveDocument;
+            if (doc == null) return;
+            Editor ed = doc.Editor;
+
+            SteelStructureParams picked = PickSingleStructure(ed, doc.Database);
+            if (picked == null)
+            {
+                ed.WriteMessage("\n[SteelStructureSuite] 未选择到有效的参数化钢结构，已取消。\n");
+                return;
+            }
+
+            // 用建模窗口承载模板套用：类型锁定，模板下拉直接选
+            var win = new StructureEditWindow(picked, isEditMode: true, lockStructureType: true);
+            if (UserSettings.ShowModalWindowOnAutoCad(win) != true) return;
+
+            ed.WriteMessage($"\n[SteelStructureSuite] 模板套用完成，请用 SS_EDIT 或夹点更新模型。\n");
+        }
+
+        /// <summary>拾取单个参数化钢结构（优先用预选集中的唯一构件）。</summary>
+        private static SteelStructureParams PickSingleStructure(Editor ed, Database db)
+        {
+            List<SteelStructureParams> implied = CollectParametricStructures(ed, db, promptSelection: false);
+            if (implied.Count == 1) return implied[0];
+            if (implied.Count > 1)
+                ed.WriteMessage("\n[SteelStructureSuite] 已忽略多选，请只选一个构件。\n");
+
+            for (int attempt = 0; attempt < 3; attempt++)
+            {
+                string prompt = attempt == 0
+                    ? "\n请单击一个参数化钢结构: "
+                    : "\n该对象不是带参数的钢结构，请重新单击: ";
+                PromptEntityResult per = ed.GetEntity(prompt);
+                if (per.Status != PromptStatus.OK) return null;
+
+                SteelStructureParams found = ReadStructureParams(db, per.ObjectId);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
         [CommandMethod("SS_DRAWCFG", CommandFlags.Modal)]
         public void ConfigureDrawingSettings()
         {
@@ -747,6 +850,24 @@ namespace SteelStructureSuite.Commands
                 case ParametricStructureType.CrossBracingFrame:
                     p.Span = 6000; p.Length = 250; p.Height = 7200; p.SubHeight = 4800;
                     p.ColumnSection = "HW250x250x9x14"; p.BeamSection = "F150x150x8"; p.BraceSection = "L100x100x8";
+                    break;
+
+                // ---- 区域组合构件 ----
+                case ParametricStructureType.PlatformAssembly:
+                    p.Span = 6000; p.Length = 4500; p.Height = 3000; p.SubHeight = 1050; p.BayCount = 3;
+                    p.ColumnSection = "HW200x200x8x12"; p.BeamSection = "HN300x150x6.5x9"; p.BraceSection = "L75x75x6";
+                    break;
+                case ParametricStructureType.ColumnRowAssembly:
+                    p.Span = 7500; p.Length = 30000; p.Height = 9000; p.SubHeight = 6000; p.BayCount = 5;
+                    p.ColumnSection = "HW400x400x13x21"; p.BeamSection = "HN500x200x10x16"; p.BraceSection = "L125x125x10";
+                    break;
+                case ParametricStructureType.PipeRackAssembly:
+                    p.Span = 6000; p.Length = 24000; p.Height = 8000; p.SubHeight = 3000; p.BayCount = 4;
+                    p.ColumnSection = "HW300x300x10x15"; p.BeamSection = "HW250x250x9x14"; p.BraceSection = "L100x100x8";
+                    break;
+                case ParametricStructureType.StairAssembly:
+                    p.Span = 3600; p.Length = 900; p.Height = 3000; p.SubHeight = 1050; p.BayCount = 0;
+                    p.ColumnSection = "C200x70x20x2.5"; p.BeamSection = "C200x70x20x2.5"; p.BraceSection = "PL4x250";
                     break;
             }
 

@@ -20,6 +20,9 @@
 | 5-category, 24-shape section catalog | Ships with 176 preset specifications in `DefaultSectionCatalog.csv` covering hot-rolled, welded/composite, cold-formed, hollow tube, and solid bar sections with 2D preview and CSV/Excel import-export. |
 | Dynamic jig placement and orthogonal grips | Supports single-point placement, two-point directional placement, polyline chaining (`SS_LINEAR_CHAIN`), independent length/width/height grip stretching, and double-click parameter editing. |
 | Model manager and batch renumbering | Provides tree-and-table filtering with viewport zoom-to-focus (`SS_MANAGER`) and rule-based tag prefixing and sequential renumbering (`SS_RENUMBER`). |
+| Parameter templates (JSON) | Save any configured structure as a reusable named template; rename, delete, and import/export whole template libraries. No database engine required. |
+| Zone assemblies | Place an entire region in one command: platform set, column row, pipe rack bay, stair set — built from the same single-member builders so BOM, detailing, and batch drawing all work unchanged. |
+| Mitered joints and joint detail views | Member ends are mitered/trimmed for realistic connections while cut lengths keep the pre-cut design value; detailing adds enlarged joint views with angle and cut-face dimensions. |
 | BOM takeoff and AcBr hidden-line detailing | Aggregates member weights by section, material, and length into `.xlsx` (via built-in OpenXML) or native AutoCAD tables (`SS_BOM`), and generates A1–A4 engineering drawings with native boundary hidden-line removal (`SS_DRAWING`). |
 | Multi-version adaptive bundle | Bundles R23 (`2019–2020`, .NET 4.8), R24 (`2021–2024`, .NET 4.8), and R25 (`2025–2026`, .NET 8.0) runtimes in one `SteelStructureSuite.bundle` that matches the host AutoCAD version automatically. |
 
@@ -138,9 +141,23 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 | `SS_SECTIONS` | Open the 5-category, 24-shape section catalog with 2D preview, weight override, and Excel/CSV import-export |
 | `SS_BOM` | Extract material takeoff from selected entities or the entire drawing and export `.xlsx` or AutoCAD tables |
 | `SS_DRAWING` | Generate A1–A4 hidden-line detailing drawings with orthographic projections, isometric callouts, and BOM |
+| `SS_BATCHDRAW` | Batch detailing: reuse identical structures, add drawing index + consolidated BOM, progress bar with cancel |
 | `SS_DRAWCFG` | Configure detailing sheet size, scale, projection views, and output target (current drawing or new DWG) |
 | `SS_HELP` | Open the built-in user manual window |
 | `SS_ABOUT` | Display suite version, copyright, and GNU GPL v3.0 license information |
+
+### Parameter Templates
+
+Templates replace the old hard-coded light/medium/heavy presets: any structure can be saved as a
+named template and re-applied later. Stored as a single readable JSON file at
+`%LocalAppData%\SteelStructureSuite\Templates.json` (atomic write + automatic `.bak` backup),
+so it can be edited, backed up, or shared between colleagues without any database engine.
+
+| Command | Purpose |
+|---|---|
+| `SS_TEMPLATES` | Template manager: rename, delete, import/export template libraries |
+| `SS_SAVETEMPLATE` | Save the selected structure's full parameter set as a named template |
+| `SS_APPLYTEMPLATE` | Apply a template's parameters to the selected structure |
 
 ### Batch Drawing Tools
 
@@ -162,7 +179,7 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 | `SS_OVERRULE_OFF` | Disable parametric grip overrules and revert to native AutoCAD grips |
 | `SS_RESETSETTINGS` | Reset saved local UI preferences to factory defaults |
 
-### Parametric Structure Commands (26 Types)
+### Parametric Structure Commands (30 Types)
 
 | Category | Structure | Command | Reference Standard | Placement Mode |
 |---|---|---|---|---|
@@ -192,6 +209,10 @@ SS_DRAWING    # Generate A1-A4 hidden-line engineering drawings
 | Single Steel Members | Straight Steel Member | `SS_MEMBER` | GB/T 11263 | Two-point 3D |
 | | Arc Steel Member | `SS_ARC` | Sweep along arc/circle/polyline | Pick path entity |
 | | Spiral Steel Member | `SS_SPIRAL` | Sweep along AutoCAD `HELIX` | Pick helix entity |
+| Zone Assemblies | Platform Assembly (columns + beams + deck + railing + stair) | `SS_ZONE_PLATFORM` | GB 50017 / GB 4053.3 | Single point |
+| | Column Row (columns + bracing + crane girder + tie) | `SS_ZONE_COLROW` | GB 50017 / 16G519 | Single point |
+| | Pipe Rack Bay Set (multi-tier by bay count) | `SS_ZONE_PIPERACK` | HG/T 20670 | Single point |
+| | Stair Set (stringers + treads + handrails + landing) | `SS_ZONE_STAIR` | GB 4053.1 | Single point |
 
 ## Build and Packaging
 

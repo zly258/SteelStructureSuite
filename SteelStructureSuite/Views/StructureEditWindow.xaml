@@ -50,8 +50,31 @@
                                     <TextBlock x:Name="LblType" Grid.Row="0" Grid.Column="0" Text="结构类型" />
                                     <ComboBox x:Name="CmbStructureType" Grid.Row="0" Grid.Column="1" SelectionChanged="OnStructureTypeChanged" />
 
-                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="工程预设" />
-                                    <ComboBox x:Name="CmbPreset" Grid.Row="1" Grid.Column="1" SelectionChanged="OnPresetSelectionChanged" />
+                                    <TextBlock Grid.Row="1" Grid.Column="0" Text="参数模板" />
+                                    <Grid Grid.Row="1" Grid.Column="1">
+                                        <Grid.ColumnDefinitions>
+                                            <ColumnDefinition Width="*" MinWidth="120" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                            <ColumnDefinition Width="Auto" />
+                                        </Grid.ColumnDefinitions>
+                                        <ComboBox x:Name="CmbPreset"
+                                                  Grid.Column="0"
+                                                  ToolTip="选择参数模板快速套用（模板可在「保存为模板」中新建）"
+                                                  SelectionChanged="OnPresetSelectionChanged" />
+                                        <Button x:Name="BtnSaveTemplate"
+                                                Grid.Column="1"
+                                                Content="保存为模板"
+                                                Margin="8,0,0,0"
+                                                ToolTip="把当前全部参数保存成模板，便于以后一键套用"
+                                                Click="OnSaveAsTemplateClick" />
+                                        <Button x:Name="BtnManageTemplate"
+                                                Grid.Column="2"
+                                                Content="管理"
+                                                Margin="8,0,0,0"
+                                                ToolTip="打开参数模板管理：重命名、删除、导入导出"
+                                                Click="OnManageTemplatesClick" />
+                                    </Grid>
 
                                     <TextBlock Grid.Row="2" Grid.Column="0" Text="构件位号" />
                                     <Grid Grid.Row="2" Grid.Column="1">

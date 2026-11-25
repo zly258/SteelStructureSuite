@@ -657,6 +657,25 @@ namespace SteelStructureSuite.Services.Modeling
                 case ParametricStructureType.CrossBracingFrame:
                     BuildCrossBracingFrameParts(parts, colProf, beamProf, braceProf, span, len, h, subH);
                     break;
+
+                // ---- 区域组合构件：一次布置一整片 ----
+                case ParametricStructureType.PlatformAssembly:
+                    ZoneAssemblyBuilder.BuildPlatformAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, Math.Max(p.SubHeight, 1050.0), Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.ColumnRowAssembly:
+                    ZoneAssemblyBuilder.BuildColumnRowAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, p.SubHeight, Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.PipeRackAssembly:
+                    ZoneAssemblyBuilder.BuildPipeRackAssembly(parts, colProf, beamProf, braceProf,
+                        span, len, h, p.SubHeight, Math.Max(2, p.BayCount));
+                    break;
+                case ParametricStructureType.StairAssembly:
+                    ZoneAssemblyBuilder.BuildStairAssembly(parts, colProf, braceProf,
+                        SectionCatalogService.GetByName("P42x3.5"),
+                        span, len, h, Math.Max(p.SubHeight, 900.0), p.BayCount);
+                    break;
             }
 
             double baseOffsetZ = GetBaseOffsetZ(p);
@@ -1872,7 +1891,7 @@ namespace SteelStructureSuite.Services.Modeling
             AddBasePlate(parts, "交叉节点连接板", new Point3d(baySpan * 0.5, 0, (corbelZ + totalHeight) * 0.5 - 140.0), 280, 14, 280);
         }
 
-        private static void AddMember(
+        internal static void AddMember(
             List<SolidMemberPart> parts,
             string roleName,
             SectionProfile prof,
@@ -1895,7 +1914,7 @@ namespace SteelStructureSuite.Services.Modeling
             }
         }
 
-        private static void AddMemberExtended(
+        internal static void AddMemberExtended(
             List<SolidMemberPart> parts,
             string roleName,
             SectionProfile prof,
@@ -1925,7 +1944,7 @@ namespace SteelStructureSuite.Services.Modeling
             }
         }
 
-        private static void AddBasePlate(
+        internal static void AddBasePlate(
             List<SolidMemberPart> parts,
             string roleName,
             Point3d bottomCenter,
@@ -1955,7 +1974,7 @@ namespace SteelStructureSuite.Services.Modeling
         /// 可绕竖轴旋转的钢板（踏步板、平台板、节点板等）。
         /// sizeX 为旋转后 X 向尺寸，sizeY 为 Y 向尺寸，thicknessZ 为板厚。
         /// </summary>
-        private static void AddRotatedPlate(
+        internal static void AddRotatedPlate(
             List<SolidMemberPart> parts,
             string roleName,
             Point3d bottomCenter,

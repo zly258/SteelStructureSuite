@@ -61,6 +61,7 @@
     </None>
     <Compile Include="Services\Modeling\SectionSolidBuilder.cs" />
     <Compile Include="Services\Modeling\SteelJointService.cs" />
+    <Compile Include="Services\Modeling\ZoneAssemblyBuilder.cs" />
     <Compile Include="Services\Modeling\CurveSweepService.cs" />
     <Compile Include="Services\Modeling\SteelStructureBuilder.cs" />
     <Compile Include="Services\Modeling\SteelDataStorage.cs" />
@@ -71,6 +72,8 @@
     <Compile Include="Services\Takeoff\MaterialTakeoffService.cs" />
     <Compile Include="Services\Takeoff\ExcelOpenXmlExporter.cs" />
     <Compile Include="Services\Settings\UserSettings.cs" />
+    <Compile Include="Services\Templates\StructureTemplate.cs" />
+    <Compile Include="Services\Templates\StructureTemplateStore.cs" />
     <Compile Include="Services\Drawing\SteelHlrDrawingService.cs" />
     <Compile Include="Services\Drawing\BatchDrawingPlan.cs" />
     <Compile Include="Services\Drawing\BatchDrawingService.cs" />
@@ -158,6 +161,22 @@
     </Page>
     <Compile Include="Views\BatchDrawingWindow.xaml.cs">
       <DependentUpon>BatchDrawingWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\TemplateManagerWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\TemplateManagerWindow.xaml.cs">
+      <DependentUpon>TemplateManagerWindow.xaml</DependentUpon>
+    </Compile>
+
+    <Page Include="Views\TemplateNameWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\TemplateNameWindow.xaml.cs">
+      <DependentUpon>TemplateNameWindow.xaml</DependentUpon>
     </Compile>
 
     <Page Include="Views\DwgToDxfWindow.xaml">

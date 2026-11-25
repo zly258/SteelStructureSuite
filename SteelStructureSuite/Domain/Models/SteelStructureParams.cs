@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Xml.Serialization;
@@ -146,6 +146,10 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.CableTrenchSupport: return "电力电缆沟多层支架(DL/T)";
                     case ParametricStructureType.CraneRunwayGirder: return "冶金重型吊车梁(16G519)";
                     case ParametricStructureType.CrossBracingFrame: return "冶金柱间交叉支撑(19G518)";
+                    case ParametricStructureType.PlatformAssembly: return "钢平台成套(柱+梁+板+栏杆+梯)";
+                    case ParametricStructureType.ColumnRowAssembly: return "厂房柱列(柱+支撑+吊车梁+系杆)";
+                    case ParametricStructureType.PipeRackAssembly: return "管廊成套区段(多层按跨数)";
+                    case ParametricStructureType.StairAssembly: return "楼梯成套(梯梁+踏步+扶手+平台)";
                     default: return "参数化钢结构";
                 }
             }
@@ -189,6 +193,11 @@ namespace SteelStructureSuite.Domain.Models
                     case ParametricStructureType.ArcSteelMember:
                     case ParametricStructureType.SpiralSteelMember:
                         return "单根型钢构件";
+                    case ParametricStructureType.PlatformAssembly:
+                    case ParametricStructureType.ColumnRowAssembly:
+                    case ParametricStructureType.PipeRackAssembly:
+                    case ParametricStructureType.StairAssembly:
+                        return "区域组合构件";
                     default:
                         return "其他结构";
                 }
@@ -206,6 +215,7 @@ namespace SteelStructureSuite.Domain.Models
                     case "化工设备标准件": return 3;
                     case "电力与冶金标准件": return 4;
                     case "单根型钢构件": return 5;
+                    case "区域组合构件": return 6;
                     default: return 9;
                 }
             }
@@ -441,6 +451,42 @@ namespace SteelStructureSuite.Domain.Models
             {
                 return (SteelStructureParams)serializer.Deserialize(sr);
             }
+        }
+
+        /// <summary>
+        /// 从另一份参数整体复制（含位号、插入点、坐标系）。
+        /// 供模板套用与预设应用使用，避免各处重复写字段。
+        /// </summary>
+        public void CopyFrom(SteelStructureParams source)
+        {
+            if (source == null || ReferenceEquals(source, this)) return;
+
+            Tag = source.Tag;
+            StructureType = source.StructureType;
+            Origin = source.Origin;
+            Span = source.Span;
+            Length = source.Length;
+            Height = source.Height;
+            SubHeight = source.SubHeight;
+            ColumnSection = source.ColumnSection;
+            BeamSection = source.BeamSection;
+            BraceSection = source.BraceSection;
+            Material = source.Material;
+            RotationRad = source.RotationRad;
+            EndPointOffsetZ = source.EndPointOffsetZ;
+            BayCount = source.BayCount;
+            UseCurveFrame = source.UseCurveFrame;
+            HelixCounterClockwise = source.HelixCounterClockwise;
+            TopRadius = source.TopRadius;
+            FrameXx = source.FrameXx;
+            FrameXy = source.FrameXy;
+            FrameXz = source.FrameXz;
+            FrameYx = source.FrameYx;
+            FrameYy = source.FrameYy;
+            FrameYz = source.FrameYz;
+            FrameZx = source.FrameZx;
+            FrameZy = source.FrameZy;
+            FrameZz = source.FrameZz;
         }
 
         public SteelStructureParams Clone()
