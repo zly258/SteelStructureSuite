@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Globalization;
@@ -11,7 +11,6 @@ using SteelStructureSuite.Domain.Enums;
 using SteelStructureSuite.Domain.Models;
 using SteelStructureSuite.Services.Catalog;
 using SteelStructureSuite.Services.Settings;
-using SteelStructureSuite.Views.Controls;
 
 namespace SteelStructureSuite.Views
 {
@@ -20,6 +19,12 @@ namespace SteelStructureSuite.Views
     /// </summary>
     public partial class SectionCatalogWindow : Window
     {
+        /// <summary>在底部状态栏就地显示提示，替代一次性成功/失败弹窗。</summary>
+        private void SetStatus(string text)
+        {
+            if (TxtStorageInfo != null) TxtStorageInfo.Text = text ?? string.Empty;
+        }
+
         private enum TreeFilterKind
         {
             All,
@@ -44,18 +49,17 @@ namespace SteelStructureSuite.Views
 
         private TreeNodeTag _currentFilter = new TreeNodeTag { Kind = TreeFilterKind.All, Key = "ALL" };
         private bool _isSuppressingEvents;
-        private System.Windows.Forms.PropertyGrid _propertyGrid;
-        private readonly SectionParameterModel _paramModel = new SectionParameterModel();
+        private bool _isManualMetricsActive;
 
         public SectionCatalogWindow()
         {
             InitializeComponent();
 
-            InitPropertyGrid();
+            InitEditTypeCombo();
             RebuildCategoryTree(UserSettings.GetString("Catalog.LastTreeNode", "ALL"));
             RefreshTableAndSummary();
+            UpdateParameterFieldLayout(GetSelectedEditShapeType());
             UpdateLivePreview();
-            // 不显示具体路径，避免泄露本机目录；需要时点「打开目录」即可
             TxtStorageInfo.Text = "本地截面库（UTF-8 CSV，可用 Excel 编辑）";
 
             UserSettings.RestoreWindowState(this, "SectionCatalogWindow");
@@ -67,70 +71,23 @@ namespace SteelStructureSuite.Views
             };
         }
 
-        /// <summary>
-        /// 初始化 WinForms PropertyGrid：无工具栏、按类别分组、按字母序展示。
-        /// 字段集合与中文名由 <see cref="SectionParameterModel"/> 按截面类型动态决定。
-        /// </summary>
-        /// <summary>在底部状态栏就地显示提示，替代一次性成功/失败弹窗。</summary>
-        private void SetStatus(string text)
+        private void InitEditTypeCombo()
         {
-            if (TxtStorageInfo != null) TxtStorageInfo.Text = text ?? string.Empty;
-        }
-
-        private void InitPropertyGrid()
-        {
-            _propertyGrid = new System.Windows.Forms.PropertyGrid
+            _isSuppressingEvents = true;
+            CmbType.Items.Clear();
+            foreach (SectionShapeType st in SectionCatalogService.OrderedShapeTypes)
             {
-                Dock = System.Windows.Forms.DockStyle.Fill,
-                ToolbarVisible = false,
-                HelpVisible = true,
-                PropertySort = System.Windows.Forms.PropertySort.Categorized,
-                LineColor = System.Drawing.SystemColors.ControlDark,
-                CategoryForeColor = System.Drawing.SystemColors.ControlText,
-                BackColor = System.Drawing.SystemColors.Window,
-                ViewBackColor = System.Drawing.SystemColors.Window,
-                ViewForeColor = System.Drawing.SystemColors.WindowText
-            };
-            _propertyGrid.PropertyValueChanged += OnPropertyValueChanged;
-            _paramModel.Changed += (s, e) => OnPropertyValueChanged(_propertyGrid, null);
-            _propertyGrid.SelectedObject = _paramModel;
-
-            PropertyHost.Child = _propertyGrid;
-        }
-
-        /// <summary>PropertyGrid 值变化：几何尺寸联动刷新物理特性与 2D 预览；截面类型变化则重建字段集合。</summary>
-        private void OnPropertyValueChanged(object sender, System.Windows.Forms.PropertyValueChangedEventArgs e)
-        {
-            if (_isSuppressingEvents) return;
-
-            string changedName = e?.ChangedItem?.PropertyDescriptor?.Name;
-            bool shapeChanged = string.Equals(changedName, "Shape", StringComparison.Ordinal);
-            bool metricChanged = string.Equals(changedName, "AreaCm2", StringComparison.Ordinal)
-                              || string.Equals(changedName, "UnitWeightKgPerM", StringComparison.Ordinal)
-                              || string.Equals(changedName, "UnitSurfaceM2PerM", StringComparison.Ordinal);
-
-            if (shapeChanged)
-            {
-                _paramModel.HasManualMetricsReset();
-                _propertyGrid.Refresh();   // 按新类型重建可见字段与标签
+                CmbType.Items.Add(new ShapeTypeComboItem
+                {
+                    ShapeType = st,
+                    DisplayText = SectionProfile.GetShapeDisplayName(st)
+                });
             }
-
-            if (!metricChanged)
+            if (CmbType.Items.Count > 0)
             {
-                _paramModel.RefreshAutoMetricsIfNeeded();
+                CmbType.SelectedIndex = 0;
             }
-
-            UpdateMetricSourceText();
-            UpdateLivePreview(refreshAutoMetrics: false);
-            _propertyGrid.Refresh();
-        }
-
-        private void UpdateMetricSourceText()
-        {
-            if (TxtMetricSource != null)
-            {
-                TxtMetricSource.Text = _paramModel.HasManualMetrics ? "手册/自定义" : "公式计算";
-            }
+            _isSuppressingEvents = false;
         }
 
         private void RebuildCategoryTree(string selectKey)
@@ -246,9 +203,10 @@ namespace SteelStructureSuite.Views
                 _currentFilter = tag;
                 RefreshTableAndSummary();
 
-                // 选中具体截面类型节点时，联动把该类型的第一条规格载入参数面板
+                // 选中具体截面类型节点时，联动切换下方编辑框的目标类型
                 if (tag.Kind == TreeFilterKind.ShapeType)
                 {
+                    SelectEditComboShape(tag.ShapeType);
                     var list = SectionCatalogService.GetByShapeType(tag.ShapeType);
                     if (list.Count > 0)
                     {
@@ -279,76 +237,296 @@ namespace SteelStructureSuite.Views
             }
         }
 
-        /// <summary>把选中的截面规格载入 PropertyGrid 并刷新预览。</summary>
         private void FillFormFromProfile(SectionProfile sec)
         {
             if (sec == null) return;
-
             _isSuppressingEvents = true;
-            _paramModel.LoadFrom(sec);
-            _propertyGrid.SelectedObject = _paramModel;
-            _propertyGrid.Refresh();
+            SelectEditComboShape(sec.Shape);
+            TxtName.Text = sec.Name;
+            TxtH.Text = sec.H.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtB.Text = sec.B.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTw.Text = sec.Tw.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTf.Text = sec.Tf.ToString("0.##", CultureInfo.InvariantCulture);
+            TxtB2.Text = (sec.B2 > 0 ? sec.B2 : sec.B).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtTf2.Text = (sec.Tf2 > 0 ? sec.Tf2 : sec.Tf).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtLip.Text = (sec.Lip > 0 ? sec.Lip : 20.0).ToString("0.##", CultureInfo.InvariantCulture);
+            TxtGap.Text = (sec.Gap > 0 ? sec.Gap : 10.0).ToString("0.##", CultureInfo.InvariantCulture);
+
+            _isManualMetricsActive = sec.HasManualProperties;
+            TxtArea.Text = sec.AreaCm2.ToString("0.00", CultureInfo.InvariantCulture);
+            TxtWeight.Text = sec.UnitWeightKgPerM.ToString("0.00", CultureInfo.InvariantCulture);
+            TxtSurface.Text = sec.PerimeterMPerM.ToString("0.000", CultureInfo.InvariantCulture);
+            TxtMetricSource.Text = sec.PropertySourceDisplayName;
             _isSuppressingEvents = false;
 
-            UpdateMetricSourceText();
+            UpdateParameterFieldLayout(sec.Shape);
             UpdateLivePreview(refreshAutoMetrics: false);
+        }
+
+        private void SelectEditComboShape(SectionShapeType shapeType)
+        {
+            for (int i = 0; i < CmbType.Items.Count; i++)
+            {
+                if (CmbType.Items[i] is ShapeTypeComboItem item && item.ShapeType == shapeType)
+                {
+                    CmbType.SelectedIndex = i;
+                    return;
+                }
+            }
+        }
+
+        private SectionShapeType GetSelectedEditShapeType()
+        {
+            if (CmbType.SelectedItem is ShapeTypeComboItem item)
+                return item.ShapeType;
+            return SectionShapeType.HBeam;
+        }
+
+        private void OnEditTypeChanged(object sender, SelectionChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            _isManualMetricsActive = false;
+            SectionShapeType shape = GetSelectedEditShapeType();
+            UpdateParameterFieldLayout(shape);
+            UpdateLivePreview(refreshAutoMetrics: true);
+        }
+
+        /// <summary>
+        /// 按截面类型动态调整参数输入框的标签名称与显隐状态，减少误输入
+        /// </summary>
+        private void UpdateParameterFieldLayout(SectionShapeType shape)
+        {
+            // 先重置默认状态
+            PanelH.Visibility = Visibility.Visible;
+            PanelB.Visibility = Visibility.Visible;
+            PanelTw.Visibility = Visibility.Visible;
+            PanelTf.Visibility = Visibility.Visible;
+            PanelB2.Visibility = Visibility.Collapsed;
+            PanelTf2.Visibility = Visibility.Collapsed;
+            PanelLip.Visibility = Visibility.Collapsed;
+            PanelGap.Visibility = Visibility.Collapsed;
+
+            LblH.Text = "高度 H";
+            LblB.Text = "宽度 B";
+            LblTw.Text = "腹板 tw";
+            LblTf.Text = "翼缘 tf";
+
+            switch (shape)
+            {
+                case SectionShapeType.WeldedHBeamUnequal:
+                    LblB.Text = "上翼缘宽 B";
+                    LblTf.Text = "上翼缘厚 tf";
+                    PanelB2.Visibility = Visibility.Visible;
+                    PanelTf2.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.Angle:
+                case SectionShapeType.UnequalAngle:
+                    LblH.Text = "长肢 H";
+                    LblB.Text = shape == SectionShapeType.Angle ? "肢宽 B" : "短肢 B";
+                    LblTw.Text = "肢厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.DoubleAngle:
+                    LblH.Text = "肢高 H";
+                    LblB.Text = "肢宽 B";
+                    LblTw.Text = "肢厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    PanelGap.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.DoubleChannel:
+                    PanelGap.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.ColdFormedC:
+                case SectionShapeType.ColdFormedZ:
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    LblLip.Text = "卷边高度 C";
+                    PanelLip.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.HatSection:
+                    LblB.Text = "顶宽 B";
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    LblLip.Text = "外翻边 C";
+                    PanelLip.Visibility = Visibility.Visible;
+                    break;
+
+                case SectionShapeType.ZBeam:
+                case SectionShapeType.ColdFormedU:
+                    LblTw.Text = "壁厚 t";
+                    LblTf.Text = "翼缘厚 tf";
+                    break;
+
+                case SectionShapeType.SquareTube:
+                    LblH.Text = "边长 H";
+                    LblTw.Text = "壁厚 t";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.RectTube:
+                    LblTw.Text = "壁厚 t";
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.PipeTube:
+                    LblH.Text = "外径 D";
+                    LblTw.Text = "壁厚 t";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.FlatBar:
+                    LblH.Text = "板宽 H";
+                    LblB.Text = "板厚 t";
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.RoundBar:
+                    LblH.Text = "直径 D";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+
+                case SectionShapeType.SquareBar:
+                    LblH.Text = "边长 a";
+                    PanelB.Visibility = Visibility.Collapsed;
+                    PanelTw.Visibility = Visibility.Collapsed;
+                    PanelTf.Visibility = Visibility.Collapsed;
+                    break;
+            }
+        }
+
+        private void OnParamInputChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            UpdateLivePreview(refreshAutoMetrics: !_isManualMetricsActive);
+        }
+
+        private void OnManualMetricChanged(object sender, TextChangedEventArgs e)
+        {
+            if (_isSuppressingEvents) return;
+            bool allEmpty = string.IsNullOrWhiteSpace(TxtArea.Text)
+                         && string.IsNullOrWhiteSpace(TxtWeight.Text)
+                         && string.IsNullOrWhiteSpace(TxtSurface.Text);
+            _isManualMetricsActive = !allEmpty;
+            if (TxtMetricSource != null)
+            {
+                TxtMetricSource.Text = _isManualMetricsActive ? "手册/自定义" : "公式计算";
+            }
         }
 
         private void OnRecalcMetricsClick(object sender, RoutedEventArgs e)
         {
-            _isSuppressingEvents = true;
-            _paramModel.RecalculateMetrics();
-            _isSuppressingEvents = false;
-
-            UpdateMetricSourceText();
-            UpdateLivePreview(refreshAutoMetrics: false);
-            _propertyGrid.Refresh();
+            _isManualMetricsActive = false;
+            UpdateLivePreview(refreshAutoMetrics: true);
         }
 
         private bool TryBuildProfileFromForm(out SectionProfile profile, bool requireName)
         {
             profile = null;
-            if (requireName && string.IsNullOrWhiteSpace(_paramModel.Name))
+            string name = TxtName.Text?.Trim();
+            if (requireName && string.IsNullOrEmpty(name))
                 return false;
 
-            SectionProfile built = _paramModel.ToProfile();
-            if (built.H <= 0) return false;
-            if (_paramModel.ShowB && built.B <= 0) return false;
-            if (_paramModel.ShowTw && built.Tw <= 0) return false;
-            if (_paramModel.ShowTf && built.Tf <= 0) return false;
-            if (_paramModel.ShowB2 && built.B2 <= 0) return false;
-            if (_paramModel.ShowTf2 && built.Tf2 <= 0) return false;
+            SectionShapeType shape = GetSelectedEditShapeType();
+            if (!TryParseVal(TxtH.Text, out double h) || h <= 0)
+                return false;
 
-            profile = built;
+            double b = h;
+            if (PanelB.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtB.Text, out b) || b <= 0) return false;
+            }
+
+            double tw = b;
+            if (PanelTw.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTw.Text, out tw) || tw <= 0) return false;
+            }
+
+            double tf = tw;
+            if (PanelTf.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTf.Text, out tf) || tf <= 0) return false;
+            }
+
+            double b2 = 0.0, tf2 = 0.0, lip = 0.0, gap = 0.0;
+            if (PanelB2.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtB2.Text, out b2) || b2 <= 0) return false;
+            }
+            if (PanelTf2.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtTf2.Text, out tf2) || tf2 <= 0) return false;
+            }
+            if (PanelLip.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtLip.Text, out lip) || lip < 0) return false;
+            }
+            if (PanelGap.Visibility == Visibility.Visible)
+            {
+                if (!TryParseVal(TxtGap.Text, out gap) || gap < 0) return false;
+            }
+
+            profile = new SectionProfile(
+                string.IsNullOrEmpty(name) ? "PREVIEW" : name,
+                shape, h, b, tw, tf, b2, tf2, lip, gap);
+
+            if (_isManualMetricsActive)
+            {
+                if (TryParseVal(TxtArea.Text, out double mArea) && mArea > 0)
+                    profile.ManualAreaCm2 = mArea;
+                if (TryParseVal(TxtWeight.Text, out double mWeight) && mWeight > 0)
+                    profile.ManualUnitWeightKgPerM = mWeight;
+                if (TryParseVal(TxtSurface.Text, out double mSurface) && mSurface > 0)
+                    profile.ManualUnitSurfaceM2PerM = mSurface;
+            }
+
             return true;
         }
 
         private void UpdateLivePreview(bool refreshAutoMetrics = true)
         {
-            if (PreviewControl == null) return;
-
-            if (refreshAutoMetrics)
-            {
-                _isSuppressingEvents = true;
-                _paramModel.RefreshAutoMetricsIfNeeded();
-                _isSuppressingEvents = false;
-                UpdateMetricSourceText();
-                _propertyGrid?.Refresh();
-            }
-
+            if (PreviewControl == null || TxtMetricSource == null) return;
             if (TryBuildProfileFromForm(out SectionProfile sec, requireName: false))
             {
                 PreviewControl.Profile = sec;
+                if (refreshAutoMetrics)
+                {
+                    _isSuppressingEvents = true;
+                    TxtArea.Text = sec.GetCalculatedAreaCm2().ToString("0.00", CultureInfo.InvariantCulture);
+                    TxtWeight.Text = sec.GetCalculatedUnitWeightKgPerM().ToString("0.00", CultureInfo.InvariantCulture);
+                    TxtSurface.Text = sec.GetCalculatedUnitSurfaceM2PerM().ToString("0.000", CultureInfo.InvariantCulture);
+                    TxtMetricSource.Text = "公式计算";
+                    _isSuppressingEvents = false;
+                }
+                else
+                {
+                    TxtMetricSource.Text = _isManualMetricsActive ? "手册/自定义" : "公式计算";
+                }
             }
+        }
+
+        private static bool TryParseVal(string text, out double val)
+        {
+            return double.TryParse(text?.Trim(), NumberStyles.Float, CultureInfo.InvariantCulture, out val);
         }
 
         private void OnAddSectionClick(object sender, RoutedEventArgs e)
         {
-            string name = _paramModel.Name?.Trim();
+            string name = TxtName.Text?.Trim();
             if (string.IsNullOrEmpty(name))
             {
                 MessageBox.Show("请输入截面代号！", "提示", MessageBoxButton.OK, MessageBoxImage.Warning);
-                _propertyGrid?.Focus();
+                TxtName.Focus();
                 return;
             }
 
@@ -393,44 +571,32 @@ namespace SteelStructureSuite.Views
             }
         }
 
-        /// <summary>统一导出入口：按扩展名自动选择 Excel 或 CSV，不再放两个按钮。</summary>
+        /// <summary>统一导出入口：按扩展名自动选择 Excel 或 CSV。</summary>
         private void OnExportClick(object sender, RoutedEventArgs e)
         {
-            var dlg = new Microsoft.Win32.SaveFileDialog
+            var sfd = new SaveFileDialog
             {
-                Title = "导出截面库",
+                Title = "导出型钢截面库",
                 Filter = "Excel 工作簿 (*.xlsx)|*.xlsx|CSV 文件 (*.csv)|*.csv",
                 DefaultExt = ".xlsx",
-                FileName = $"截面库_{DateTime.Now:yyyyMMdd}"
+                FileName = $"钢结构型钢截面库_{DateTime.Now:yyyyMMdd_HHmm}"
             };
-            if (dlg.ShowDialog(this) != true) return;
+            if (sfd.ShowDialog() != true) return;
 
-            bool csv = dlg.FilterIndex == 2 ||
-                       dlg.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase);
-
-            if (csv) ExportCsvCore(dlg.FileName);
-            else ExportXlsxCore(dlg.FileName);
-        }
-
-        private void ExportXlsxCore(string path)
-        {
+            bool csv = sfd.FilterIndex == 2 ||
+                       sfd.FileName.EndsWith(".csv", StringComparison.OrdinalIgnoreCase);
             try
             {
-                SectionCatalogService.ExportCatalogToXlsx(path);
-                SetStatus("已导出 Excel：" + System.IO.Path.GetFileName(path));
-            }
-            catch (Exception ex)
-            {
-                SetStatus("导出失败：" + ex.Message);
-            }
-        }
-
-        private void ExportCsvCore(string path)
-        {
-            try
-            {
-                SectionCatalogService.ExportCatalogToCsv(path);
-                SetStatus("已导出 CSV：" + System.IO.Path.GetFileName(path));
+                if (csv)
+                {
+                    SectionCatalogService.ExportCatalogToCsv(sfd.FileName);
+                    SetStatus("已导出 CSV：" + System.IO.Path.GetFileName(sfd.FileName));
+                }
+                else
+                {
+                    SectionCatalogService.ExportCatalogToXlsx(sfd.FileName);
+                    SetStatus("已导出 Excel：" + System.IO.Path.GetFileName(sfd.FileName));
+                }
             }
             catch (Exception ex)
             {
