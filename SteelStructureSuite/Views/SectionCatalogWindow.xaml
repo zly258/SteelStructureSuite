@@ -30,7 +30,7 @@
         </Grid.RowDefinitions>
 
         <!-- Zone 1: 页头汇总与全局库操作 -->
-        <Border Grid.Row="0" Margin="0,0,0,8">
+        <Border Grid.Row="0" Style="{StaticResource Panel.ToolStrip}" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />
@@ -60,20 +60,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左侧分类树：外框 1px 描边 + 标题栏分隔线，树本身不再重复描边 -->
-            <Border Grid.Column="0"
-                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                    BorderThickness="1"
-                    SnapsToDevicePixels="True">
+            <Border Grid.Column="0" Style="{StaticResource Panel.Card}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Background="{x:Static SystemColors.ControlBrush}"
-                            BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="10,6">
+                    <Border Grid.Row="0" Style="{StaticResource Panel.Header}">
                         <TextBlock Text="截面分类树" FontWeight="SemiBold" />
                     </Border>
                     <TreeView x:Name="TreeCategories"
@@ -87,7 +80,10 @@
                           Width="8"
                           HorizontalAlignment="Stretch"
                           VerticalAlignment="Stretch"
-                          Background="Transparent"
+                          Background="{x:Static SystemColors.ControlBrush}"
+                          BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
+                          BorderThickness="1,0,0,0"
+                          ShowsPreview="True"
                           ResizeBehavior="PreviousAndNext" />
 
             <!-- 右侧筛选栏 + 数据表格 -->
@@ -98,7 +94,7 @@
                 </Grid.RowDefinitions>
 
                 <!-- 范围筛选栏 -->
-                <Border Grid.Row="0" Margin="0,0,0,8">
+                <Border Grid.Row="0" Style="{StaticResource Panel.ToolStrip}" Margin="0,0,0,8">
                     <Grid>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
@@ -126,9 +122,7 @@
                         <Button Grid.Column="5"
                                 Content="清除"
                                 Click="OnClearSearchClick" />
-                        <Border Grid.Column="7"
-                                Padding="8,3"
-                                VerticalAlignment="Center">
+                        <Border Grid.Column="7" Style="{StaticResource Panel.Badge}">
                             <TextBlock x:Name="TxtFilteredCount"
                                        Text="0 项" />
                         </Border>
@@ -172,20 +166,13 @@
             </Grid.ColumnDefinitions>
 
             <!-- 左：2D 截面示意 -->
-            <Border Grid.Column="0"
-                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                    BorderThickness="1"
-                    SnapsToDevicePixels="True">
+            <Border Grid.Column="0" Style="{StaticResource Panel.Card}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Background="{x:Static SystemColors.ControlBrush}"
-                            BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="10,5">
+                    <Border Grid.Row="0" Style="{StaticResource Panel.Header}">
                         <TextBlock Text="2D 截面示意" FontWeight="SemiBold" />
                     </Border>
                     <controls:SectionPreviewControl x:Name="PreviewControl" Grid.Row="1" MinHeight="150" Margin="6" />
@@ -193,20 +180,13 @@
             </Border>
 
             <!-- 右：参数编辑（分组标题 + 缩进；每行两组「标签 + 控件」，整体高度紧凑） -->
-            <Border Grid.Column="2"
-                    BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                    BorderThickness="1"
-                    SnapsToDevicePixels="True">
+            <Border Grid.Column="2" Style="{StaticResource Panel.Card}" Padding="0">
                 <Grid>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <Border Grid.Row="0"
-                            Background="{x:Static SystemColors.ControlBrush}"
-                            BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                            BorderThickness="0,0,0,1"
-                            Padding="10,5">
+                    <Border Grid.Row="0" Style="{StaticResource Panel.Header}">
                         <TextBlock Text="新增 / 更新截面参数" FontWeight="SemiBold" />
                     </Border>
 
@@ -216,10 +196,7 @@
                         <StackPanel Margin="10,6,12,8" Grid.IsSharedSizeScope="True">
 
                             <!-- 分组：基本标识 -->
-                            <TextBlock Text="基本标识"
-                                       FontWeight="SemiBold"
-                                       Foreground="{x:Static SystemColors.GrayTextBrush}"
-                                       Margin="0,0,0,3" />
+                            <TextBlock Text="基本标识" Style="{StaticResource Text.GroupHeader}" />
                             <Grid Margin="12,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
@@ -240,10 +217,7 @@
                             </Grid>
 
                             <!-- 分组：几何尺寸 (mm)，仅显示当前截面所需字段；每行两组「标签 + 控件」 -->
-                            <TextBlock Text="几何尺寸 (mm)"
-                                       FontWeight="SemiBold"
-                                       Foreground="{x:Static SystemColors.GrayTextBrush}"
-                                       Margin="0,0,0,3" />
+                            <TextBlock Text="几何尺寸 (mm)" Style="{StaticResource Text.GroupHeader}" />
                             <Grid Margin="12,0,0,8">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="*" MinWidth="170" />
@@ -331,10 +305,7 @@
                             </Grid>
 
                             <!-- 分组：物理特性（支持国标手册值/手工修正，或一键按公式重算） -->
-                            <TextBlock Text="物理特性"
-                                       FontWeight="SemiBold"
-                                       Foreground="{x:Static SystemColors.GrayTextBrush}"
-                                       Margin="0,0,0,3" />
+                            <TextBlock Text="物理特性" Style="{StaticResource Text.GroupHeader}" />
                             <Grid Margin="12,0,0,0">
                                 <Grid.ColumnDefinitions>
                                     <ColumnDefinition Width="Auto" MinWidth="82" SharedSizeGroup="SecLabel" />
@@ -361,10 +332,7 @@
                                 <StackPanel Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="5"
                                             Orientation="Horizontal"
                                             Margin="0,8,0,0">
-                                    <Border BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
-                                            BorderThickness="1"
-                                            Padding="8,3"
-                                            VerticalAlignment="Center">
+                                    <Border Style="{StaticResource Panel.Badge}">
                                         <TextBlock x:Name="TxtMetricSource" Text="公式计算" />
                                     </Border>
                                     <Button Content="按公式重算"
@@ -380,10 +348,7 @@
         </Grid>
 
         <!-- Zone 3.8: 数据存储路径与格式说明（独占底部操作栏上方一行） -->
-        <Border Grid.Row="3"
-                BorderThickness="1"
-                Padding="10,4"
-                Margin="0,0,0,8">
+        <Border Grid.Row="3" Style="{StaticResource Panel.InfoBar}" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="*" />

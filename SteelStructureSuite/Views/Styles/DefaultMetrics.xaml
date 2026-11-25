@@ -102,4 +102,68 @@
     <Style TargetType="{x:Type DataGridColumnHeader}">
         <Setter Property="VerticalContentAlignment" Value="Center" />
     </Style>
+
+    <!-- ============================================================
+         容器样式：替代原先主题里的 Card / ToolStrip / Badge，
+         仅使用系统颜色与 1px 描边，不覆盖任何 Template。
+         ============================================================ -->
+
+    <!-- 卡片容器：白底 + 1px 描边，用于分组区块 -->
+    <Style x:Key="Panel.Card" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{x:Static SystemColors.WindowBrush}" />
+        <Setter Property="BorderBrush" Value="{x:Static SystemColors.ControlDarkBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- 工具条容器：浅灰底 + 1px 描边，用于一行按钮/筛选 -->
+    <Style x:Key="Panel.ToolStrip" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
+        <Setter Property="BorderBrush" Value="{x:Static SystemColors.ControlDarkBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6,4" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- 徽章容器：浅灰底 + 1px 描边 + 小内边距，用于计数/状态标签 -->
+    <Style x:Key="Panel.Badge" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
+        <Setter Property="BorderBrush" Value="{x:Static SystemColors.ControlDarkBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="6,1" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- 说明条：浅灰底 + 1px 描边，用于路径/提示等长文本行 -->
+    <Style x:Key="Panel.InfoBar" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
+        <Setter Property="BorderBrush" Value="{x:Static SystemColors.ControlDarkBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="Padding" Value="8,4" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- 区块标题条：浅灰底 + 底部分隔线，用于面板顶部标题 -->
+    <Style x:Key="Panel.Header" TargetType="{x:Type Border}">
+        <Setter Property="Background" Value="{x:Static SystemColors.ControlBrush}" />
+        <Setter Property="BorderBrush" Value="{x:Static SystemColors.ControlDarkBrush}" />
+        <Setter Property="BorderThickness" Value="0,0,0,1" />
+        <Setter Property="Padding" Value="10,5" />
+        <Setter Property="SnapsToDevicePixels" Value="True" />
+    </Style>
+
+    <!-- 分组标题：灰色小字加粗，配合缩进替代 GroupBox -->
+    <Style x:Key="Text.GroupHeader" TargetType="{x:Type TextBlock}">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{x:Static SystemColors.GrayTextBrush}" />
+        <Setter Property="Margin" Value="0,0,0,3" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- 分组内容缩进 -->
+    <Style x:Key="Panel.GroupBody" TargetType="{x:Type FrameworkElement}">
+        <Setter Property="Margin" Value="12,0,0,8" />
+    </Style>
 </ResourceDictionary>

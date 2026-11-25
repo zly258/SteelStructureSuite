@@ -33,7 +33,7 @@
             <TextBlock Text="按当前 AutoCAD 支持的版本批量导出 DXF" Margin="0,2,0,0" />
         </StackPanel>
 
-        <Border Grid.Row="1" Margin="0,0,0,8">
+        <Border Grid.Row="1" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -41,7 +41,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
                     <TextBlock Text="源图纸" VerticalAlignment="Center" />
-                    <Border Margin="8,0,0,0" VerticalAlignment="Center">
+                    <Border Style="{StaticResource Panel.Badge}" Margin="8,0,0,0">
                         <TextBlock x:Name="TxtFileCount" Text="0" />
                     </Border>
                 </StackPanel>
@@ -69,7 +69,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="2" Margin="0,0,0,8">
+        <Border Grid.Row="2" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -99,7 +99,7 @@
             </Grid>
         </Border>
 
-        <Border Grid.Row="3" Margin="0,0,0,8">
+        <Border Grid.Row="3" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

@@ -36,7 +36,7 @@
         </StackPanel>
 
         <!-- 待合并文件 -->
-        <Border Grid.Row="1" Margin="0,0,0,8">
+        <Border Grid.Row="1" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -44,7 +44,7 @@
                 </Grid.RowDefinitions>
                 <StackPanel Grid.Row="0" Orientation="Horizontal" Margin="0,0,0,6">
                     <TextBlock Text="图纸文件" VerticalAlignment="Center" />
-                    <Border Margin="8,0,0,0" VerticalAlignment="Center">
+                    <Border Style="{StaticResource Panel.Badge}" Margin="8,0,0,0">
                         <TextBlock x:Name="TxtFileCount" Text="0" />
                     </Border>
                 </StackPanel>
@@ -73,7 +73,7 @@
         </Border>
 
         <!-- 排布与输出参数（统一单 Grid 共享标签列，保证左边界对齐） -->
-        <Border Grid.Row="2" Margin="0,0,0,8">
+        <Border Grid.Row="2" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />
@@ -110,7 +110,7 @@
         </Border>
 
         <!-- 日志 -->
-        <Border Grid.Row="3" Margin="0,0,0,8">
+        <Border Grid.Row="3" Style="{StaticResource Panel.Card}" Margin="0,0,0,8">
             <Grid>
                 <Grid.RowDefinitions>
                     <RowDefinition Height="Auto" />

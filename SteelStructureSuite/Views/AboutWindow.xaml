@@ -30,9 +30,14 @@
             <StackPanel>
                 <StackPanel Orientation="Horizontal">
                     <Border Width="40" Height="40"
-                            VerticalAlignment="Center">
+                            Background="{x:Static SystemColors.HighlightBrush}"
+                            BorderBrush="{x:Static SystemColors.HighlightBrush}"
+                            BorderThickness="1"
+                            VerticalAlignment="Center"
+                            SnapsToDevicePixels="True">
                         <TextBlock Text="SS"
                                    FontWeight="SemiBold"
+                                   Foreground="{x:Static SystemColors.HighlightTextBrush}"
                                    HorizontalAlignment="Center"
                                    VerticalAlignment="Center" />
                     </Border>
@@ -44,10 +49,11 @@
                     </StackPanel>
                 </StackPanel>
 
-                <Grid Margin="0,12,0,0">
+                <Grid Margin="0,12,0,0" Grid.IsSharedSizeScope="True">
                     <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" MinWidth="80" SharedSizeGroup="AboutLabel" />
+                        <ColumnDefinition Width="14" />
+                        <ColumnDefinition Width="*" MinWidth="200" />
                     </Grid.ColumnDefinitions>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="Auto" />
@@ -58,19 +64,19 @@
                     </Grid.RowDefinitions>
 
                     <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" />
-                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="1" Text="-" />
+                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="2" Text="-" />
 
                     <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" />
-                    <TextBlock Grid.Row="1" Grid.Column="1" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" TextWrapping="Wrap" />
 
                     <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" />
-                    <TextBlock Grid.Row="2" Grid.Column="1" Text=".NET Framework 4.8 / .NET 8.0" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text=".NET Framework 4.8 / .NET 8.0" />
 
                     <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" />
-                    <TextBlock Grid.Row="3" Grid.Column="1" Text="GNU GPL v3.0" />
+                    <TextBlock Grid.Row="3" Grid.Column="2" Text="GNU GPL v3.0" />
 
                     <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" />
-                    <TextBlock Grid.Row="4" Grid.Column="1" Text="zhangly1403@qq.com" />
+                    <TextBlock Grid.Row="4" Grid.Column="2" Text="zhangly1403@qq.com" />
                 </Grid>
 
                 <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0">

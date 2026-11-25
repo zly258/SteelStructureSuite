@@ -28,7 +28,7 @@
         </Grid.RowDefinitions>
 
         <!-- 顶部检索工具栏 -->
-        <Border Grid.Row="0" Margin="0,0,0,8">
+        <Border Grid.Row="0" Style="{StaticResource Panel.ToolStrip}" Margin="0,0,0,8">
             <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
@@ -49,9 +49,7 @@
                 <Button Grid.Column="4"
                         Content="清除"
                         Click="OnClearSearchClick" />
-                <Border Grid.Column="6"
-                        Padding="8,3"
-                        VerticalAlignment="Center">
+                <Border Grid.Column="6" Style="{StaticResource Panel.Badge}">
                     <TextBlock x:Name="TxtFilterCount"
                                Text="0 项" />
                 </Border>
@@ -69,7 +67,15 @@
                 <TreeView x:Name="TreeStructures" SelectedItemChanged="OnTreeSelectionChanged" />
             </GroupBox>
 
-            <GridSplitter Grid.Column="1" Width="8" HorizontalAlignment="Stretch" VerticalAlignment="Stretch" Background="Transparent" ResizeBehavior="PreviousAndNext" />
+            <GridSplitter Grid.Column="1"
+                          Width="8"
+                          HorizontalAlignment="Stretch"
+                          VerticalAlignment="Stretch"
+                          Background="{x:Static SystemColors.ControlBrush}"
+                          BorderBrush="{x:Static SystemColors.ControlDarkBrush}"
+                          BorderThickness="1,0,0,0"
+                          ShowsPreview="True"
+                          ResizeBehavior="PreviousAndNext" />
 
             <GroupBox Grid.Column="2" Header="构件列表" Margin="0">
                 <DataGrid x:Name="DgStructures"

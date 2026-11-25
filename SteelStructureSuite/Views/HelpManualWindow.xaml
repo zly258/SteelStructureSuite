@@ -24,7 +24,7 @@
             <RowDefinition Height="Auto" />
         </Grid.RowDefinitions>
 
-        <Border Grid.Row="0">
+        <Border Grid.Row="0" Style="{StaticResource Panel.Card}">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <TextBlock x:Name="TxtManual" TextWrapping="Wrap" />
             </ScrollViewer>
