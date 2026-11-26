@@ -246,6 +246,7 @@ namespace SteelStructureSuite.Ribbon
             fileCol.Items.Add(CreateRowBreak());
             fileCol.Items.Add(CreateSmallButton("合并图纸", "SS_DWGMERGE ", "合并多张 DWG/DXF", "merge"));
             outPanel.Items.Add(fileCol);
+            outPanel.Items.Add(CreateLargeButton("图层样式", "SS_SETTINGS ", "配置建模/出图图层、颜色、文字字高与标注样式", "settings"));
 
             // ---------- 面板 6：帮助（含模式切换） ----------
             RibbonPanelSource helpPanel = CreatePanel(tab, "帮助");

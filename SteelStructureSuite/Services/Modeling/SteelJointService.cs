@@ -22,8 +22,8 @@ namespace SteelStructureSuite.Services.Modeling
     /// </summary>
     public static class SteelJointService
     {
-        /// <summary>总开关：已禁用斜切逻辑，保持杆件完整原始几何。</summary>
-        public static bool Enabled = false;
+        /// <summary>总开关：启用连接处真实斜接与主从切平处理。</summary>
+        public static bool Enabled = true;
 
         /// <summary>近垂直阈值：|cos| 小于此值视为垂直对接，无需斜接。</summary>
         private const double PerpendicularCos = 0.26;      // 约 75°
@@ -118,18 +118,19 @@ namespace SteelStructureSuite.Services.Modeling
         }
 
         /// <summary>
-        /// 对一组构件执行连接处斜接。应在局部坐标系下、整体平移/旋转之前调用。
+        /// 对一组构件执行连接处真实构造裁剪（角平分斜接 + 主从平切 + 落地平切）。
+        /// 应在局部坐标系下、整体平移/旋转之前调用。
         /// </summary>
         /// <param name="parts">构件列表（会被就地修改实体几何，端点保持不变）。</param>
         /// <param name="warnings">可选：收集斜接失败的告警。</param>
-        /// <returns>实际发生斜接的构件数量。</returns>
+        /// <returns>实际发生裁剪的构件数量。</returns>
         public static int ApplyJointTrims(
             List<SteelStructureBuilder.SolidMemberPart> parts,
             List<string> warnings = null)
         {
             if (!Enabled || parts == null || parts.Count < 2) return 0;
 
-            // 1. 挑出可参与斜接的杆件（排除板件、曲线杆件、退化杆件）
+            // 1. 挑出可参与接头处理的杆件（排除板件、曲线杆件、退化杆件）
             var indices = new List<int>();
             var axes = new Dictionary<int, AxisInfo>();
             var boxes = new Dictionary<int, Extents3d>();
@@ -153,11 +154,11 @@ namespace SteelStructureSuite.Services.Modeling
                 axes[i] = axis;
                 boxes[i] = ext;
             }
-            if (indices.Count < 2) return 0;
+            if (indices.Count < 1) return 0;
 
             var trimmed = new HashSet<int>();
 
-            // 2. 两两处理端部斜接（先用包围盒粗筛）
+            // 2. 两两处理端部接头（先用包围盒粗筛）
             for (int a = 0; a < indices.Count; a++)
             {
                 for (int b = a + 1; b < indices.Count; b++)
@@ -166,32 +167,146 @@ namespace SteelStructureSuite.Services.Modeling
                     int ib = indices[b];
                     if (!ExtentsOverlap(boxes[ia], boxes[ib], 1.0)) continue;
 
-                    JointCut cut;
-                    try
-                    {
-                        cut = PlanJoint(
-                            ia, axes[ia].Start, axes[ia].End, axes[ia].HalfWidth,
-                            ib, axes[ib].Start, axes[ib].End, axes[ib].HalfWidth);
-                    }
-                    catch { continue; }
+                    SteelStructureBuilder.SolidMemberPart pa = parts[ia];
+                    SteelStructureBuilder.SolidMemberPart pb = parts[ib];
 
-                    if (cut == null) continue;
+                    int tierA = GetMemberHierarchyTier(pa.RoleName);
+                    int tierB = GetMemberHierarchyTier(pb.RoleName);
 
                     try
                     {
-                        if (CutMember(parts[ia], cut.PlanePoint, cut.NormalA, warnings))
-                            trimmed.Add(ia);
-                        if (CutMember(parts[ib], cut.PlanePoint, cut.NormalB, warnings))
-                            trimmed.Add(ib);
+                        if (tierA != tierB)
+                        {
+                            // 主从节点：只切次杆端头使其贴合主杆外表面，不动主杆
+                            int iPrimary = tierA < tierB ? ia : ib;
+                            int iSecondary = tierA < tierB ? ib : ia;
+                            if (TrimSecondaryToPrimaryInternal(parts[iSecondary], axes[iSecondary], parts[iPrimary], axes[iPrimary], 1.5, warnings))
+                            {
+                                trimmed.Add(iSecondary);
+                            }
+                        }
+                        else
+                        {
+                            // 同级节点（如屋脊双坡斜梁、转角扶手/弦杆）：沿角平分面斜接
+                            JointCut cut = PlanJoint(
+                                ia, axes[ia].Start, axes[ia].End, axes[ia].HalfWidth,
+                                ib, axes[ib].Start, axes[ib].End, axes[ib].HalfWidth);
+                            if (cut == null) continue;
+
+                            if (CutMember(pa, cut.PlanePoint, cut.NormalA, warnings))
+                                trimmed.Add(ia);
+                            if (CutMember(pb, cut.PlanePoint, cut.NormalB, warnings))
+                                trimmed.Add(ib);
+                        }
                     }
                     catch (Exception ex)
                     {
-                        warnings?.Add($"“{parts[ia].RoleName}”与“{parts[ib].RoleName}”接头斜接失败：{ex.Message}");
+                        warnings?.Add($"“{pa.RoleName}”与“{pb.RoleName}”接头裁剪失败：{ex.Message}");
                     }
                 }
             }
 
+            // 3. 落地斜杆底端水平切平（防止斜撑/梯梁底部斜插到 Z=0 以下）
+            foreach (int idx in indices)
+            {
+                SteelStructureBuilder.SolidMemberPart p = parts[idx];
+                AxisInfo ax = axes[idx];
+                double absDz = Math.Abs(ax.Dir.Z);
+                if (absDz < 0.08 || absDz > 0.96) continue; // 跳过纯水平或纯竖直杆件
+
+                double minZ = Math.Min(ax.Start.Z, ax.End.Z);
+                double maxZ = Math.Max(ax.Start.Z, ax.End.Z);
+                if (minZ <= 20.0 && maxZ > 150.0)
+                {
+                    if (CutMember(p, new Point3d(0, 0, Math.Max(0.0, minZ)), Vector3d.ZAxis, warnings))
+                        trimmed.Add(idx);
+                }
+            }
+
             return trimmed.Count;
+        }
+
+        /// <summary>
+        /// 判定杆件主从层级：数值越小越为主杆（0=柱/主梁/弦杆/梯梁，1=次梁/系杆/檩条，2=斜撑/隅撑/腹杆/牛腿斜撑）。
+        /// </summary>
+        private static int GetMemberHierarchyTier(string roleName)
+        {
+            if (string.IsNullOrEmpty(roleName)) return 1;
+            if (roleName.Contains("斜撑") || roleName.Contains("隅撑") || roleName.Contains("腹杆") ||
+                roleName.Contains("撑杆") || roleName.Contains("横隔") || roleName.Contains("托臂"))
+                return 2;
+            if (roleName.Contains("立柱") || roleName.Contains("钢柱") || roleName.Contains("主柱") ||
+                roleName.Contains("支柱") || roleName.Contains("主梁") || roleName.Contains("斜梁") ||
+                roleName.Contains("边梁") || roleName.Contains("纵梁") || roleName.Contains("横梁") ||
+                roleName.Contains("弦杆") || roleName.Contains("梯梁") || roleName.Contains("牛腿主梁") ||
+                roleName.Contains("柱牛腿"))
+                return 0;
+            return 1;
+        }
+
+        /// <summary>
+        /// 公开的通用半空间裁剪：将杆件裁剪到指定平面，保留 <paramref name="keepNormal"/> 指向的一侧。
+        /// </summary>
+        public static bool TrimMemberToPlane(
+            SteelStructureBuilder.SolidMemberPart part,
+            Point3d planePoint,
+            Vector3d keepNormal,
+            List<string> warnings = null)
+            => CutMember(part, planePoint, keepNormal, warnings);
+
+        /// <summary>
+        /// 主从切平：将次杆端头裁剪到主杆外轮廓平面（保留微嵌入量 <paramref name="embedMm"/> 以确保布尔合并零缝隙）。
+        /// </summary>
+        public static bool TrimSecondaryToPrimary(
+            SteelStructureBuilder.SolidMemberPart secondary,
+            SteelStructureBuilder.SolidMemberPart primary,
+            double embedMm = 1.5,
+            List<string> warnings = null)
+        {
+            if (secondary?.Section == null || primary?.Section == null) return false;
+            AxisInfo secAxis = MakeAxis(secondary.StartPt, secondary.EndPt, Math.Max(secondary.Section.H, secondary.Section.B) * 0.5);
+            AxisInfo priAxis = MakeAxis(primary.StartPt, primary.EndPt, Math.Max(primary.Section.H, primary.Section.B) * 0.5);
+            if (secAxis == null || priAxis == null) return false;
+            return TrimSecondaryToPrimaryInternal(secondary, secAxis, primary, priAxis, embedMm, warnings);
+        }
+
+        private static bool TrimSecondaryToPrimaryInternal(
+            SteelStructureBuilder.SolidMemberPart secondary,
+            AxisInfo secAxis,
+            SteelStructureBuilder.SolidMemberPart primary,
+            AxisInfo priAxis,
+            double embedMm,
+            List<string> warnings)
+        {
+            if (!TryClosestPoints(secAxis, priAxis, out Point3d xs, out Point3d xp, out double dist))
+                return false;
+
+            double contactLimit = (secAxis.HalfWidth + priAxis.HalfWidth) * 1.1;
+            if (dist > contactLimit) return false;
+
+            // 次杆必须是以端部连接到主杆（排除中间穿过主杆的连续杆）
+            double ts = ParameterOnAxis(secAxis, xs);
+            if (ts > EndZoneMin && ts < EndZoneMax) return false;
+
+            Vector3d dSec = DirectionAwayFromJoint(secAxis, xs);
+            double cos = Math.Abs(dSec.DotProduct(priAxis.Dir));
+            if (cos > CollinearCos) return false; // 共线不切
+
+            // 垂直于主杆、指向次杆远端的外法向
+            Vector3d outNormal = dSec - priAxis.Dir * dSec.DotProduct(priAxis.Dir);
+            if (outNormal.Length < 1e-4) return false;
+            outNormal = outNormal.GetNormal();
+
+            // 计算主杆截面在该外法向上的真实半宽（精确贴合主杆H/B投影）
+            SectionSolidBuilder.GetMemberAxes(priAxis.Dir, out Vector3d px, out Vector3d py, out _);
+            double priHalfExtent =
+                Math.Abs(px.DotProduct(outNormal)) * (primary.Section.H * 0.5) +
+                Math.Abs(py.DotProduct(outNormal)) * (primary.Section.B * 0.5);
+
+            double offset = Math.Max(0.0, priHalfExtent - embedMm);
+            Point3d cutPlanePt = xp + outNormal * offset;
+
+            return CutMember(secondary, cutPlanePt, outNormal, warnings);
         }
 
         /// <summary>

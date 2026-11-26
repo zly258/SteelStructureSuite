@@ -111,6 +111,7 @@ namespace SteelStructureSuite.Ribbon
                 case "drawing":
                 case "dxf":
                 case "merge":
+                case "settings":
                     return Color.FromRgb(109, 76, 159);
 
                 // 6. 帮助

@@ -588,6 +588,129 @@ namespace SteelStructureSuite.Services.Settings
             }
             Save();
         }
+
+        /// <summary>获取三维建模与施工详图的图层、颜色、文字及标注样式配置。</summary>
+        public static CadDisplaySettings GetCadDisplaySettings()
+        {
+            return new CadDisplaySettings
+            {
+                LayerModel3D = GetValidName("Cad.LayerModel3D", "SS_STEEL_3D"),
+                ColorModel3D = ClampAci(GetInt("Cad.ColorModel3D", 140), 140),
+                LayerModelWire = GetValidName("Cad.LayerModelWire", "SS_STEEL_WIRE"),
+                ColorModelWire = ClampAci(GetInt("Cad.ColorModelWire", 8), 8),
+
+                LayerVisible = GetValidName("Cad.LayerVisible", "SS_HLR_VISIBLE"),
+                ColorVisible = ClampAci(GetInt("Cad.ColorVisible", 7), 7),
+                LayerHidden = GetValidName("Cad.LayerHidden", "SS_HLR_HIDDEN"),
+                ColorHidden = ClampAci(GetInt("Cad.ColorHidden", 8), 8),
+                LayerAxis = GetValidName("Cad.LayerAxis", "SS_HLR_AXIS"),
+                ColorAxis = ClampAci(GetInt("Cad.ColorAxis", 1), 1),
+                LayerDim = GetValidName("Cad.LayerDim", "SS_HLR_DIM"),
+                ColorDim = ClampAci(GetInt("Cad.ColorDim", 3), 3),
+                LayerFrame = GetValidName("Cad.LayerFrame", "SS_HLR_FRAME"),
+                ColorFrame = ClampAci(GetInt("Cad.ColorFrame", 7), 7),
+
+                TextStyleName = GetValidName("Cad.TextStyleName", "SS_SIMSUN_35_08"),
+                TextFontName = GetValidName("Cad.TextFontName", "仿宋"),
+                TextWidthFactor = ClampDouble(GetDouble("Cad.TextWidthFactor", 0.80), 0.3, 2.0),
+                BaseTextHeightMm = ClampDouble(GetDouble("Cad.BaseTextHeightMm", 3.5), 1.5, 10.0),
+
+                DimStyleName = GetValidName("Cad.DimStyleName", "SS_DIM_SIMSUN_35_08"),
+                DimArrowSizeMm = ClampDouble(GetDouble("Cad.DimArrowSizeMm", 2.5), 0.8, 8.0),
+                DimExtExceedMm = ClampDouble(GetDouble("Cad.DimExtExceedMm", 1.5), 0.5, 6.0),
+                DimLineColor = ClampAciOrByLayer(GetInt("Cad.DimLineColor", 256), 256),
+                DimTextColor = ClampAciOrByLayer(GetInt("Cad.DimTextColor", 256), 256)
+            };
+        }
+
+        /// <summary>保存三维建模与施工详图的图层、颜色、文字及标注样式配置。</summary>
+        public static void SaveCadDisplaySettings(CadDisplaySettings cfg)
+        {
+            if (cfg == null) return;
+            SetString("Cad.LayerModel3D", SanitizeName(cfg.LayerModel3D, "SS_STEEL_3D"));
+            SetInt("Cad.ColorModel3D", ClampAci(cfg.ColorModel3D, 140));
+            SetString("Cad.LayerModelWire", SanitizeName(cfg.LayerModelWire, "SS_STEEL_WIRE"));
+            SetInt("Cad.ColorModelWire", ClampAci(cfg.ColorModelWire, 8));
+
+            SetString("Cad.LayerVisible", SanitizeName(cfg.LayerVisible, "SS_HLR_VISIBLE"));
+            SetInt("Cad.ColorVisible", ClampAci(cfg.ColorVisible, 7));
+            SetString("Cad.LayerHidden", SanitizeName(cfg.LayerHidden, "SS_HLR_HIDDEN"));
+            SetInt("Cad.ColorHidden", ClampAci(cfg.ColorHidden, 8));
+            SetString("Cad.LayerAxis", SanitizeName(cfg.LayerAxis, "SS_HLR_AXIS"));
+            SetInt("Cad.ColorAxis", ClampAci(cfg.ColorAxis, 1));
+            SetString("Cad.LayerDim", SanitizeName(cfg.LayerDim, "SS_HLR_DIM"));
+            SetInt("Cad.ColorDim", ClampAci(cfg.ColorDim, 3));
+            SetString("Cad.LayerFrame", SanitizeName(cfg.LayerFrame, "SS_HLR_FRAME"));
+            SetInt("Cad.ColorFrame", ClampAci(cfg.ColorFrame, 7));
+
+            SetString("Cad.TextStyleName", SanitizeName(cfg.TextStyleName, "SS_SIMSUN_35_08"));
+            SetString("Cad.TextFontName", SanitizeName(cfg.TextFontName, "仿宋"));
+            SetDouble("Cad.TextWidthFactor", ClampDouble(cfg.TextWidthFactor, 0.3, 2.0));
+            SetDouble("Cad.BaseTextHeightMm", ClampDouble(cfg.BaseTextHeightMm, 1.5, 10.0));
+
+            SetString("Cad.DimStyleName", SanitizeName(cfg.DimStyleName, "SS_DIM_SIMSUN_35_08"));
+            SetDouble("Cad.DimArrowSizeMm", ClampDouble(cfg.DimArrowSizeMm, 0.8, 8.0));
+            SetDouble("Cad.DimExtExceedMm", ClampDouble(cfg.DimExtExceedMm, 0.5, 6.0));
+            SetInt("Cad.DimLineColor", ClampAciOrByLayer(cfg.DimLineColor, 256));
+            SetInt("Cad.DimTextColor", ClampAciOrByLayer(cfg.DimTextColor, 256));
+            Save();
+        }
+
+        private static string GetValidName(string key, string fallback)
+        {
+            string val = GetString(key, fallback);
+            return SanitizeName(val, fallback);
+        }
+
+        private static string SanitizeName(string val, string fallback)
+        {
+            if (string.IsNullOrWhiteSpace(val)) return fallback;
+            return val.Trim();
+        }
+
+        private static short ClampAci(int val, short fallback)
+            => (val >= 1 && val <= 255) ? (short)val : fallback;
+
+        private static short ClampAciOrByLayer(int val, short fallback)
+            => (val == 256 || (val >= 1 && val <= 255)) ? (short)val : fallback;
+
+        private static double ClampDouble(double val, double min, double max)
+            => (double.IsNaN(val) || double.IsInfinity(val)) ? min : Math.Max(min, Math.Min(max, val));
+    }
+
+    /// <summary>
+    /// 建模与出图图层、颜色、文字及标注样式配置。
+    /// </summary>
+    public sealed class CadDisplaySettings
+    {
+        public string LayerModel3D { get; set; } = "SS_STEEL_3D";
+        public short ColorModel3D { get; set; } = 140;
+        public string LayerModelWire { get; set; } = "SS_STEEL_WIRE";
+        public short ColorModelWire { get; set; } = 8;
+
+        public string LayerVisible { get; set; } = "SS_HLR_VISIBLE";
+        public short ColorVisible { get; set; } = 7;
+        public string LayerHidden { get; set; } = "SS_HLR_HIDDEN";
+        public short ColorHidden { get; set; } = 8;
+        public string LayerAxis { get; set; } = "SS_HLR_AXIS";
+        public short ColorAxis { get; set; } = 1;
+        public string LayerDim { get; set; } = "SS_HLR_DIM";
+        public short ColorDim { get; set; } = 3;
+        public string LayerFrame { get; set; } = "SS_HLR_FRAME";
+        public short ColorFrame { get; set; } = 7;
+
+        public string TextStyleName { get; set; } = "SS_SIMSUN_35_08";
+        public string TextFontName { get; set; } = "仿宋";
+        public double TextWidthFactor { get; set; } = 0.80;
+        public double BaseTextHeightMm { get; set; } = 3.5;
+
+        public string DimStyleName { get; set; } = "SS_DIM_SIMSUN_35_08";
+        public double DimArrowSizeMm { get; set; } = 2.5;
+        public double DimExtExceedMm { get; set; } = 1.5;
+        public short DimLineColor { get; set; } = 256;
+        public short DimTextColor { get; set; } = 256;
+
+        public static CadDisplaySettings CreateDefault() => new CadDisplaySettings();
     }
 }
 

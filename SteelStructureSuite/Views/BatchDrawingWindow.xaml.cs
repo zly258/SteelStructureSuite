@@ -7,6 +7,7 @@ using System.Windows;
 using System.Windows.Controls;
 using Autodesk.AutoCAD.ApplicationServices;
 using Autodesk.AutoCAD.DatabaseServices;
+using Autodesk.AutoCAD.EditorInput;
 using Autodesk.AutoCAD.Geometry;
 using Microsoft.Win32;
 using SteelStructureSuite.Domain.Models;
@@ -291,8 +292,36 @@ namespace SteelStructureSuite.Views
             Document doc = Autodesk.AutoCAD.ApplicationServices.Application.DocumentManager.MdiActiveDocument;
             if (doc == null) throw new InvalidOperationException("当前没有打开的图纸。");
 
-            // 在当前图面上找一个空白起点：用当前视图中心偏上
-            Point3d origin = GetCurrentViewOrigin(doc);
+            // 隐藏弹窗，让用户在当前图纸上交互指定排布起点（横向向右排列，互不重叠）
+            Point3d origin;
+            bool picked = false;
+            this.Hide();
+            try
+            {
+                Editor ed = doc.Editor;
+                var ppo = new Autodesk.AutoCAD.EditorInput.PromptPointOptions(
+                    "\n请指定批量出图的左下角起点（图框将从该点起横向向右排列，互不重叠）: ")
+                {
+                    AllowNone = false
+                };
+                Autodesk.AutoCAD.EditorInput.PromptPointResult ppr = ed.GetPoint(ppo);
+                if (ppr.Status == Autodesk.AutoCAD.EditorInput.PromptStatus.OK)
+                {
+                    origin = ppr.Value;
+                    picked = true;
+                }
+                else
+                {
+                    origin = Point3d.Origin;
+                }
+            }
+            finally
+            {
+                this.Show();
+            }
+
+            if (!picked)
+                return new BatchDrawingResult { Cancelled = true };
 
             using (DocumentLock dl = doc.LockDocument())
             {

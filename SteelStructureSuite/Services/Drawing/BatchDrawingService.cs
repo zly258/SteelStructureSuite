@@ -6,6 +6,8 @@ using System.Linq;
 using Autodesk.AutoCAD.DatabaseServices;
 using Autodesk.AutoCAD.Geometry;
 using SteelStructureSuite.Domain.Models;
+using SteelStructureSuite.Services.Modeling;
+using SteelStructureSuite.Services.Takeoff;
 
 namespace SteelStructureSuite.Services.Drawing
 {
@@ -84,17 +86,14 @@ namespace SteelStructureSuite.Services.Drawing
             var state = new BatchDrawingProgress { Total = plan.Groups.Count };
             progress?.Invoke(state);
 
-            // 1. 计算图幅尺寸，按网格排布
+            // 1. 计算图幅基准尺寸，严格按每张图的实际比例与外框宽度横向向右排列，互不重叠
             GetSheetSizeMm(options.SheetSizeName, out double paperW, out double paperH);
 
-            // 网格列数：宽屏多排、窄图少排，保证整批不要过分扁长
-            int perRow = Math.Max(1, Math.Min(MaxSheetsPerRow,
-                plan.Groups.Count <= 2 ? plan.Groups.Count : MaxSheetsPerRow));
-
-            double cellW = paperW + SheetGapMm;
-            double cellH = paperH + SheetGapMm;
-
             var placed = new List<string>();
+            var placedGroups = new List<BatchDrawingPlan.SheetGroup>();
+            var placedScales = new List<double>();
+            double curX = origin.X;
+            double maxScale = options.AutoScale ? 20.0 : Math.Max(1.0, options.DrawingScale);
 
             for (int i = 0; i < plan.Groups.Count; i++)
             {
@@ -105,13 +104,7 @@ namespace SteelStructureSuite.Services.Drawing
                 }
 
                 BatchDrawingPlan.SheetGroup group = plan.Groups[i];
-                int col = i % perRow;
-                int row = i / perRow;
-
-                var sheetOrigin = new Point3d(
-                    origin.X + col * cellW,
-                    origin.Y - row * cellH,
-                    origin.Z);
+                var sheetOrigin = new Point3d(curX, origin.Y, origin.Z);
 
                 state.Message = string.Format(
                     CultureInfo.CurrentCulture,
@@ -128,9 +121,10 @@ namespace SteelStructureSuite.Services.Drawing
                     ? $"图名: {group.Representative.StructureTypeDisplayName} 详图（{group.TagSummary}，共 {group.Count} 件）"
                     : null;
 
+                SteelHlrDrawingService.SheetLayoutResult layout = null;
                 try
                 {
-                    SteelHlrDrawingService.GenerateDetailDrawingSheet(
+                    layout = SteelHlrDrawingService.GenerateDetailDrawingSheetWithBounds(
                         db,
                         new[] { group.Representative },
                         sheetOrigin,
@@ -145,13 +139,21 @@ namespace SteelStructureSuite.Services.Drawing
                     continue;
                 }
 
+                double usedScale = (layout != null && layout.UsedScale > 0.1) ? layout.UsedScale : maxScale;
+                double usedW = (layout != null && layout.FrameWidth > 1.0) ? layout.FrameWidth : paperW * usedScale;
+                double gapX = Math.Max(1500.0, usedW * 0.08);
+                curX += usedW + gapX;
+                maxScale = Math.Max(maxScale, usedScale);
+
                 placed.Add(caption ?? $"图名: {group.Representative.StructureTypeDisplayName} 详图（{group.TagSummary}）");
+                placedGroups.Add(group);
+                placedScales.Add(usedScale);
                 state.GeneratedSheets.Add(placed[placed.Count - 1]);
                 state.Completed = i + 1;
                 progress?.Invoke(state);
             }
 
-            // 2. 图纸目录 + 汇总材料表（按选项决定是否生成）
+            // 2. 图纸目录 + 汇总材料表（紧跟在所有详图最右侧横向排列，互不重叠）
             bool wantIndex = options.IncludeDrawingIndex;
             bool wantSummary = options.IncludeSummaryBom;
 
@@ -168,10 +170,12 @@ namespace SteelStructureSuite.Services.Drawing
                     {
                         AppendDrawingIndexAndSummary(
                             db,
-                            plan,
+                            placedGroups,
                             placed,
-                            new Point3d(origin.X, origin.Y - ((plan.Groups.Count - 1) / perRow + 1) * cellH, origin.Z),
+                            placedScales,
+                            new Point3d(curX, origin.Y, origin.Z),
                             options,
+                            maxScale,
                             wantIndex,
                             wantSummary);
                     }
@@ -227,17 +231,22 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static void AppendDrawingIndexAndSummary(
             Database db,
-            BatchDrawingPlan plan,
+            List<BatchDrawingPlan.SheetGroup> groups,
             List<string> sheetCaptions,
+            List<double> usedScales,
             Point3d origin,
             DrawingGenerationOptions options,
+            double referenceScale,
             bool wantIndex,
             bool wantSummary)
         {
-            GetSheetSizeMm(options.SheetSizeName, out double paperW, out double paperH);
-            double scale = options.AutoScale ? 20.0 : Math.Max(1.0, options.DrawingScale);
-            double textH = 3.5 * scale;
+            double scale = Math.Max(10.0, referenceScale);
+            double baseTextH = SteelStructureSuite.Services.Settings.UserSettings.GetCadDisplaySettings().BaseTextHeightMm;
+            double textH = baseTextH * scale;
+            double rowH = textH * 2.2;
+            double tableGap = 25.0 * scale;
 
+            SteelHlrDrawingService.EnsureDrawingLayers(db);
             ObjectId textStyleId = SteelHlrDrawingService.EnsureSimSunTextStyle(db);
 
             using (Transaction tr = db.TransactionManager.StartTransaction())
@@ -245,79 +254,179 @@ namespace SteelStructureSuite.Services.Drawing
                 BlockTable bt = (BlockTable)tr.GetObject(db.BlockTableId, OpenMode.ForRead);
                 BlockTableRecord ms = (BlockTableRecord)tr.GetObject(bt[BlockTableRecord.ModelSpace], OpenMode.ForWrite);
 
-                if (!wantIndex)
+                Point3d curOrigin = origin;
+
+                // ---- 1. 图纸目录 ----
+                if (wantIndex && sheetCaptions.Count > 0)
                 {
-                    tr.Commit();
-                    return;
-                }
+                    double tableW = 190.0 * scale;
+                    int rows = sheetCaptions.Count + 2;   // 表头 + 明细 + 合计
+                    double tableH = rows * rowH;
 
-                // ---- 图纸目录 ----
-                double tableW = 180.0 * scale;
-                double rowH = textH * 2.2;
-                int rows = sheetCaptions.Count + 2;   // 表头 + 明细 + 合计
-                double tableH = rows * rowH;
+                    SteelHlrDrawingService.DrawRectangle2D(tr, ms, curOrigin, 0, 0, tableW, tableH, SteelHlrDrawingService.LayerFrame);
 
-                var tableOrigin = new Point3d(origin.X, origin.Y, origin.Z);
-                SteelHlrDrawingService.DrawRectangle2D(tr, ms, tableOrigin, 0, 0, tableW, tableH, "SS_DRAW_FRAME");
+                    double[] ratios = { 0.12, 0.52, 0.12, 0.12, 0.12 };
+                    double[] colX = new double[ratios.Length + 1];
+                    for (int c = 0; c < ratios.Length; c++)
+                        colX[c + 1] = colX[c] + tableW * ratios[c];
 
-                // 列宽：图号 / 图名 / 图幅 / 比例 / 数量
-                double[] ratios = { 0.12, 0.52, 0.12, 0.12, 0.12 };
-                double[] colX = new double[ratios.Length + 1];
-                for (int c = 0; c < ratios.Length; c++)
-                    colX[c + 1] = colX[c] + tableW * ratios[c];
+                    for (int c = 1; c < ratios.Length; c++)
+                        SteelHlrDrawingService.AppendLine2D(tr, ms, curOrigin, colX[c], 0, colX[c], tableH, SteelHlrDrawingService.LayerFrame);
+                    for (int r = 1; r < rows; r++)
+                        SteelHlrDrawingService.AppendLine2D(tr, ms, curOrigin, 0, r * rowH, tableW, r * rowH, SteelHlrDrawingService.LayerFrame);
 
-                for (int c = 1; c < ratios.Length; c++)
-                    SteelHlrDrawingService.AppendLine2D(tr, ms, tableOrigin, colX[c], 0, colX[c], tableH, "SS_DRAW_FRAME");
-                for (int r = 1; r < rows; r++)
-                    SteelHlrDrawingService.AppendLine2D(tr, ms, tableOrigin, 0, r * rowH, tableW, r * rowH, "SS_DRAW_FRAME");
-
-                string[] headers = { "图号", "图名", "图幅", "比例", "数量" };
-                double headerY = tableOrigin.Y + tableH - rowH * 0.5;
-                for (int c = 0; c < headers.Length; c++)
-                {
-                    double cx = tableOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
-                    SteelHlrDrawingService.AppendCenteredSimSunText(
-                        tr, ms, new Point3d(cx, headerY, 0), headers[c], textStyleId, textH, "SS_DRAW_FRAME");
-                }
-
-                int totalQty = 0;
-                for (int i = 0; i < sheetCaptions.Count; i++)
-                {
-                    BatchDrawingPlan.SheetGroup g = plan.Groups[i];
-                    double y = tableOrigin.Y + (rows - 2 - i) * rowH + rowH * 0.5;
-                    string[] vals =
+                    string[] headers = { "图号", "图名", "图幅", "比例", "数量" };
+                    double headerY = curOrigin.Y + tableH - rowH * 0.5;
+                    for (int c = 0; c < headers.Length; c++)
                     {
-                        $"详-{i + 1:00}",
-                        CleanCaption(sheetCaptions[i]),
-                        options.SheetSizeName,
-                        $"1:{scale:0.#}",
-                        g.Count.ToString(CultureInfo.InvariantCulture)
-                    };
-                    for (int c = 0; c < vals.Length; c++)
-                    {
-                        double cx = tableOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
+                        double cx = curOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
                         SteelHlrDrawingService.AppendCenteredSimSunText(
-                            tr, ms, new Point3d(cx, y, 0), vals[c], textStyleId, textH * 0.95, "SS_DRAW_FRAME");
+                            tr, ms, new Point3d(cx, headerY, 0), headers[c], textStyleId, textH, SteelHlrDrawingService.LayerFrame);
                     }
-                    totalQty += g.Count;
+
+                    int totalQty = 0;
+                    for (int i = 0; i < sheetCaptions.Count; i++)
+                    {
+                        BatchDrawingPlan.SheetGroup g = groups[i];
+                        double sc = i < usedScales.Count ? usedScales[i] : scale;
+                        double y = curOrigin.Y + (rows - 2 - i) * rowH + rowH * 0.5;
+                        string[] vals =
+                        {
+                            $"详-{i + 1:00}",
+                            CleanCaption(sheetCaptions[i]),
+                            options.SheetSizeName,
+                            $"1:{sc:0.#}",
+                            g.Count.ToString(CultureInfo.InvariantCulture)
+                        };
+                        for (int c = 0; c < vals.Length; c++)
+                        {
+                            double cx = curOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
+                            SteelHlrDrawingService.AppendCenteredSimSunText(
+                                tr, ms, new Point3d(cx, y, 0), vals[c], textStyleId, textH * 0.90, SteelHlrDrawingService.LayerFrame);
+                        }
+                        totalQty += g.Count;
+                    }
+
+                    double sumY = curOrigin.Y + rowH * 0.5;
+                    SteelHlrDrawingService.AppendCenteredSimSunText(
+                        tr, ms, new Point3d(curOrigin.X + (colX[0] + colX[1]) * 0.5, sumY, 0),
+                        "合计", textStyleId, textH, SteelHlrDrawingService.LayerFrame);
+                    SteelHlrDrawingService.AppendCenteredSimSunText(
+                        tr, ms, new Point3d(curOrigin.X + (colX[1] + colX[2]) * 0.5, sumY, 0),
+                        $"共 {sheetCaptions.Count} 张图", textStyleId, textH * 0.90, SteelHlrDrawingService.LayerFrame);
+                    SteelHlrDrawingService.AppendCenteredSimSunText(
+                        tr, ms, new Point3d(curOrigin.X + (colX[4] + colX[5]) * 0.5, sumY, 0),
+                        totalQty.ToString(CultureInfo.InvariantCulture), textStyleId, textH * 0.90, SteelHlrDrawingService.LayerFrame);
+
+                    SteelHlrDrawingService.AppendCenteredSimSunText(
+                        tr, ms,
+                        new Point3d(curOrigin.X + tableW * 0.5, curOrigin.Y + tableH + textH * 1.2, 0),
+                        "图纸目录", textStyleId, textH * 1.25, SteelHlrDrawingService.LayerFrame);
+
+                    curOrigin = new Point3d(curOrigin.X + tableW + tableGap, origin.Y, origin.Z);
                 }
 
-                double sumY = tableOrigin.Y + rowH * 0.5;
-                SteelHlrDrawingService.AppendCenteredSimSunText(
-                    tr, ms, new Point3d(tableOrigin.X + (colX[0] + colX[1]) * 0.5, sumY, 0),
-                    "合计", textStyleId, textH, "SS_DRAW_FRAME");
-                SteelHlrDrawingService.AppendCenteredSimSunText(
-                    tr, ms, new Point3d(tableOrigin.X + (colX[1] + colX[2]) * 0.5, sumY, 0),
-                    $"共 {sheetCaptions.Count} 张图", textStyleId, textH * 0.95, "SS_DRAW_FRAME");
-                SteelHlrDrawingService.AppendCenteredSimSunText(
-                    tr, ms, new Point3d(tableOrigin.X + (colX[4] + colX[5]) * 0.5, sumY, 0),
-                    totalQty.ToString(CultureInfo.InvariantCulture), textStyleId, textH * 0.95, "SS_DRAW_FRAME");
+                // ---- 2. 汇总材料表 ----
+                if (wantSummary && groups.Count > 0)
+                {
+                    var allItems = new List<MemberPartBillItem>();
+                    foreach (BatchDrawingPlan.SheetGroup g in groups)
+                    {
+                        List<MemberPartBillItem> singleBill = SteelStructureBuilder.CalculatePartBillItems(g.Representative);
+                        foreach (MemberPartBillItem item in singleBill)
+                        {
+                            item.Count *= g.Count;
+                            item.TotalWeightKg = Math.Round(item.TotalWeightKg * g.Count, 2);
+                            item.TotalSurfaceAreaM2 = Math.Round(item.TotalSurfaceAreaM2 * g.Count, 2);
+                            allItems.Add(item);
+                        }
+                    }
 
-                // 表名
-                SteelHlrDrawingService.AppendCenteredSimSunText(
-                    tr, ms,
-                    new Point3d(tableOrigin.X + tableW * 0.5, tableOrigin.Y + tableH + textH * 1.2, 0),
-                    "图纸目录", textStyleId, textH * 1.2, "SS_DRAW_FRAME");
+                    List<SectionSummaryRow> summaryRows = MaterialTakeoffService.BuildSectionSummary(allItems);
+                    if (summaryRows.Count > 0)
+                    {
+                        double sumTableW = 260.0 * scale;
+                        int sumRows = summaryRows.Count + 2; // 表头 + 明细 + 合计
+                        double sumTableH = sumRows * rowH;
+
+                        SteelHlrDrawingService.DrawRectangle2D(tr, ms, curOrigin, 0, 0, sumTableW, sumTableH, SteelHlrDrawingService.LayerFrame);
+
+                        // 列宽：序号 / 截面规格 / 类别 / 材质 / 数量 / 总长度(m) / 单重(kg/m) / 总重量(kg) / 表面积(m²)
+                        double[] ratios = { 0.06, 0.22, 0.11, 0.09, 0.08, 0.11, 0.11, 0.12, 0.10 };
+                        double[] colX = new double[ratios.Length + 1];
+                        for (int c = 0; c < ratios.Length; c++)
+                            colX[c + 1] = colX[c] + sumTableW * ratios[c];
+
+                        for (int c = 1; c < ratios.Length; c++)
+                            SteelHlrDrawingService.AppendLine2D(tr, ms, curOrigin, colX[c], 0, colX[c], sumTableH, SteelHlrDrawingService.LayerFrame);
+                        for (int r = 1; r < sumRows; r++)
+                            SteelHlrDrawingService.AppendLine2D(tr, ms, curOrigin, 0, r * rowH, sumTableW, r * rowH, SteelHlrDrawingService.LayerFrame);
+
+                        string[] headers = { "序号", "截面规格", "类别", "材质", "数量", "总长(m)", "单重", "总重(kg)", "面积(m2)" };
+                        double headerY = curOrigin.Y + sumTableH - rowH * 0.5;
+                        for (int c = 0; c < headers.Length; c++)
+                        {
+                            double cx = curOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
+                            SteelHlrDrawingService.AppendCenteredSimSunText(
+                                tr, ms, new Point3d(cx, headerY, 0), headers[c], textStyleId, textH * 0.90, SteelHlrDrawingService.LayerFrame);
+                        }
+
+                        int totalCount = 0;
+                        double totalLenM = 0.0;
+                        double totalWeight = 0.0;
+                        double totalArea = 0.0;
+
+                        for (int i = 0; i < summaryRows.Count; i++)
+                        {
+                            SectionSummaryRow r = summaryRows[i];
+                            double y = curOrigin.Y + (sumRows - 2 - i) * rowH + rowH * 0.5;
+                            string[] vals =
+                            {
+                                r.Index.ToString(CultureInfo.InvariantCulture),
+                                r.SectionName ?? string.Empty,
+                                r.ShapeTypeName ?? string.Empty,
+                                r.Material ?? string.Empty,
+                                r.TotalCount.ToString(CultureInfo.InvariantCulture),
+                                r.TotalLengthM.ToString("0.00", CultureInfo.InvariantCulture),
+                                r.UnitWeightKgPerM > 0 ? r.UnitWeightKgPerM.ToString("0.00", CultureInfo.InvariantCulture) : "-",
+                                r.TotalWeightKg.ToString("0.00", CultureInfo.InvariantCulture),
+                                r.TotalSurfaceAreaM2.ToString("0.00", CultureInfo.InvariantCulture)
+                            };
+                            for (int c = 0; c < vals.Length; c++)
+                            {
+                                double cx = curOrigin.X + (colX[c] + colX[c + 1]) * 0.5;
+                                SteelHlrDrawingService.AppendCenteredSimSunText(
+                                    tr, ms, new Point3d(cx, y, 0), vals[c], textStyleId, textH * 0.85, SteelHlrDrawingService.LayerFrame);
+                            }
+                            totalCount += r.TotalCount;
+                            totalLenM += r.TotalLengthM;
+                            totalWeight += r.TotalWeightKg;
+                            totalArea += r.TotalSurfaceAreaM2;
+                        }
+
+                        double sumY = curOrigin.Y + rowH * 0.5;
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms, new Point3d(curOrigin.X + (colX[0] + colX[2]) * 0.5, sumY, 0),
+                            "合计", textStyleId, textH * 0.95, SteelHlrDrawingService.LayerFrame);
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms, new Point3d(curOrigin.X + (colX[4] + colX[5]) * 0.5, sumY, 0),
+                            totalCount.ToString(CultureInfo.InvariantCulture), textStyleId, textH * 0.85, SteelHlrDrawingService.LayerFrame);
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms, new Point3d(curOrigin.X + (colX[5] + colX[6]) * 0.5, sumY, 0),
+                            totalLenM.ToString("0.00", CultureInfo.InvariantCulture), textStyleId, textH * 0.85, SteelHlrDrawingService.LayerFrame);
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms, new Point3d(curOrigin.X + (colX[7] + colX[8]) * 0.5, sumY, 0),
+                            totalWeight.ToString("0.00", CultureInfo.InvariantCulture), textStyleId, textH * 0.85, SteelHlrDrawingService.LayerFrame);
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms, new Point3d(curOrigin.X + (colX[8] + colX[9]) * 0.5, sumY, 0),
+                            totalArea.ToString("0.00", CultureInfo.InvariantCulture), textStyleId, textH * 0.85, SteelHlrDrawingService.LayerFrame);
+
+                        SteelHlrDrawingService.AppendCenteredSimSunText(
+                            tr, ms,
+                            new Point3d(curOrigin.X + sumTableW * 0.5, curOrigin.Y + sumTableH + textH * 1.2, 0),
+                            "汇总材料表", textStyleId, textH * 1.25, SteelHlrDrawingService.LayerFrame);
+                    }
+                }
 
                 tr.Commit();
             }

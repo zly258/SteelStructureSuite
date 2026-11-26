@@ -157,6 +157,14 @@
       <DependentUpon>DrawingConfigWindow.xaml</DependentUpon>
     </Compile>
 
+    <Page Include="Views\CadSettingsWindow.xaml">
+      <SubType>Designer</SubType>
+      <Generator>MSBuild:Compile</Generator>
+    </Page>
+    <Compile Include="Views\CadSettingsWindow.xaml.cs">
+      <DependentUpon>CadSettingsWindow.xaml</DependentUpon>
+    </Compile>
+
     <Page Include="Views\BatchDrawingWindow.xaml">
       <SubType>Designer</SubType>
       <Generator>MSBuild:Compile</Generator>

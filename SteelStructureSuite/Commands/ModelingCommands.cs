@@ -490,6 +490,17 @@ namespace SteelStructureSuite.Commands
             }
         }
 
+        [CommandMethod("SS_SETTINGS", CommandFlags.Modal)]
+        public void OpenCadDisplaySettings()
+        {
+            var win = new CadSettingsWindow();
+            if (UserSettings.ShowModalWindowOnAutoCad(win) == true)
+            {
+                Document doc = Application.DocumentManager.MdiActiveDocument;
+                doc?.Editor.WriteMessage("\n[SteelStructureSuite] 图层、文字与标注样式设置已保存，新建构件或出图时生效。\n");
+            }
+        }
+
         // ==================== 区域组合构件 ====================
 
         [CommandMethod("SS_ZONE_PLATFORM", CommandFlags.Modal)]

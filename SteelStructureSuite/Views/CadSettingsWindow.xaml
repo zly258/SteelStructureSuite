@@ -1,0 +1,170 @@
+<Window x:Class="SteelStructureSuite.Views.CadSettingsWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Title="图层、文字与标注样式设置"
+        Width="600"
+        MinWidth="540"
+        MinHeight="460"
+        SizeToContent="Height"
+        MaxHeight="780"
+        WindowStartupLocation="CenterScreen"
+        ResizeMode="CanResize"
+        UseLayoutRounding="True"
+        TextOptions.TextFormattingMode="Display">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="pack://application:,,,/SteelStructureSuite;component/Views/Styles/DefaultMetrics.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+        </ResourceDictionary>
+    </Window.Resources>
+
+    <Grid Margin="12">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+            <StackPanel>
+                <!-- 1. 图层与颜色 -->
+                <GroupBox Header="图层名称与颜色 (ACI 1~255)">
+                    <Grid Grid.IsSharedSizeScope="True">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="112" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" MinWidth="150" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="120" />
+                            <ColumnDefinition Width="8" />
+                            <ColumnDefinition Width="22" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="用途" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="2" Text="图层名" FontWeight="SemiBold" Margin="0,0,0,6" />
+                        <TextBlock Grid.Row="0" Grid.Column="4" Text="颜色 (ACI)" FontWeight="SemiBold" Margin="0,0,0,6" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="三维实体模型" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerModel3D" Grid.Row="1" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorModel3D" Grid.Row="1" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchModel3D" Grid.Row="1" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="三维线框预览" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerModelWire" Grid.Row="2" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorModelWire" Grid.Row="2" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchModelWire" Grid.Row="2" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="3" Grid.Column="0" Text="详图可见轮廓" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerVisible" Grid.Row="3" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorVisible" Grid.Row="3" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchVisible" Grid.Row="3" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="4" Grid.Column="0" Text="详图隐藏虚线" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerHidden" Grid.Row="4" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorHidden" Grid.Row="4" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchHidden" Grid.Row="4" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="5" Grid.Column="0" Text="详图轴线中心线" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerAxis" Grid.Row="5" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorAxis" Grid.Row="5" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchAxis" Grid.Row="5" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="6" Grid.Column="0" Text="详图尺寸标注" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerDim" Grid.Row="6" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorDim" Grid.Row="6" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchDim" Grid.Row="6" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+
+                        <TextBlock Grid.Row="7" Grid.Column="0" Text="详图图框与表格" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtLayerFrame" Grid.Row="7" Grid.Column="2" />
+                        <ComboBox x:Name="CmbColorFrame" Grid.Row="7" Grid.Column="4" IsEditable="True" />
+                        <Border x:Name="SwatchFrame" Grid.Row="7" Grid.Column="6" Width="18" Height="18" CornerRadius="2" BorderBrush="#888" BorderThickness="1" VerticalAlignment="Center" />
+                    </Grid>
+                </GroupBox>
+
+                <!-- 2. 文字样式与字高 -->
+                <GroupBox Header="文字样式与纸面基准字高">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="112" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" MinWidth="106" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="文字样式名" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtTextStyleName" Grid.Row="0" Grid.Column="2" />
+
+                        <TextBlock Grid.Row="0" Grid.Column="4" Text="字体名称" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbTextFont" Grid.Row="0" Grid.Column="6" IsEditable="True" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="基准字高 (mm)" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtBaseTextHeight" Grid.Row="1" Grid.Column="2" ToolTip="1:1 纸面字高（默认 3.5 mm），模型空间中自动乘以出图比例" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="宽度因子" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtTextWidthFactor" Grid.Row="1" Grid.Column="6" ToolTip="常用 0.70 ~ 1.00，默认 0.80" />
+                    </Grid>
+                </GroupBox>
+
+                <!-- 3. 标注样式 -->
+                <GroupBox Header="标注样式">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto" MinWidth="112" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="16" />
+                            <ColumnDefinition Width="Auto" MinWidth="106" />
+                            <ColumnDefinition Width="10" />
+                            <ColumnDefinition Width="*" />
+                        </Grid.ColumnDefinitions>
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="Auto" />
+                        </Grid.RowDefinitions>
+
+                        <TextBlock Grid.Row="0" Grid.Column="0" Text="标注样式名" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtDimStyleName" Grid.Row="0" Grid.Column="2" Grid.ColumnSpan="5" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="0" Text="箭头大小 (mm)" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtDimArrowSize" Grid.Row="1" Grid.Column="2" ToolTip="1:1 纸面箭头大小（默认 2.5 mm）" />
+
+                        <TextBlock Grid.Row="1" Grid.Column="4" Text="界线超出 (mm)" VerticalAlignment="Center" />
+                        <TextBox x:Name="TxtDimExtExceed" Grid.Row="1" Grid.Column="6" ToolTip="尺寸界线超出尺寸线的纸面距离（默认 1.5 mm）" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="0" Text="尺寸线颜色" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbDimLineColor" Grid.Row="2" Grid.Column="2" IsEditable="True" />
+
+                        <TextBlock Grid.Row="2" Grid.Column="4" Text="标注文字颜色" VerticalAlignment="Center" />
+                        <ComboBox x:Name="CmbDimTextColor" Grid.Row="2" Grid.Column="6" IsEditable="True" />
+                    </Grid>
+                </GroupBox>
+            </StackPanel>
+        </ScrollViewer>
+
+        <Grid Grid.Row="1" Margin="0,10,0,0">
+            <Button x:Name="BtnReset" Content="恢复默认" HorizontalAlignment="Left" Width="92" Click="BtnReset_Click" />
+            <StackPanel Orientation="Horizontal" HorizontalAlignment="Right">
+                <Button x:Name="BtnOk" Content="保存设置" IsDefault="True" Width="92" Margin="0,0,8,0" Click="BtnOk_Click" />
+                <Button Content="取消" IsCancel="True" Width="80" />
+            </StackPanel>
+        </Grid>
+    </Grid>
+</Window>

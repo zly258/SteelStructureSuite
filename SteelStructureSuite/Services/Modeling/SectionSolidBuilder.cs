@@ -141,9 +141,16 @@ namespace SteelStructureSuite.Services.Modeling
             return BuildFallbackMember(sec, len);
         }
 
-        public static Solid3d CreateMemberSolid(SectionProfile sec, Point3d p1, Point3d p2) => BuildMemberBetweenPoints(sec, p1, p2);
+        public static Solid3d CreateMemberSolid(SectionProfile sec, Point3d p1, Point3d p2)
+            => BuildMemberBetweenPoints(sec, p1, p2, null);
+
+        public static Solid3d CreateMemberSolid(SectionProfile sec, Point3d p1, Point3d p2, Vector3d? preferredXDir)
+            => BuildMemberBetweenPoints(sec, p1, p2, preferredXDir);
 
         public static Solid3d BuildMemberBetweenPoints(SectionProfile sec, Point3d p1, Point3d p2)
+            => BuildMemberBetweenPoints(sec, p1, p2, null);
+
+        public static Solid3d BuildMemberBetweenPoints(SectionProfile sec, Point3d p1, Point3d p2, Vector3d? preferredXDir)
         {
             Vector3d vec = p2 - p1;
             double length = vec.Length;
@@ -151,7 +158,7 @@ namespace SteelStructureSuite.Services.Modeling
 
             Solid3d member = BuildVerticalMember(sec, length);
 
-            GetMemberAxes(vec, out Vector3d xDir, out Vector3d yDir, out Vector3d zDir);
+            GetMemberAxes(vec, preferredXDir, out Vector3d xDir, out Vector3d yDir, out Vector3d zDir);
 
             Matrix3d alignMatrix = Matrix3d.AlignCoordinateSystem(
                 Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis,
@@ -166,8 +173,25 @@ namespace SteelStructureSuite.Services.Modeling
         /// 避免水平梁的 H/B 方向被旋转 90°。
         /// </summary>
         public static void GetMemberAxes(Vector3d axis, out Vector3d xDir, out Vector3d yDir, out Vector3d zDir)
+            => GetMemberAxes(axis, null, out xDir, out yDir, out zDir);
+
+        /// <summary>
+        /// 计算杆件局部坐标系，支持指定截面高度方向参考向量 <paramref name="preferredXDir"/>（例如屋面坡面法向、柱强轴朝向、对称槽钢朝向）。
+        /// </summary>
+        public static void GetMemberAxes(Vector3d axis, Vector3d? preferredXDir, out Vector3d xDir, out Vector3d yDir, out Vector3d zDir)
         {
             zDir = axis.GetNormal();
+
+            if (preferredXDir.HasValue && preferredXDir.Value.Length > 1e-6)
+            {
+                Vector3d proj = preferredXDir.Value - zDir * preferredXDir.Value.DotProduct(zDir);
+                if (proj.Length > 1e-6)
+                {
+                    xDir = proj.GetNormal();
+                    yDir = zDir.CrossProduct(xDir).GetNormal();
+                    return;
+                }
+            }
 
             if (Math.Abs(zDir.Z) > 0.95)
             {
@@ -186,6 +210,44 @@ namespace SteelStructureSuite.Services.Modeling
 
             xDir = vertical.GetNormal();
             yDir = zDir.CrossProduct(xDir).GetNormal();
+        }
+
+        /// <summary>
+        /// 由二维轮廓多边形挤出厚度为 <paramref name="thickness"/> 的异形钢板（如梯形加劲肋、三角形加腋板、弧形切口鞍座腹板）。
+        /// 轮廓在局部 XY 平面定义，沿局部 +Z 挤出（居中偏移 -thickness/2）。
+        /// </summary>
+        public static Solid3d CreateExtrudedPolygonPlate(
+            IList<Point2d> polygon2D,
+            double thickness,
+            Point3d origin,
+            Vector3d xAxis,
+            Vector3d yAxis)
+        {
+            if (polygon2D == null || polygon2D.Count < 3) return null;
+            double th = Math.Max(4.0, thickness);
+            Vector3d x = xAxis.GetNormal();
+            Vector3d y = (yAxis - x * yAxis.DotProduct(x)).GetNormal();
+            Vector3d z = x.CrossProduct(y).GetNormal();
+
+            try
+            {
+                using (Region region = CreateRegionFromPolygon(polygon2D))
+                {
+                    if (region == null) return null;
+                    Solid3d solid = new Solid3d();
+                    solid.SetDatabaseDefaults();
+                    solid.CreateExtrudedSolid(region, new Vector3d(0, 0, th), new SweepOptions());
+                    solid.TransformBy(Matrix3d.Displacement(new Vector3d(0, 0, -th * 0.5)));
+                    solid.TransformBy(Matrix3d.AlignCoordinateSystem(
+                        Point3d.Origin, Vector3d.XAxis, Vector3d.YAxis, Vector3d.ZAxis,
+                        origin, x, y, z));
+                    return solid;
+                }
+            }
+            catch
+            {
+                return null;
+            }
         }
 
         /// <summary>

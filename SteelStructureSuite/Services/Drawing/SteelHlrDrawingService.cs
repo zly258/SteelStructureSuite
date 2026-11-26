@@ -17,13 +17,13 @@ namespace SteelStructureSuite.Services.Drawing
 {
     public static class SteelHlrDrawingService
     {
-        private const string LayerVisible = "SS_HLR_VISIBLE";
-        private const string LayerHidden = "SS_HLR_HIDDEN";
-        private const string LayerAxis = "SS_HLR_AXIS";
-        private const string LayerDim = "SS_HLR_DIM";
-        private const string LayerFrame = "SS_HLR_FRAME";
-        private const string TextStyleName = "SS_SIMSUN_35_08";
-        private const string DimStyleName = "SS_DIM_SIMSUN_35_08";
+        private static string LayerVisible => UserSettings.GetCadDisplaySettings().LayerVisible;
+        private static string LayerHidden => UserSettings.GetCadDisplaySettings().LayerHidden;
+        private static string LayerAxis => UserSettings.GetCadDisplaySettings().LayerAxis;
+        private static string LayerDim => UserSettings.GetCadDisplaySettings().LayerDim;
+        internal static string LayerFrame => UserSettings.GetCadDisplaySettings().LayerFrame;
+        private static string TextStyleName => UserSettings.GetCadDisplaySettings().TextStyleName;
+        private static string DimStyleName => UserSettings.GetCadDisplaySettings().DimStyleName;
 
         private class ProjectedPart2D
         {
@@ -91,8 +91,8 @@ namespace SteelStructureSuite.Services.Drawing
 
             public static SheetLayoutMetrics Create(double scale, bool hasIso, bool hasBom, int billCount)
             {
-                // 严格执行：字体宋体 3.5 x 0.8（字高 = 3.5 * scale，宽度因子 = 0.8）
-                double textH = 3.5 * scale;
+                double baseTextH = UserSettings.GetCadDisplaySettings().BaseTextHeightMm;
+                double textH = baseTextH * scale;
                 // 国标尺寸线间距 7~10mm（2.45 * 3.5 = 8.575mm），紧凑清晰不空旷
                 double dimGapStep = 2.45 * textH;
                 double margin = 7.0 * scale;
@@ -602,6 +602,13 @@ namespace SteelStructureSuite.Services.Drawing
                 lastError);
         }
 
+        public sealed class SheetLayoutResult
+        {
+            public double FrameWidth { get; set; }
+            public double FrameHeight { get; set; }
+            public double UsedScale { get; set; }
+        }
+
         public static void GenerateDetailDrawingSheet(
             Database db,
             IList<SteelStructureParams> structures,
@@ -611,14 +618,24 @@ namespace SteelStructureSuite.Services.Drawing
             GenerateDetailDrawingSheetCore(db, structures, sheetOrigin, options, null);
         }
 
-        private static void GenerateDetailDrawingSheetCore(
+        public static SheetLayoutResult GenerateDetailDrawingSheetWithBounds(
+            Database db,
+            IList<SteelStructureParams> structures,
+            Point3d sheetOrigin,
+            DrawingGenerationOptions options = null,
+            string explicitCaption = null)
+        {
+            return GenerateDetailDrawingSheetCore(db, structures, sheetOrigin, options, explicitCaption);
+        }
+
+        private static SheetLayoutResult GenerateDetailDrawingSheetCore(
             Database db,
             IList<SteelStructureParams> structures,
             Point3d sheetOrigin,
             DrawingGenerationOptions options,
             string explicitCaption)
         {
-            if (structures == null || structures.Count == 0) return;
+            if (structures == null || structures.Count == 0) return null;
             if (options == null) options = new DrawingGenerationOptions();
 
             SteelStructureParams p = structures[0];
@@ -840,6 +857,13 @@ namespace SteelStructureSuite.Services.Drawing
 
                     tr.Commit();
                 }
+
+                return new SheetLayoutResult
+                {
+                    FrameWidth = frameW,
+                    FrameHeight = frameH,
+                    UsedScale = scale
+                };
             }
             finally
             {
@@ -2986,25 +3010,26 @@ namespace SteelStructureSuite.Services.Drawing
 
         public static ObjectId EnsureSimSunTextStyle(Database db)
         {
+            var cfg = UserSettings.GetCadDisplaySettings();
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
                 TextStyleTable tst = (TextStyleTable)tr.GetObject(db.TextStyleTableId, OpenMode.ForRead);
                 ObjectId styleId;
-                if (tst.Has(TextStyleName))
+                if (tst.Has(cfg.TextStyleName))
                 {
-                    styleId = tst[TextStyleName];
+                    styleId = tst[cfg.TextStyleName];
                     TextStyleTableRecord existing = (TextStyleTableRecord)tr.GetObject(styleId, OpenMode.ForWrite);
-                    existing.Font = new FontDescriptor("宋体", false, false, 134, 0);
-                    existing.XScale = 0.8;
+                    existing.Font = new FontDescriptor(cfg.TextFontName, false, false, 134, 0);
+                    existing.XScale = cfg.TextWidthFactor;
                 }
                 else
                 {
                     tst.UpgradeOpen();
                     TextStyleTableRecord rec = new TextStyleTableRecord
                     {
-                        Name = TextStyleName,
-                        Font = new FontDescriptor("宋体", false, false, 134, 0),
-                        XScale = 0.8
+                        Name = cfg.TextStyleName,
+                        Font = new FontDescriptor(cfg.TextFontName, false, false, 134, 0),
+                        XScale = cfg.TextWidthFactor
                     };
                     styleId = tst.Add(rec);
                     tr.AddNewlyCreatedDBObject(rec, true);
@@ -3016,17 +3041,28 @@ namespace SteelStructureSuite.Services.Drawing
 
         private static ObjectId EnsureSimSunDimStyle(Database db, ObjectId textStyleId, double textH)
         {
+            var cfg = UserSettings.GetCadDisplaySettings();
+            double scale = textH / Math.Max(0.5, cfg.BaseTextHeightMm);
+            double arrowSize = cfg.DimArrowSizeMm * scale;
+            double extExceed = cfg.DimExtExceedMm * scale;
+            Color dimLineCol = Color.FromColorIndex(cfg.DimLineColor == 256 ? ColorMethod.ByLayer : ColorMethod.ByAci, cfg.DimLineColor);
+            Color dimTextCol = Color.FromColorIndex(cfg.DimTextColor == 256 ? ColorMethod.ByLayer : ColorMethod.ByAci, cfg.DimTextColor);
+
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
                 DimStyleTable dst = (DimStyleTable)tr.GetObject(db.DimStyleTableId, OpenMode.ForRead);
                 ObjectId dimStyleId;
-                if (dst.Has(DimStyleName))
+                if (dst.Has(cfg.DimStyleName))
                 {
-                    dimStyleId = dst[DimStyleName];
+                    dimStyleId = dst[cfg.DimStyleName];
                     DimStyleTableRecord rec = (DimStyleTableRecord)tr.GetObject(dimStyleId, OpenMode.ForWrite);
                     rec.Dimtxsty = textStyleId;
                     rec.Dimtxt = textH;
-                    rec.Dimasz = textH * 0.72;
+                    rec.Dimasz = arrowSize;
+                    rec.Dimexe = extExceed;
+                    rec.Dimclrd = dimLineCol;
+                    rec.Dimclre = dimLineCol;
+                    rec.Dimclrt = dimTextCol;
                     rec.Dimdec = 0;
                     rec.Dimtad = 1;
                     rec.Dimtih = false;
@@ -3037,10 +3073,14 @@ namespace SteelStructureSuite.Services.Drawing
                     dst.UpgradeOpen();
                     DimStyleTableRecord rec = new DimStyleTableRecord
                     {
-                        Name = DimStyleName,
+                        Name = cfg.DimStyleName,
                         Dimtxsty = textStyleId,
                         Dimtxt = textH,
-                        Dimasz = textH * 0.72,
+                        Dimasz = arrowSize,
+                        Dimexe = extExceed,
+                        Dimclrd = dimLineCol,
+                        Dimclre = dimLineCol,
+                        Dimclrt = dimTextCol,
                         Dimdec = 0,
                         Dimtad = 1,
                         Dimtih = false,
@@ -3054,8 +3094,9 @@ namespace SteelStructureSuite.Services.Drawing
             }
         }
 
-        private static void EnsureDrawingLayers(Database db)
+        internal static void EnsureDrawingLayers(Database db)
         {
+            var cfg = UserSettings.GetCadDisplaySettings();
             using (Transaction tr = db.TransactionManager.StartTransaction())
             {
                 LayerTable lt = (LayerTable)tr.GetObject(db.LayerTableId, OpenMode.ForRead);
@@ -3064,11 +3105,11 @@ namespace SteelStructureSuite.Services.Drawing
                 ObjectId dashedId = EnsureLinetype(db, tr, ltt, "DASHED");
                 ObjectId centerId = EnsureLinetype(db, tr, ltt, "CENTER");
 
-                CreateOrUpdateLayer(tr, lt, LayerVisible, 7, ObjectId.Null, LineWeight.LineWeight030);
-                CreateOrUpdateLayer(tr, lt, LayerHidden, 8, dashedId, LineWeight.LineWeight015);
-                CreateOrUpdateLayer(tr, lt, LayerAxis, 1, centerId, LineWeight.LineWeight013);
-                CreateOrUpdateLayer(tr, lt, LayerDim, 3, ObjectId.Null, LineWeight.LineWeight018);
-                CreateOrUpdateLayer(tr, lt, LayerFrame, 7, ObjectId.Null, LineWeight.LineWeight025);
+                CreateOrUpdateLayer(tr, lt, cfg.LayerVisible, cfg.ColorVisible, ObjectId.Null, LineWeight.LineWeight030);
+                CreateOrUpdateLayer(tr, lt, cfg.LayerHidden, cfg.ColorHidden, dashedId, LineWeight.LineWeight015);
+                CreateOrUpdateLayer(tr, lt, cfg.LayerAxis, cfg.ColorAxis, centerId, LineWeight.LineWeight013);
+                CreateOrUpdateLayer(tr, lt, cfg.LayerDim, cfg.ColorDim, ObjectId.Null, LineWeight.LineWeight018);
+                CreateOrUpdateLayer(tr, lt, cfg.LayerFrame, cfg.ColorFrame, ObjectId.Null, LineWeight.LineWeight025);
 
                 tr.Commit();
             }
