@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Reflection;
 using System.Windows;
+using System.Windows.Navigation;
 using SteelStructureSuite.Services.Settings;
 
 namespace SteelStructureSuite.Views
@@ -58,6 +59,25 @@ SteelStructureSuite 依据 GNU 通用公共许可证第三版（GPL v3.0）发�
 
             MessageBox.Show(this, GplV3LicenseNotice, "GNU GPL v3.0",
                 MessageBoxButton.OK, MessageBoxImage.Information);
+        }
+
+        private void OnRequestNavigate(object sender, RequestNavigateEventArgs e)
+        {
+            // 使用系统默认浏览器或邮件客户端打开外部链接
+            try
+            {
+                Process.Start(new ProcessStartInfo(e.Uri.AbsoluteUri)
+                {
+                    UseShellExecute = true
+                });
+            }
+            catch (Exception ex)
+            {
+                MessageBox.Show(this, "无法打开链接：" + ex.Message, "打开链接失败",
+                    MessageBoxButton.OK, MessageBoxImage.Warning);
+            }
+
+            e.Handled = true;
         }
 
         private void OnCloseClick(object sender, RoutedEventArgs e)

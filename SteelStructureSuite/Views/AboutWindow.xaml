@@ -28,25 +28,13 @@
 
         <ScrollViewer Grid.Row="0" VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled" MaxHeight="480">
             <StackPanel>
-                <StackPanel Orientation="Horizontal">
-                    <Border Width="40" Height="40"
-                            Background="{x:Static SystemColors.HighlightBrush}"
-                            BorderBrush="{x:Static SystemColors.HighlightBrush}"
-                            BorderThickness="1"
-                            VerticalAlignment="Center"
-                            SnapsToDevicePixels="True">
-                        <TextBlock Text="SS"
-                                   FontWeight="SemiBold"
-                                   Foreground="{x:Static SystemColors.HighlightTextBrush}"
-                                   HorizontalAlignment="Center"
-                                   VerticalAlignment="Center" />
-                    </Border>
-                    <StackPanel Margin="10,0,0,0" VerticalAlignment="Center">
-                        <TextBlock Text="参数化钢结构套件"
-                                   FontWeight="SemiBold" />
-                        <TextBlock Text="SteelStructureSuite for AutoCAD"
-                                   Margin="0,2,0,0" />
-                    </StackPanel>
+                <StackPanel>
+                    <TextBlock Text="参数化钢结构套件"
+                               FontSize="15"
+                               FontWeight="SemiBold" />
+                    <TextBlock Text="SteelStructureSuite for AutoCAD"
+                               Foreground="{x:Static SystemColors.GrayTextBrush}"
+                               Margin="0,2,0,0" />
                 </StackPanel>
 
                 <Grid Margin="0,12,0,0" Grid.IsSharedSizeScope="True">
@@ -61,22 +49,36 @@
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
                         <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
+                        <RowDefinition Height="Auto" />
                     </Grid.RowDefinitions>
 
-                    <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" />
-                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="2" Text="-" />
+                    <TextBlock Grid.Row="0" Grid.Column="0" Text="版本" Margin="0,2" />
+                    <TextBlock x:Name="TxtVersion" Grid.Row="0" Grid.Column="2" Text="-" Margin="0,2" />
 
-                    <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" />
-                    <TextBlock Grid.Row="1" Grid.Column="2" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" TextWrapping="Wrap" />
+                    <TextBlock Grid.Row="1" Grid.Column="0" Text="适用平台" Margin="0,2" />
+                    <TextBlock Grid.Row="1" Grid.Column="2" Text="AutoCAD / Plant 3D 2019 ~ 2026（x64）" TextWrapping="Wrap" Margin="0,2" />
 
-                    <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" />
-                    <TextBlock Grid.Row="2" Grid.Column="2" Text=".NET Framework 4.8 / .NET 8.0" />
+                    <TextBlock Grid.Row="2" Grid.Column="0" Text="运行时" Margin="0,2" />
+                    <TextBlock Grid.Row="2" Grid.Column="2" Text=".NET Framework 4.8 / .NET 8.0" Margin="0,2" />
 
-                    <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" />
-                    <TextBlock Grid.Row="3" Grid.Column="2" Text="GNU GPL v3.0" />
+                    <TextBlock Grid.Row="3" Grid.Column="0" Text="许可证" Margin="0,2" />
+                    <TextBlock Grid.Row="3" Grid.Column="2" Text="GNU GPL v3.0" Margin="0,2" />
 
-                    <TextBlock Grid.Row="4" Grid.Column="0" Text="联系" />
-                    <TextBlock Grid.Row="4" Grid.Column="2" Text="zhangly1403@qq.com" />
+                    <TextBlock Grid.Row="4" Grid.Column="0" Text="仓库地址" Margin="0,2" />
+                    <TextBlock Grid.Row="4" Grid.Column="2" TextWrapping="Wrap" Margin="0,2">
+                        <Hyperlink NavigateUri="https://github.com/zly258/SteelStructureSuite" RequestNavigate="OnRequestNavigate">https://github.com/zly258/SteelStructureSuite</Hyperlink>
+                    </TextBlock>
+
+                    <TextBlock Grid.Row="5" Grid.Column="0" Text="联系邮箱" Margin="0,2" />
+                    <TextBlock Grid.Row="5" Grid.Column="2" Margin="0,2">
+                        <Hyperlink NavigateUri="mailto:zhangly1403@qq.com" RequestNavigate="OnRequestNavigate">zhangly1403@qq.com</Hyperlink>
+                    </TextBlock>
+
+                    <TextBlock Grid.Row="6" Grid.Column="0" Text="赞助地址" Margin="0,2" />
+                    <TextBlock Grid.Row="6" Grid.Column="2" TextWrapping="Wrap" Margin="0,2">
+                        <Hyperlink NavigateUri="https://ifdian.net/a/zhangly1403" RequestNavigate="OnRequestNavigate">https://ifdian.net/a/zhangly1403</Hyperlink>
+                    </TextBlock>
                 </Grid>
 
                 <GroupBox Header="GNU GPL v3.0 许可证声明" Margin="0,14,0,0">
